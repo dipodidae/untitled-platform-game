@@ -1,107 +1,173 @@
-# Dynamite Platformer
+# FAULTLINE
 
-*Celeste, but you're a stick of dynamite and the level is a sandcastle.*
+*You don't die. You break.*
 
-You're a walking bomb. Movement generates **pressure**; at 100% you detonate
-and carve chunks out of the level. Destruction is permanent within a run —
-the level resets when you die. Built on PixiJS v8, Vite, and TypeScript over
-a fixed-step AABB platformer core (coyote time, jump buffering, variable
-jump height, asymmetric gravity, corner correction, turnaround boost).
+You are a small warm thing moving through a world that is already losing
+its grip. Your body can't hold itself together. Every step, every
+landing, every scrape against a wall adds to the instability inside you.
+At some point — sooner than you meant, always sooner than you meant —
+you fracture, and the shape of that fracture is cut out of whatever you
+happen to be standing on.
+
+You can delay it. Standing still bleeds off a little of the pressure.
+Holding **V** clamps down harder, but you can't move while you do it,
+and letting go costs you a beat of balance. That's containment. It is
+your only way to push back.
+
+What you can't do is prevent it. Eventually, you will break.
+
+The question is what's around you when you do.
+
+---
 
 ## Run
 
-Requires Node 20+ and npm.
-
 ```sh
 npm install
-npm run dev      # dev server on http://localhost:5173 with HMR
-npm run build    # typecheck + production build to dist/
-npm run preview  # serve the production build locally
+npm run dev      # http://localhost:5173
+npm run build
+npm run preview
 ```
+
+Node 20+. PixiJS v8 + Vite + TypeScript. Physics: polygon-based
+collision via SAT, slopes up to 50°, one-way platforms, 120 Hz
+substepped internally so the MTV doesn't pop you off bumpy terrain.
+Destruction: polygon boolean difference, re-decomposed into convex
+pieces per tick.
 
 ## Controls
 
-| Action  | Keys                              |
-| ------- | --------------------------------- |
-| Move    | `←` / `→` or `A` / `D`            |
-| Jump    | `Space`, `Z`, `↑`, or `W` (hold for higher) |
-| Vent    | `V` or `Shift` (hold to bleed pressure; movement is locked; 0.15s post-release stun) |
-| Respawn | `R`                               |
+| Action     | Keys                               |
+| ---------- | ---------------------------------- |
+| Move       | `← →` / `A D`                      |
+| Jump       | `Space` / `Z` / `↑` / `W`          |
+| Contain    | `V` / `Shift` (hold; can't move)   |
+| Drop       | `↓` / `S` + `Space` on a platform  |
+| Begin again| `R`                                |
 
-## The pressure loop
+## The world under your feet
 
-- **Gain** pressure by jumping (+8 each), sprinting at max speed, pressing into
-  walls, and landing hard from a fall.
-- **Bleed** pressure by standing still on the ground (−6/sec) or by venting
-  with `V` / `Shift` (−40/sec, but you can't move while venting and you eat
-  a brief stun on release).
-- At **100 %** you detonate on the next physics tick. The blast is shaped by
-  your velocity at that instant — standing still is a symmetric circle;
-  moving bends it into a cone along your motion.
-- The detonation rocket-jumps you in the direction **opposite** the blast's
-  dominant axis. Grounded → lift. Sprinting → forward shockwave. Falling
-  fast → launched back up.
+There are four kinds of matter here, and each one fails differently.
 
-## The three readability signals
+**Glass** is pale and translucent. It breaks the moment you rupture
+against it. You only get the one hit, and what it leaves behind is
+shards — red, jagged, and lethal on contact. The danger of destroying
+glass is that it makes the next traversal of the same space worse than
+the first. Be careful where you choose to shatter.
 
-1. **Aura** — the glow under the player is blue at low pressure, yellow in
-   the middle, orange past 66 %, then pulsing red above 90 %. Radius grows
-   with pressure so peripheral vision catches it.
-2. **Ghost blast preview** — at ≥ 92 % pressure, a faint outline of the
-   predicted blast shape tracks your live velocity so you can aim the
-   detonation before it happens.
-3. **Vent indicator** — meter label + downward-arrow VFX while venting,
-   dimmed while you're in post-vent stun.
+**Bone** is the floor of this world. Off-white, old, structural.
+Ruptures crack it, and the cracks *stay*. Each hit compounds — you can
+weaken a bone platform across three separate fractures and then land on
+it later and have it finally give. Things you primed earlier will
+decide your run.
 
-## Material legend
+**Resonant** is blue-cold and indestructible. When you rupture against
+it, it launches you back harder than it should. A single resonant wall
+gives you distance; a chain of them, touched in one rupture, sends you
+somewhere you didn't plan to go. The game has moments of this. Some you
+will love. Some you won't.
 
-| Tile | Glyph | Behavior                                                  |
-| ---- | ----- | --------------------------------------------------------- |
-| empty   | `.`  | —                                                      |
-| dirt    | `d`  | Crumbles **completely** on one blast hit.              |
-| stone   | `s`  | **Chips**: takes 2 blast hits; shows cracks after #1.  |
-| steel   | `S`  | **Indestructible**. Blasts reflect off it — kicks you harder away. |
-| hazard  | `x`  | **Kills on contact.** Blasts don't remove it.          |
+**Soft** is mauve and yielding. It collides, but it dampens you — step
+into it and your speed bleeds out. It's safe. It's also expensive:
+momentum is hard to regain from inside it, and ruptures carve it
+poorly, swallowing part of the blast. You can hide there. It costs
+everything you were trying to do.
 
-## Where to tweak
+## Degradation
 
-| I want to...                              | Edit                                                 |
-| ----------------------------------------- | ---------------------------------------------------- |
-| Change jump height / gravity / speed      | `src/config.ts` (every tunable lives here)           |
-| Tune pressure gains / bleeds / vent rate  | `src/config.ts` (`PRESSURE_*`, `VENT_STUN`)          |
-| Tune blast size / impulse / steel bonus   | `src/config.ts` (`BLAST_*`, `STONE_HITS`)            |
-| Tune hitstop / shake / flash              | `src/config.ts` (`BLAST_HITSTOP_FRAMES`, `BLAST_SHAKE_*`, `BLAST_FLASH_DURATION`) |
-| Change aura colors or thresholds          | `src/config.ts` (`AURA_*`)                           |
-| Reshape the test level                    | `src/level.ts` — `LEVEL_STRINGS`                     |
-| Add a new material                        | `src/materials.ts` + parser chars + palette in config |
-| Change pressure rules                     | `src/pressure.ts`                                    |
-| Change blast shape / damage / reflection  | `src/blast.ts`                                       |
-| Change juice (particles, shake curves)    | `src/fx.ts`                                          |
-| Controls / add a key                      | `src/input.ts`                                       |
+Your base controller is perfect — acceleration, coyote time, jump
+buffer, slope handling, all unchanged through a run. What changes is
+your *body*. As instability rises, the output layer starts failing
+around the controller:
 
-Look for `// TUNING:` comments in `src/blast.ts` for spots the designer
-should revisit after playtesting.
+- Your top speed climbs a little past what you intended (you overshoot).
+- Your deceleration gets weaker (it's harder to stop, harder to correct).
+- Gravity pulls fractionally harder on falls.
+- Past a threshold, your silhouette visibly jitters. You are
+  not entirely here.
 
-## Project layout
+The controller is still perfect. The thing holding it isn't.
 
+You can still beat the game at high instability. You won't trust
+yourself to.
+
+## Foresight
+
+At high instability, a faint outline shows where your body will be in
+the next third of a second — and the shape of the rupture you'd carve
+there. It's dim on purpose. Watching someone read it fluently should
+look like they're predicting physics before it happens. Don't rely on
+it; let it teach you.
+
+## Dread
+
+Near the threshold, the edges of the frame start pulsing red. The pulse
+gets faster the closer you are. This is not a warning you can disable.
+It is the world noticing.
+
+---
+
+## Authoring a level
+
+Levels are JSON, loaded directly from `src/levels/*.json`. The schema:
+
+```jsonc
+{
+  "spawn":       { "x": 50, "y": 300 },
+  "worldWidth":  900,                 // px — camera clamps + fall-out use this
+  "worldHeight": 420,
+  "colliders": [
+    {
+      "id":       1,                  // unique within the level
+      "material": "bone",             // "glass" | "bone" | "resonant" | "soft"
+      "vertices": [[0, 370], [180, 370], [180, 400], [0, 400]],
+      "oneWay":   false               // optional; collide only from above, vy ≥ 0
+    }
+    // ...
+  ]
+}
 ```
-index.html              — mount point + module entry
-src/
-  main.ts               — boot: Pixi Application, resize, input init
-  config.ts             — all tunables (jump + pressure + blast + fx + aura)
-  input.ts              — keyboard state & press/release edges
-  level.ts              — tilemap strings, parser, Level type, resetLevel
-  materials.ts          — tile ids, solid/destructible/reflective/hazard tables
-  physics.ts            — AABB resolve, corner correction, material-aware solidity
-  pressure.ts           — pressure state machine, vent rules
-  blast.ts              — blast shape, tile damage, self-impulse, steel reflection
-  fx.ts                 — hitstop, screenshake, flash, particles
-  player.ts             — Player type, character controller, detonation wiring
-  camera.ts             — deadzone follow + world-bounds clamp
-  render.ts             — scene graph, per-material draw, aura, ghost, UI
-  game.ts               — composition + fixed-step loop + hitstop gate
-  style.css             — page + canvas scaling
-public/                 — static assets served at /
-vite.config.ts
-tsconfig.json
-```
+
+Vertices are an implicitly-closed ring, CCW in screen-space (top-left
+→ top-right → bottom-right → bottom-left gives positive signed area,
+which is what `poly-decomp-es` expects). Concave shapes are fine — they
+get decomposed into convex pieces on load.
+
+`shard` is a runtime-only material produced when glass breaks. Never
+authored directly.
+
+Point `src/game.ts` at a different JSON to swap the showcase level out;
+the loader accepts anything conforming to `LevelJson` in
+`src/world/level.ts`.
+
+## The palette
+
+Everything visual in the game reads from a single palette in
+`src/render/palette.ts`. There are no presets or tints to choose from —
+the whole look is one emotional spectrum, and a new palette replaces the
+tone of the entire game at once. Two categories:
+
+- **Materials** (`glass / bone / resonant / soft / shard`): each has
+  `{ fill, edge, shadow, highlight }` read by the per-material draw
+  routines in `src/render/world.ts` for edge lighting + AO.
+- **World tone**: sky gradient, parallax layer tints, vignette, wind
+  motes, aura, player, and UI presence all live on the same object.
+
+If you want a different feeling, edit that file. If you want a
+different *game*, don't.
+
+## Tuning
+
+Every gameplay number lives in `src/config.ts`, grouped by identity
+concern:
+
+- `INSTABILITY_*` — the charge-rate table (the rules that make you fail)
+- `RUPTURE_*` / `FRACTURE_*` — shape of the wound / moment it happens
+- `DEGRADE_*` — post-controller output modifiers
+- `BONE_HITS` / `GLASS_SHARD_*` / `SOFT_*` / `RESONANT_*` — per-material
+  behavior
+- `DREAD_*` / `PREVIEW_*` — pre-fracture warning + foresight tuning
+- `WIND_*` / `VIGNETTE_*` / `PARALLAX_SEED` — mood knobs
+
+Look for `// TUNING:` markers in the destruction + rupture code for
+spots the designer should revisit once the playtest has a shape.
