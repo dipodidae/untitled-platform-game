@@ -86,6 +86,7 @@ export function endFrame(): void {
 // Gameplay-level aliases so callers don't hard-code key codes.
 export const leftDown = (): boolean => isDown('ArrowLeft', 'KeyA')
 export const rightDown = (): boolean => isDown('ArrowRight', 'KeyD')
+export const downDown = (): boolean => isDown('ArrowDown', 'KeyS')
 export const jumpPressed = (): boolean => justPressed('Space', 'KeyZ', 'ArrowUp', 'KeyW')
 export const jumpReleased = (): boolean => justReleased('Space', 'KeyZ', 'ArrowUp', 'KeyW')
 export const containHeld = (): boolean => isDown('KeyV', 'ShiftLeft', 'ShiftRight')

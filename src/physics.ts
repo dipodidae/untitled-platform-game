@@ -6,7 +6,12 @@
 import type { Level } from './world/level'
 import { isHazard, isSolid, MAT_DIRT } from './materials'
 
-export { moveAndCollide, overlapsHazard as rectOverlapsHazard } from './physics/resolve'
+export {
+  applySlopeProjection,
+  moveAndCollide,
+  overlapsHazard as rectOverlapsHazard,
+  tryStickToGround,
+} from './physics/resolve'
 export { BroadphaseGrid } from './physics/broadphase'
 
 // ─── tile-grid accessors (kept for rupture.ts) ────────────────────

@@ -1,5 +1,6 @@
 import type { FxState } from './fx'
 import type { InstabilityState } from './instability'
+import type { Vec2 } from './math/vec2'
 import type { BroadphaseGrid } from './physics/broadphase'
 import type { RuptureResult } from './rupture'
 import type { Level } from './world/level'
@@ -7,6 +8,7 @@ import { CONFIG } from './config'
 import { triggerFractureFx } from './fx'
 import {
   containHeld,
+  downDown,
   jumpPressed,
   jumpReleased,
   leftDown,
@@ -18,7 +20,7 @@ import {
   resetInstability,
   updateInstability,
 } from './instability'
-import { moveAndCollide, rectOverlapsHazard } from './physics'
+import { applySlopeProjection, moveAndCollide, rectOverlapsHazard, tryStickToGround } from './physics'
 import { performRupture } from './rupture'
 import { rebuildCollidersFromTiles, resetLevel } from './world/level'
 
@@ -35,10 +37,16 @@ export interface Player {
   facing: 1 | -1
 
   instability: InstabilityState
-  touchingWall: boolean // written by moveAndCollideX each tick
+  touchingWall: boolean // written by moveAndCollide each tick
   jumpedThisTick: boolean // set only on ticks where a jump actually fired
   iframeTimer: number // post-fracture invulnerability window
   alive: boolean // false ⇒ game.ts triggers a respawn at frame end
+
+  // Polygon-world bookkeeping. groundNormal is the last frame's grounded
+  // contact; slope projection + stick-to-ground both read it. null while
+  // airborne.
+  groundNormal: Vec2 | null
+  dropThroughTimer: number // seconds remaining where one-way platforms are ignored
 
   // Renderer handle for the last rupture — cleared once iframes close.
   lastRupture: RuptureResult | null
@@ -62,6 +70,8 @@ export function createPlayer(level: Level): Player {
     iframeTimer: 0,
     alive: true,
     lastRupture: null,
+    groundNormal: null,
+    dropThroughTimer: 0,
   }
 }
 
@@ -138,6 +148,8 @@ export function respawn(p: Player, level: Level): void {
   p.iframeTimer = 0
   p.alive = true
   p.lastRupture = null
+  p.groundNormal = null
+  p.dropThroughTimer = 0
   resetInstability(p.instability)
   resetLevel(level)
 }
@@ -182,8 +194,15 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
     p.bufferTimer -= dt
   if (p.iframeTimer > 0)
     p.iframeTimer -= dt
+  if (p.dropThroughTimer > 0)
+    p.dropThroughTimer -= dt
 
   p.jumpedThisTick = false
+
+  // Drop-through: down + jump while standing on a one-way platform.
+  // Arms a short timer during which physics ignores one-way colliders.
+  if (downDown() && jumpPressed() && p.grounded)
+    p.dropThroughTimer = CONFIG.ONE_WAY_DROPTHROUGH_TIME
 
   // Containment state: holding V/Shift with no stun and not fracturing
   // locks movement this tick. The instability module decides the
@@ -194,18 +213,35 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
 
   handleInput(p, dt, locked)
 
-  // Asymmetric gravity: lighter on the way up, heavier on the way down.
-  const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
-  p.vy += gravity * dt
-  if (p.vy > CONFIG.MAX_FALL)
-    p.vy = CONFIG.MAX_FALL
+  // Slope projection: if grounded on a slope, re-express horizontal intent
+  // as tangent-aligned velocity so we walk up at full input speed.
+  applySlopeProjection(p)
+
+  // Gravity is suppressed while grounded on a walkable surface — otherwise
+  // it accumulates under our feet and causes jitter against the slope.
+  // Jumping (p.jumpedThisTick) cleared p.grounded already.
+  if (!p.grounded) {
+    const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+    p.vy += gravity * dt
+    if (p.vy > CONFIG.MAX_FALL)
+      p.vy = CONFIG.MAX_FALL
+  }
 
   // Capture pre-collision vy so we can score landing impact.
   const prevVy = p.vy
   const wasGrounded = p.grounded
 
   broadphase.build(level)
-  moveAndCollide(p, level, dt, broadphase)
+  // Substep the move + collide at 120 Hz (2 × 60 Hz). Slopes need this
+  // precision or the MTV overshoots and pops the player into the air.
+  const subDt = dt / CONFIG.PHYSICS_SUBSTEPS
+  for (let i = 0; i < CONFIG.PHYSICS_SUBSTEPS; i++)
+    moveAndCollide(p, level, subDt, broadphase)
+
+  // Stick-to-ground — prevents launching off small downslope bumps when
+  // we were grounded last frame and only lost contact this tick.
+  if (wasGrounded && !p.grounded && !p.jumpedThisTick)
+    tryStickToGround(p, broadphase)
 
   // Landing impact (measured at peak vy before collision stopped us).
   // Zero if we weren't actually airborne before this tick.

@@ -11,7 +11,8 @@ import { endFrame, respawnPressed } from './input'
 import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
 import { buildScene, render } from './render'
-import { createLevel } from './world/level'
+import { fromJson, type LevelJson } from './world/level'
+import showcaseJson from './levels/showcase.json'
 
 export interface GameState {
   readonly app: Application
@@ -25,7 +26,7 @@ export interface GameState {
 }
 
 export function createGame(app: Application): GameState {
-  const level = createLevel()
+  const level = fromJson(showcaseJson as LevelJson)
   const player = createPlayer(level)
   const camera = createCamera(player)
   const fx = createFxState()

@@ -43,6 +43,16 @@ export const CONFIG = {
   // Fixed-timestep main loop
   FIXED_DT: 1 / 60, // physics step
   MAX_FRAME_DT: 0.25, // guard against tab-stall spiral of death
+  PHYSICS_SUBSTEPS: 2, // 60 Hz outer × 2 = 120 Hz inner — stabilizes slope MTV
+
+  // ───────────────────────── POLYGON WORLD ─────────────────────────
+  // Slopes steeper than this (degrees from horizontal) behave as walls.
+  MAX_SLOPE_ANGLE: 50,
+  // After collision, if we just walked off a surface at low vy, probe this
+  // many px downward to re-ground — keeps descent on rolling terrain smooth.
+  STICK_TO_GROUND_MAX_DIST: 6,
+  // Seconds of one-way ignore after drop-through (down + jump on a one-way).
+  ONE_WAY_DROPTHROUGH_TIME: 0.2,
 
   // ───────────────────────── INSTABILITY ─────────────────────────
   // The thing holding you together is failing. 0..INSTABILITY_MAX. At max
