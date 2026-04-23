@@ -37,4 +37,6 @@ Thumbs.db
 # Claude Code — installed skills are reproduced from skills-lock.json
 .claude/skills/
 .agents/skills/
+.windsurf/skills/
 .claude/settings.local.json
+skills/
