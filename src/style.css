@@ -1,0 +1,28 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #0b0b14;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+  color: #cbd0dc;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#app {
+  line-height: 0;
+}
+
+/* Integer CSS scaling of the low-res Pixi canvas is handled in main.ts;
+   image-rendering keeps the upscale crisp instead of blurring. */
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
