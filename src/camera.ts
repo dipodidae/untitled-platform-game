@@ -45,8 +45,6 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
   camera.y += (targetY - camera.y) * CONFIG.CAM_LERP
 
   // Clamp to world bounds so we never show out-of-bounds.
-  const worldW = level.width * CONFIG.TILE_SIZE
-  const worldH = level.height * CONFIG.TILE_SIZE
-  camera.x = Math.max(0, Math.min(camera.x, Math.max(0, worldW - CONFIG.LOGICAL_WIDTH)))
-  camera.y = Math.max(0, Math.min(camera.y, Math.max(0, worldH - CONFIG.LOGICAL_HEIGHT)))
+  camera.x = Math.max(0, Math.min(camera.x, Math.max(0, level.worldWidth - CONFIG.LOGICAL_WIDTH)))
+  camera.y = Math.max(0, Math.min(camera.y, Math.max(0, level.worldHeight - CONFIG.LOGICAL_HEIGHT)))
 }

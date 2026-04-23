@@ -1,5 +1,4 @@
-// Polygon-based world model (transitional — also carries the legacy tile
-// grid until step 3 completes the physics port).
+// Polygon-based world model.
 //
 // JSON SCHEMA (hand-authored levels — see src/levels/*.json):
 //   {
@@ -18,37 +17,17 @@
 //   }
 // Concave colliders get decomposed on load into convex pieces in
 // `Collider.pieces` — SAT needs convex inputs. `vertices` stays as the
-// outer ring so destruction can re-clip + re-decompose.
+// outer ring so destruction can re-clip and re-decompose.
+//
+// `tilemapToPolygons` converts legacy tile-string levels into a collider
+// list via greedy rectangle meshing; kept so old test layouts still load.
 
-import type { MaterialId } from '../materials'
 import type { Polygon } from '../math/polygon'
 import type { Vec2 } from '../math/vec2'
 import { CONFIG } from '../config'
-import {
-  charToMaterial,
-  MAT_DIRT,
-  MAT_EMPTY,
-  MAT_HAZARD,
-  MAT_STEEL,
-  MAT_STONE,
-} from '../materials'
 import { bounds, decompose } from '../math/polygon'
 
 export type MaterialName = 'dirt' | 'stone' | 'steel' | 'hazard'
-
-export const MAT_ID: Record<MaterialName, number> = {
-  dirt: 1,
-  stone: 2,
-  steel: 3,
-  hazard: 4,
-}
-
-export const MAT_NAME: Record<number, MaterialName> = {
-  1: 'dirt',
-  2: 'stone',
-  3: 'steel',
-  4: 'hazard',
-}
 
 export interface Collider {
   id: number
@@ -65,20 +44,11 @@ export interface Collider {
 }
 
 export interface Level {
-  // Polygon world (authoritative going forward).
   colliders: Collider[]
   readonly pristineColliders: readonly PristineCollider[]
   readonly worldWidth: number
   readonly worldHeight: number
   readonly spawn: { readonly x: number, readonly y: number }
-
-  // Legacy tile grid (kept so the tile-based physics keeps running through
-  // step 2; step 3 removes these three fields + the pristineTiles snapshot).
-  readonly width: number
-  readonly height: number
-  tiles: MaterialId[][]
-  damage: number[][]
-  readonly pristineTiles: readonly (readonly MaterialId[])[]
 }
 
 interface PristineCollider {
@@ -139,10 +109,17 @@ export function refreshCollider(c: Collider): void {
   computeColliderBounds(c)
 }
 
+function snapshot(colliders: readonly Collider[]): PristineCollider[] {
+  return colliders.map(c => ({
+    id: c.id,
+    material: c.material,
+    vertices: c.vertices.map(v => ({ x: v.x, y: v.y })),
+    oneWay: c.oneWay,
+  }))
+}
+
 // ─── tilemap → polygons (greedy rectangle meshing) ───────────────────────
 
-// Merges adjacent same-material tiles into rectangles. CCW in screen-space
-// (TL → TR → BR → BL) matches our positive-signed-area convention.
 export function tilemapToPolygons(rows: readonly string[]): Collider[] {
   const charMat: Record<string, MaterialName | null> = {
     '.': null,
@@ -201,6 +178,8 @@ export function tilemapToPolygons(rows: readonly string[]): Collider[] {
       const y0 = y * TS
       const x1 = (x + rw) * TS
       const y1 = (y + rh) * TS
+      // CCW in screen-space (TL → TR → BR → BL) gives positive signed area,
+      // matching our poly-decomp convention.
       const verts: Polygon = [
         { x: x0, y: y0 },
         { x: x1, y: y0 },
@@ -213,7 +192,7 @@ export function tilemapToPolygons(rows: readonly string[]): Collider[] {
   return out
 }
 
-// ─── JSON loader ─────────────────────────────────────────────────────────
+// ─── loaders ─────────────────────────────────────────────────────────────
 
 export function fromJson(data: LevelJson): Level {
   const colliders: Collider[] = data.colliders.map(raw =>
@@ -223,126 +202,35 @@ export function fromJson(data: LevelJson): Level {
       raw.vertices.map(([x, y]) => ({ x, y })),
       raw.oneWay ?? false,
     ))
-  // No tile grid for JSON-authored levels. Populate dummies so the
-  // transitional tile-based physics bails out gracefully — step 3 removes
-  // these entirely.
   return {
     colliders,
     pristineColliders: snapshot(colliders),
     worldWidth: data.worldWidth,
     worldHeight: data.worldHeight,
     spawn: { x: data.spawn.x, y: data.spawn.y },
-    width: Math.ceil(data.worldWidth / CONFIG.TILE_SIZE),
-    height: Math.ceil(data.worldHeight / CONFIG.TILE_SIZE),
-    tiles: [],
-    damage: [],
-    pristineTiles: [],
   }
 }
 
-function snapshot(colliders: Collider[]): PristineCollider[] {
-  return colliders.map(c => ({
-    id: c.id,
-    material: c.material,
-    vertices: c.vertices.map(v => ({ x: v.x, y: v.y })),
-    oneWay: c.oneWay,
-  }))
-}
-
-// ─── legacy tile-string loader (default level through step 2–3) ──────────
-
-const DEFAULT_LEVEL_STRINGS: readonly string[] = [
-  '..................................................',
-  '..................................................',
-  '..................................................',
-  '..........................................SSSS....',
-  '..................................................',
-  '..................ssssssss........................',
-  '..................ssssssss........................',
-  '..................ssssssss........................',
-  '..................ssssssss........................',
-  '.......dddddd.....ssssssss...............S........',
-  '..................ssssssss...............S........',
-  '................................dddddd...S........',
-  '.........................................S........',
-  '.........................................S........',
-  '.....ddddddd..........xxxxxxx............S........',
-  'dddddddddddddddddddddddxxxxxxxdddddddddddddddddddd',
-  'ddddddddddddddddddddddd.......dddddddddddddddddddd',
-  'ssssssssssssssssssssssssssssssssssssssssssssssssss',
-  'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS',
-  'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS',
-]
-
-export function createLevel(rows: readonly string[] = DEFAULT_LEVEL_STRINGS): Level {
-  const width = rows[0]?.length ?? 0
-  const height = rows.length
-  const tiles: MaterialId[][] = rows.map((row, i) => {
-    if (row.length !== width)
-      throw new Error(`createLevel: row ${i} width ${row.length} !== ${width}`)
-    return [...row].map(ch => charToMaterial(ch))
-  })
-  const damage: number[][] = Array.from({ length: height }, () =>
-    Array.from<number>({ length: width }).fill(0))
-  const pristineTiles: readonly (readonly MaterialId[])[] = tiles.map(r => r.slice())
+export function fromTilemap(rows: readonly string[]): Level {
   const colliders = tilemapToPolygons(rows)
+  const width = (rows[0]?.length ?? 0) * CONFIG.TILE_SIZE
+  const height = rows.length * CONFIG.TILE_SIZE
   return {
     colliders,
     pristineColliders: snapshot(colliders),
-    worldWidth: width * CONFIG.TILE_SIZE,
-    worldHeight: height * CONFIG.TILE_SIZE,
+    worldWidth: width,
+    worldHeight: height,
     spawn: { x: CONFIG.SPAWN_X, y: CONFIG.SPAWN_Y },
-    width,
-    height,
-    tiles,
-    damage,
-    pristineTiles,
   }
 }
 
-// Convert a MaterialId back to its parser char — used by rebuild-from-tiles
-// so we can reuse the greedy mesher without duplicating it.
-function matIdToChar(m: MaterialId): string {
-  switch (m) {
-    case MAT_EMPTY: return '.'
-    case MAT_DIRT: return 'd'
-    case MAT_STONE: return 's'
-    case MAT_STEEL: return 'S'
-    case MAT_HAZARD: return 'x'
-    default: return '.'
-  }
-}
-
-// Regenerate level.colliders from the current tile grid. Called after
-// tile-based destruction (rupture writes to level.tiles; physics reads
-// level.colliders). Step 5 replaces this with direct polygon clipping.
-export function rebuildCollidersFromTiles(level: Level): void {
-  if (level.tiles.length === 0)
-    return // JSON-loaded polygon level — nothing to rebuild from.
-  const rows = level.tiles.map(row => row.map(matIdToChar).join(''))
-  level.colliders = tilemapToPolygons(rows)
-}
-
-// Restore level to authored state. Resets both tile grid and collider list
-// so existing references (render caches, physics reads) see the reset world.
+// Restore authored state. Rebuilds colliders in place from the pristine
+// snapshot so existing references (renderer, physics) see the reset world.
 export function resetLevel(level: Level): void {
-  // Tile grid reset (step 3 will drop this branch).
-  for (let y = 0; y < level.height; y++) {
-    const pRow = level.pristineTiles[y]
-    const tRow = level.tiles[y]
-    const dRow = level.damage[y]
-    if (!pRow || !tRow || !dRow)
-      continue
-    for (let x = 0; x < level.width; x++) {
-      tRow[x] = pRow[x] ?? MAT_EMPTY
-      dRow[x] = 0
-    }
-  }
-
-  // Collider reset.
   const byId = new Map<number, Collider>()
   for (const c of level.colliders)
     byId.set(c.id, c)
+
   const fresh: Collider[] = []
   for (const p of level.pristineColliders) {
     const verts: Polygon = p.vertices.map(v => ({ x: v.x, y: v.y }))

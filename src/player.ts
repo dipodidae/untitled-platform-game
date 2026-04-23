@@ -22,7 +22,7 @@ import {
 } from './instability'
 import { applySlopeProjection, moveAndCollide, rectOverlapsHazard, tryStickToGround } from './physics'
 import { performRupture } from './rupture'
-import { rebuildCollidersFromTiles, resetLevel } from './world/level'
+import { resetLevel } from './world/level'
 
 export interface Player {
   x: number
@@ -179,10 +179,6 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
     p.lastRupture = rupture
     onFractured(p.instability)
     triggerFractureFx(fx, rupture)
-    // Rupture mutated tile grid — regenerate polygon colliders so the
-    // next tick's physics sees the carved world. (Step 5 removes this
-    // once rupture writes directly to polygon colliders.)
-    rebuildCollidersFromTiles(level)
     // Consume the rest of this tick — the rupture IS the tick's action.
     return
   }
@@ -259,7 +255,7 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
     return
   }
 
-  // Fall-out safety net.
+  // Fall-out safety net — if you carve too greedily you just die.
   if (p.y > level.worldHeight + 100) {
     die(p, level)
     return
