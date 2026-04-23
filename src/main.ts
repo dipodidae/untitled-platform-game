@@ -2,6 +2,7 @@ import { Application } from 'pixi.js'
 import { CONFIG } from './config'
 import { createGame, startLoop } from './game'
 import { initInput } from './input'
+import { PALETTE } from './render/palette'
 import './style.css'
 
 async function main(): Promise<void> {
@@ -13,21 +14,22 @@ async function main(): Promise<void> {
   await app.init({
     width: CONFIG.LOGICAL_WIDTH,
     height: CONFIG.LOGICAL_HEIGHT,
-    background: CONFIG.COLOR_SKY,
+    background: PALETTE.skyTop,
     preference: 'webgl',
-    antialias: false,
-    roundPixels: true,
-    resolution: 1,
-    autoDensity: false,
+    antialias: true,
+    roundPixels: false,
+    autoDensity: true,
+    resolution: Math.min(2, window.devicePixelRatio || 1),
   })
   mountEl.appendChild(app.canvas)
 
-  // Integer CSS scaling + nearest-neighbor (via `image-rendering: pixelated`)
-  // keeps 1 logical px = N screen px, so the pixel grid never smears.
+  // Fit-to-window while preserving aspect. No integer lock — antialiased
+  // vector art scales cleanly at any size, and fractional scales give a
+  // softer, more painterly edge that matches the FAULTLINE tone.
   const resize = (): void => {
-    const sx = Math.max(1, Math.floor(window.innerWidth / CONFIG.LOGICAL_WIDTH))
-    const sy = Math.max(1, Math.floor(window.innerHeight / CONFIG.LOGICAL_HEIGHT))
-    const s = Math.min(sx, sy)
+    const sx = window.innerWidth / CONFIG.LOGICAL_WIDTH
+    const sy = window.innerHeight / CONFIG.LOGICAL_HEIGHT
+    const s = Math.max(1, Math.min(sx, sy))
     app.canvas.style.width = `${CONFIG.LOGICAL_WIDTH * s}px`
     app.canvas.style.height = `${CONFIG.LOGICAL_HEIGHT * s}px`
   }

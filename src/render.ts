@@ -3,51 +3,71 @@ import type { Camera } from './camera'
 import type { FxState } from './fx'
 import type { Player } from './player'
 import type { Level } from './world/level'
+import type { ParallaxState } from './render/parallax'
+import type { WindState } from './render/wind'
 import { Container, Graphics, Text } from 'pixi.js'
 import { CONFIG } from './config'
 import { flashAlpha, shakeOffset } from './fx'
+import { createParallax, updateParallax } from './render/parallax'
+import { PALETTE } from './render/palette'
+import { drawSky, drawVignette } from './render/post'
+import { createWindState, drawWind, tickWind, type WindState as WindS } from './render/wind'
 import { drawColliders, hashColliders } from './render/world'
 import { computeRuptureShape } from './rupture'
 
-// The scene graph.
-//   worldContainer  → camera-panned; colliders, player, aura, particles, preview
-//   uiContainer     → screen-fixed; meter, hints, flash overlay
-//
-// Collider Graphics rebuilds only when the collider list mutates (destruction).
-// We detect change via hashColliders; see src/render/world.ts.
+// Scene graph:
+//   bgContainer      (screen-fixed): sky gradient + parallax layers
+//   worldContainer   (camera-panned): wind behind, colliders, player + fx
+//   uiContainer      (screen-fixed): meter, hints, flash, vignette
 export interface RenderContext {
   readonly app: Application
+  readonly bgContainer: Container
   readonly worldContainer: Container
   readonly uiContainer: Container
+  readonly skyGfx: Graphics
+  readonly parallax: ParallaxState
+  readonly windGfx: Graphics
+  readonly wind: WindState
   readonly worldGfx: Graphics
   readonly auraGfx: Graphics
   readonly playerGfx: Graphics
   readonly eyeGfx: Graphics
-  readonly previewGfx: Graphics // upcoming-rupture silhouette (foresight)
+  readonly previewGfx: Graphics
   readonly containArrowGfx: Graphics
-  readonly ruptureRingGfx: Graphics // lingering ring during post-fracture iframes
+  readonly ruptureRingGfx: Graphics
   readonly particlesGfx: Graphics
   readonly flashGfx: Graphics
+  readonly vignetteGfx: Graphics
   readonly meterBg: Graphics
   readonly meterFg: Graphics
   readonly hint: Text
   readonly containHint: Text
-  readonly matLegend: Text
   worldCacheKey: number
   time: number
 }
 
 export function buildScene(app: Application, level: Level): RenderContext {
+  const bgContainer = new Container()
   const worldContainer = new Container()
   const uiContainer = new Container()
+  app.stage.addChild(bgContainer)
   app.stage.addChild(worldContainer)
   app.stage.addChild(uiContainer)
+
+  const skyGfx = new Graphics()
+  drawSky(skyGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
+  bgContainer.addChild(skyGfx)
+
+  const parallax = createParallax(level.worldWidth, level.worldHeight)
+  bgContainer.addChild(parallax.container)
+
+  const windGfx = new Graphics()
+  worldContainer.addChild(windGfx) // behind colliders — occluded by ground
 
   const worldGfx = new Graphics()
   drawColliders(worldGfx, level)
   worldContainer.addChild(worldGfx)
 
-  // Aura under the player — added first so it draws behind the player AABB.
   const auraGfx = new Graphics()
   worldContainer.addChild(auraGfx)
 
@@ -61,9 +81,15 @@ export function buildScene(app: Application, level: Level): RenderContext {
   worldContainer.addChild(ruptureRingGfx)
 
   const playerGfx = new Graphics()
-  playerGfx.rect(0, 0, CONFIG.PLAYER_W, CONFIG.PLAYER_H).fill(CONFIG.COLOR_PLAYER)
+  playerGfx.rect(0, 0, CONFIG.PLAYER_W, CONFIG.PLAYER_H).fill(PALETTE.player)
+  playerGfx
+    .moveTo(0, 0).lineTo(CONFIG.PLAYER_W, 0)
+    .stroke({ width: 1, color: PALETTE.playerEdge, alpha: 0.9 })
+  playerGfx
+    .moveTo(0, CONFIG.PLAYER_H - 1).lineTo(CONFIG.PLAYER_W, CONFIG.PLAYER_H - 1)
+    .stroke({ width: 1, color: PALETTE.playerShadow, alpha: 0.7 })
   const eyeGfx = new Graphics()
-  eyeGfx.rect(0, 0, 2, 2).fill(CONFIG.COLOR_PLAYER_EYE)
+  eyeGfx.rect(0, 0, 2, 2).fill(PALETTE.playerShadow)
   playerGfx.addChild(eyeGfx)
   worldContainer.addChild(playerGfx)
 
@@ -73,21 +99,17 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const meterBg = new Graphics()
   meterBg
     .rect(CONFIG.METER_X - 1, CONFIG.METER_Y - 1, CONFIG.METER_W + 2, CONFIG.METER_H + 2)
-    .fill(0x000000)
+    .fill(PALETTE.meterChassis)
     .rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, CONFIG.METER_H)
-    .fill(0x2A2F3C)
-  for (let i = 1; i < 4; i++) {
-    const x = CONFIG.METER_X + Math.round((CONFIG.METER_W * i) / 4)
-    meterBg.rect(x, CONFIG.METER_Y, 1, CONFIG.METER_H).fill(0x1A1A2E)
-  }
+    .fill(PALETTE.meterDim)
   uiContainer.addChild(meterBg)
 
   const meterFg = new Graphics()
   uiContainer.addChild(meterFg)
 
   const hint = new Text({
-    text: 'Arrows/WASD move  •  Space/Z jump  •  V or Shift contain  •  R respawn',
-    style: { fontFamily: 'monospace', fontSize: 10, fill: 0xCBD0DC },
+    text: '← → / A D  move    SPACE  jump    V  contain    R  begin again',
+    style: { fontFamily: 'monospace', fontSize: 10, fill: PALETTE.hintText },
   })
   hint.x = 6
   hint.y = CONFIG.METER_Y + CONFIG.METER_H + 6
@@ -95,27 +117,28 @@ export function buildScene(app: Application, level: Level): RenderContext {
 
   const containHint = new Text({
     text: 'CONTAIN',
-    style: { fontFamily: 'monospace', fontSize: 9, fill: 0x6FD1FF },
+    style: { fontFamily: 'monospace', fontSize: 9, fill: PALETTE.hintText },
   })
   containHint.x = CONFIG.METER_X + CONFIG.METER_W + 6
   containHint.y = CONFIG.METER_Y + 1
   uiContainer.addChild(containHint)
 
-  const matLegend = new Text({
-    text: 'dirt · stone(2hit) · steel→ricochet · hazard!',
-    style: { fontFamily: 'monospace', fontSize: 9, fill: 0x8A90A0 },
-  })
-  matLegend.x = 6
-  matLegend.y = hint.y + 14
-  uiContainer.addChild(matLegend)
-
   const flashGfx = new Graphics()
   uiContainer.addChild(flashGfx)
 
+  const vignetteGfx = new Graphics()
+  drawVignette(vignetteGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
+  uiContainer.addChild(vignetteGfx)
+
   return {
     app,
+    bgContainer,
     worldContainer,
     uiContainer,
+    skyGfx,
+    parallax,
+    windGfx,
+    wind: createWindState() as WindS,
     worldGfx,
     auraGfx,
     playerGfx,
@@ -125,29 +148,26 @@ export function buildScene(app: Application, level: Level): RenderContext {
     ruptureRingGfx,
     particlesGfx,
     flashGfx,
+    vignetteGfx,
     meterBg,
     meterFg,
     hint,
     containHint,
-    matLegend,
     worldCacheKey: hashColliders(level),
     time: 0,
   }
 }
 
-// Piecewise aura color by instability ratio (0..1). Above HOT we return
-// RED and modulate alpha via a time-based pulse elsewhere.
+// Instability-driven aura color. Single family (cool → warm → hot), no
+// rainbow. Alpha and radius carry the weight; color only warms slowly.
 function auraColorFor(ratio: number): number {
-  if (ratio <= CONFIG.AURA_THRESH_COOL)
-    return CONFIG.AURA_COLOR_COOL
-  if (ratio <= CONFIG.AURA_THRESH_WARM)
-    return CONFIG.AURA_COLOR_WARM
-  if (ratio <= CONFIG.AURA_THRESH_HOT)
-    return CONFIG.AURA_COLOR_HOT
-  return CONFIG.AURA_COLOR_RED
+  if (ratio <= 0.5)
+    return PALETTE.auraCool
+  if (ratio <= 0.85)
+    return PALETTE.auraWarm
+  return PALETTE.auraHot
 }
 
-// Rupture shape drawn at origin; caller positions + rotates the node.
 function drawEllipseOutline(
   g: Graphics,
   rx: number,
@@ -163,8 +183,6 @@ function drawEllipseOutline(
   })
 }
 
-// Camera & sprite positions only. All state lives in `player` / `camera` /
-// `fx`; this function is a pure projection of that state onto Pixi nodes.
 export function render(
   ctx: RenderContext,
   player: Player,
@@ -175,50 +193,51 @@ export function render(
 ): void {
   ctx.time += dt
 
-  // Rebuild world Graphics only when a collider list actually changed.
   const key = hashColliders(level)
   if (key !== ctx.worldCacheKey) {
     drawColliders(ctx.worldGfx, level)
     ctx.worldCacheKey = key
   }
 
-  // Apply camera + shake in one go.
-  const off = shakeOffset(fx)
-  ctx.worldContainer.x = -Math.round(camera.x) + Math.round(off.x)
-  ctx.worldContainer.y = -Math.round(camera.y) + Math.round(off.y)
+  // Wind advances at render cadence — purely aesthetic.
+  tickWind(ctx.wind, dt, level)
+  drawWind(ctx.windGfx, ctx.wind, camera)
 
-  ctx.playerGfx.x = Math.round(player.x)
-  ctx.playerGfx.y = Math.round(player.y)
-  // Flicker during iframes — classic post-fracture telegraph.
+  // Camera + shake.
+  const off = shakeOffset(fx)
+  const camX = camera.x - off.x
+  const camY = camera.y - off.y
+  ctx.worldContainer.x = -camX
+  ctx.worldContainer.y = -camY
+  updateParallax(ctx.parallax, camX, camY)
+
+  ctx.playerGfx.x = player.x
+  ctx.playerGfx.y = player.y
+  // Post-fracture flicker. In FAULTLINE this reads as "not fully here yet."
   const iframeBlink
     = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0
   ctx.playerGfx.alpha = iframeBlink
   ctx.eyeGfx.x = player.facing >= 0 ? CONFIG.PLAYER_W - 4 : 2
   ctx.eyeGfx.y = 4
 
-  // ─── aura ───────────────────────────────────────────────
+  // ─── aura (radial, single-family) ────────────────────────
   const ratio = player.instability.value / CONFIG.INSTABILITY_MAX
-  const auraR
-    = CONFIG.AURA_BASE_RADIUS + ratio * (CONFIG.AURA_MAX_RADIUS - CONFIG.AURA_BASE_RADIUS)
+  const auraR = CONFIG.AURA_BASE_RADIUS + ratio * (CONFIG.AURA_MAX_RADIUS - CONFIG.AURA_BASE_RADIUS)
   const color = auraColorFor(ratio)
-  let auraAlpha = 0.15 + ratio * 0.35
+  let auraAlpha = 0.12 + ratio * 0.4
   if (ratio > CONFIG.AURA_THRESH_HOT) {
-    const t
-      = (ratio - CONFIG.AURA_THRESH_HOT) / (1 - CONFIG.AURA_THRESH_HOT)
+    const t = (ratio - CONFIG.AURA_THRESH_HOT) / (1 - CONFIG.AURA_THRESH_HOT)
     const hz
-      = CONFIG.AURA_PULSE_MIN_HZ
-        + t * (CONFIG.AURA_PULSE_MAX_HZ - CONFIG.AURA_PULSE_MIN_HZ)
+      = CONFIG.AURA_PULSE_MIN_HZ + t * (CONFIG.AURA_PULSE_MAX_HZ - CONFIG.AURA_PULSE_MIN_HZ)
     const pulse = 0.5 + 0.5 * Math.sin(ctx.time * hz * Math.PI * 2)
-    auraAlpha = 0.35 + 0.4 * pulse
+    auraAlpha = 0.3 + 0.5 * pulse
   }
   ctx.auraGfx.clear()
-  ctx.auraGfx
-    .circle(
-      Math.round(player.x + CONFIG.PLAYER_W / 2),
-      Math.round(player.y + CONFIG.PLAYER_H / 2),
-      auraR,
-    )
-    .fill({ color, alpha: auraAlpha })
+  const cx = player.x + CONFIG.PLAYER_W / 2
+  const cy = player.y + CONFIG.PLAYER_H / 2
+  // Two-stop gradient fake: outer soft ring + inner brighter core.
+  ctx.auraGfx.circle(cx, cy, auraR).fill({ color, alpha: auraAlpha * 0.4 })
+  ctx.auraGfx.circle(cx, cy, auraR * 0.55).fill({ color, alpha: auraAlpha })
 
   // ─── rupture preview ────────────────────────────────────
   ctx.previewGfx.clear()
@@ -228,29 +247,29 @@ export function render(
     && player.iframeTimer <= 0
   ) {
     const shape = computeRuptureShape(player.vx, player.vy)
-    ctx.previewGfx.x = Math.round(player.x + CONFIG.PLAYER_W / 2)
-    ctx.previewGfx.y = Math.round(player.y + CONFIG.PLAYER_H / 2)
+    ctx.previewGfx.x = player.x + CONFIG.PLAYER_W / 2
+    ctx.previewGfx.y = player.y + CONFIG.PLAYER_H / 2
     ctx.previewGfx.rotation = shape.angle
-    drawEllipseOutline(ctx.previewGfx, shape.rx, shape.ry, 0xFFFFFF, 0.55, 0.08)
+    drawEllipseOutline(ctx.previewGfx, shape.rx, shape.ry, PALETTE.auraHot, 0.45, 0.05)
   }
 
-  // ─── post-fracture ring (lingers during iframes) ────────
+  // ─── post-fracture ring ────────────────────────────────
   ctx.ruptureRingGfx.clear()
   if (player.lastRupture && player.iframeTimer > 0) {
     const r = player.lastRupture
     const t = player.iframeTimer / CONFIG.FRACTURE_IFRAMES
-    const scale = 1 + (1 - t) * 0.6 // expand out as it fades
-    ctx.ruptureRingGfx.x = Math.round(r.center.x)
-    ctx.ruptureRingGfx.y = Math.round(r.center.y)
+    const scale = 1 + (1 - t) * 0.6
+    ctx.ruptureRingGfx.x = r.center.x
+    ctx.ruptureRingGfx.y = r.center.y
     ctx.ruptureRingGfx.rotation = r.shape.angle
-    const ringColor = r.reflection.active ? CONFIG.AURA_COLOR_HOT : CONFIG.AURA_COLOR_RED
+    const ringColor = r.reflection.active ? PALETTE.auraWarm : PALETTE.auraHot
     drawEllipseOutline(
       ctx.ruptureRingGfx,
       r.shape.rx * scale,
       r.shape.ry * scale,
       ringColor,
       t,
-      0.0,
+      0,
     )
   }
 
@@ -258,50 +277,41 @@ export function render(
   ctx.containArrowGfx.clear()
   if (player.instability.containing) {
     const bob = Math.sin(ctx.time * 18) * 1.5
-    const bx = Math.round(player.x + CONFIG.PLAYER_W / 2)
-    const by = Math.round(player.y + CONFIG.PLAYER_H + 4 + bob)
-    ctx.containArrowGfx
-      .poly([bx - 4, by, bx + 4, by, bx, by + 5])
-      .fill({ color: 0x6FD1FF, alpha: 0.85 })
-    ctx.containArrowGfx
-      .poly([bx - 3, by + 6, bx + 3, by + 6, bx, by + 10])
-      .fill({ color: 0x6FD1FF, alpha: 0.55 })
+    const bx = player.x + CONFIG.PLAYER_W / 2
+    const by = player.y + CONFIG.PLAYER_H + 4 + bob
+    ctx.containArrowGfx.poly([bx - 4, by, bx + 4, by, bx, by + 5])
+      .fill({ color: PALETTE.auraCool, alpha: 0.8 })
+    ctx.containArrowGfx.poly([bx - 3, by + 6, bx + 3, by + 6, bx, by + 10])
+      .fill({ color: PALETTE.auraCool, alpha: 0.5 })
   }
 
   // ─── particles ──────────────────────────────────────────
   ctx.particlesGfx.clear()
   for (const p of fx.particles) {
     const a = Math.max(0, p.life / p.maxLife)
-    ctx.particlesGfx
-      .rect(Math.round(p.x) - 1, Math.round(p.y) - 1, 2, 2)
-      .fill({ color: p.color, alpha: a })
+    ctx.particlesGfx.rect(p.x - 1, p.y - 1, 2, 2).fill({ color: p.color, alpha: a })
   }
 
   // ─── UI: instability meter ──────────────────────────────
   ctx.meterFg.clear()
   const fillW = Math.round(CONFIG.METER_W * ratio)
   if (fillW > 0) {
-    let metColor = auraColorFor(ratio)
-    if (ratio > CONFIG.AURA_THRESH_HOT) {
-      const pulse = 0.5 + 0.5 * Math.sin(ctx.time * 12 * Math.PI * 2)
-      metColor = pulse > 0.5 ? CONFIG.AURA_COLOR_RED : CONFIG.AURA_COLOR_HOT
-    }
-    ctx.meterFg.rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H).fill(metColor)
+    const color2 = ratio > CONFIG.AURA_THRESH_HOT ? PALETTE.meterBright : auraColorFor(ratio)
+    ctx.meterFg.rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H).fill(color2)
   }
 
-  // Containment-hint color: highlighted while containing, dim while stunned.
+  // Containment-hint tint.
   if (player.instability.containing)
-    ctx.containHint.style.fill = 0xFFFFFF
+    ctx.containHint.style.fill = PALETTE.player
   else if (player.instability.containmentStunTimer > 0)
-    ctx.containHint.style.fill = 0x4A4F58
-  else ctx.containHint.style.fill = 0x6FD1FF
+    ctx.containHint.style.fill = PALETTE.hintDim
+  else ctx.containHint.style.fill = PALETTE.hintText
 
   // ─── flash overlay ──────────────────────────────────────
   ctx.flashGfx.clear()
   const fa = flashAlpha(fx)
   if (fa > 0) {
-    ctx.flashGfx
-      .rect(0, 0, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
-      .fill({ color: 0xFFFFFF, alpha: fa * 0.7 })
+    ctx.flashGfx.rect(0, 0, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
+      .fill({ color: PALETTE.player, alpha: fa * 0.5 })
   }
 }

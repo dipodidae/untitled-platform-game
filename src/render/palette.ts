@@ -1,103 +1,98 @@
-// Palette presets. A single CONFIG.PALETTE_PRESET value selects the whole
-// look — material colors, parallax tints, sky, vignette. All numbers live
-// here; renderer code reads them via `activePalette()` to stay preset-agnostic.
+// FAULTLINE palette. One emotional spectrum. Every color here belongs to
+// the same twilight — cool ashen ground, muted rust for threat, a pale
+// living warmth for the player against a bruised sky.
 //
-// The art pass (step 6) fleshes out edge/shadow/highlight per material so
-// renderer can cheaply fake directional lighting. Step 2 only needs fill +
-// a top-edge highlight to keep the current look roughly preserved.
+// The vibe: things were colorful once. They aren't anymore. You are a
+// small warm thing inside a world that's already losing its grip.
+//
+// Materials get { fill, edge, shadow, highlight } so the renderer can
+// fake directional light cheaply — top-facing edges lit, bottom-facing
+// edges in shadow, inner AO stroke from `shadow`.
 
 import type { MaterialName } from '../world/level'
-import { CONFIG } from '../config'
 
 export interface MaterialPalette {
   fill: number
-  edge: number // top-facing edge stroke (lit side)
-  shadow: number // bottom/inside AO tint
-  highlight: number // bright accent (rivets, spike tips)
+  edge: number
+  shadow: number
+  highlight: number
 }
 
 export interface Palette {
-  sky: number // background clear color
-  skyLow: number // bottom of the sky gradient
-  skyHigh: number // top of the sky gradient
+  skyTop: number
+  skyBottom: number
   vignette: number
+  parallaxFar: number
+  parallaxNear: number
+  windMote: number
+  player: number
+  playerEdge: number
+  playerShadow: number
+  auraCool: number
+  auraWarm: number
+  auraHot: number
+  meterDim: number
+  meterBright: number
+  meterChassis: number
+  hintText: number
+  hintDim: number
   materials: Record<MaterialName, MaterialPalette>
-  // Parallax layer tints, ordered back → front.
-  parallax: readonly number[]
 }
 
-const DUSK: Palette = {
-  sky: 0x1A1A2E,
-  skyLow: 0x3A2A44,
-  skyHigh: 0x12142A,
-  vignette: 0x000010,
+export const PALETTE: Palette = {
+  // Bruised evening — not quite night, not quite anything else.
+  skyTop: 0x15161E,
+  skyBottom: 0x2A2530,
+  vignette: 0x08080D,
+  parallaxFar: 0x1C1E28,
+  parallaxNear: 0x262833,
+  windMote: 0x6E6C78,
+  // Player reads as the last warm thing. Pale amber, slightly grubby.
+  player: 0xC8B48E,
+  playerEdge: 0xDFC8A0,
+  playerShadow: 0x3A2F22,
+  // Instability aura. One color family; only intensity moves.
+  auraCool: 0x4A5C6A, // low: cold, contained
+  auraWarm: 0xA87450, // rising: warming from within
+  auraHot: 0xC24634, // near-max: bleeding red
+  // UI. No chrome. The bar is a scar, not a meter.
+  meterDim: 0x2A2530,
+  meterBright: 0xC24634,
+  meterChassis: 0x0A0A10,
+  hintText: 0x8A8690,
+  hintDim: 0x3A3640,
   materials: {
     dirt: {
-      fill: 0x8A5A3A,
-      edge: 0xB07A4D,
-      shadow: 0x4A2A1C,
-      highlight: 0xD89866,
+      // Ashen sand — loose, cool, forgiving to break.
+      fill: 0x6A5853,
+      edge: 0x8A7A72,
+      shadow: 0x3A2E2A,
+      highlight: 0x9C8C82,
     },
     stone: {
-      fill: 0x6A6F7A,
-      edge: 0x8A909A,
-      shadow: 0x3A3F48,
-      highlight: 0xB0B6C0,
+      // Colder, bluer — reads as older, more set in its ways.
+      fill: 0x4E525E,
+      edge: 0x707585,
+      shadow: 0x252932,
+      highlight: 0x8891A0,
     },
     steel: {
-      fill: 0x9AA5B4,
-      edge: 0xC8D2E0,
-      shadow: 0x4A525C,
-      highlight: 0xEAF0F8,
+      // Pale blue-gray, nearly white but not warm. The unbreakable thing.
+      fill: 0x8895A4,
+      edge: 0xBEC8D6,
+      shadow: 0x3A424C,
+      highlight: 0xDEE4EC,
     },
     hazard: {
-      fill: 0xD8444E,
-      edge: 0xF09098,
-      shadow: 0x7A1E26,
-      highlight: 0xFFB8BC,
+      // Dried-blood rust. Never bright. Always present.
+      fill: 0x7A3A36,
+      edge: 0xA4504A,
+      shadow: 0x3A1A18,
+      highlight: 0xC66A60,
     },
   },
-  parallax: [0x2A2840, 0x3A364A, 0x4A4458, 0x5A5668],
 }
-
-const DAWN: Palette = {
-  sky: 0x2E1A1E,
-  skyLow: 0xE89872,
-  skyHigh: 0x2E1A3E,
-  vignette: 0x100008,
-  materials: {
-    dirt: {
-      fill: 0x7A4A32,
-      edge: 0xA86A46,
-      shadow: 0x3A1E12,
-      highlight: 0xCE8A58,
-    },
-    stone: {
-      fill: 0x70727E,
-      edge: 0x9A9AA4,
-      shadow: 0x3C3E46,
-      highlight: 0xBEC0CC,
-    },
-    steel: {
-      fill: 0xA0ABBA,
-      edge: 0xD2DCE8,
-      shadow: 0x505862,
-      highlight: 0xF2F6FC,
-    },
-    hazard: {
-      fill: 0xE8544E,
-      edge: 0xFFA098,
-      shadow: 0x821A1C,
-      highlight: 0xFFC8C0,
-    },
-  },
-  parallax: [0x5A3A48, 0x6E4A54, 0x866068, 0xA67A7E],
-}
-
-const PRESETS = { dusk: DUSK, dawn: DAWN } as const
-export type PalettePreset = keyof typeof PRESETS
 
 export function activePalette(): Palette {
-  const key = CONFIG.PALETTE_PRESET
-  return PRESETS[key] ?? DUSK
+  return PALETTE
 }

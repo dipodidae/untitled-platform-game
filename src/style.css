@@ -19,10 +19,8 @@ body {
   line-height: 0;
 }
 
-/* Integer CSS scaling of the low-res Pixi canvas is handled in main.ts;
-   image-rendering keeps the upscale crisp instead of blurring. */
+/* FAULTLINE: smooth scaling — the art is vector and the tone is painterly,
+   so we drop pixelated rendering in favor of softer edges. */
 canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   display: block;
 }

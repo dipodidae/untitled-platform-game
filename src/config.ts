@@ -4,8 +4,8 @@
 export const CONFIG = {
   // World / render
   TILE_SIZE: 16,
-  LOGICAL_WIDTH: 480, // low-res buffer, integer-scaled up via CSS
-  LOGICAL_HEIGHT: 270,
+  LOGICAL_WIDTH: 640, // FAULTLINE: wider breathing room for the vector art
+  LOGICAL_HEIGHT: 360,
 
   // Player AABB (slightly smaller than a tile so the character reads as a character)
   PLAYER_W: 12,
@@ -129,10 +129,27 @@ export const CONFIG = {
   COLOR_HAZARD: 0xD8444E,
   COLOR_HAZARD_SPIKE: 0xF09098,
 
-  // ───────────────────────── ART DIRECTION ─────────────────────────
-  // Single knob for the whole look — swaps material + parallax palettes.
-  // See src/render/palette.ts for preset definitions.
-  PALETTE_PRESET: 'dusk' as 'dusk' | 'dawn',
+  // ───────────────────────── AESTHETIC / FEEL ─────────────────────
+  // Wind: purely aesthetic drift of ambient motes + rupture debris.
+  // Never affects gameplay collision. "The world is already falling
+  // apart. Wind just reveals it."
+  WIND_X: -12, // px/s baseline drift; negative = right→left
+  WIND_VARIANCE: 10, // per-particle velocity noise
+  WIND_GUST_AMPLITUDE: 6, // slow sinusoidal gust, px/s
+  WIND_GUST_HZ: 0.07, // very slow, half-minute-ish cycle
+  WIND_MOTE_COUNT: 48, // ambient motes on-screen at any time
+  WIND_MOTE_MAX_ALPHA: 0.35,
+
+  // Vignette softness.
+  VIGNETTE_STRENGTH: 0.55, // 0 = off, 1 = hard black at corners
+  VIGNETTE_INNER: 0.55, // 0..1 of half-diagonal where darkening starts
+
+  // Edge lighting: threshold for "top-facing" on a CCW polygon.
+  EDGE_TOP_NORMAL_Y: -0.35, // normal.y < this ⇒ lit edge
+  EDGE_BOTTOM_NORMAL_Y: 0.4, // normal.y > this ⇒ shadow edge
+
+  // Parallax.
+  PARALLAX_SEED: 0x1A3F, // deterministic silhouette layer generation
 } as const
 
 export type Config = typeof CONFIG
