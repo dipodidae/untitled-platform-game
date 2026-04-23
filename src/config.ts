@@ -81,12 +81,24 @@ export const CONFIG = {
   RUPTURE_STEEL_BONUS: 180, // extra impulse added away from hard surfaces the rupture touches
 
   // ───────────────────────── FRACTURE (event) ────────────────────
-  FRACTURE_IFRAMES: 0.3, // post-fracture invulnerability / instability-gain freeze
-  FRACTURE_HITSTOP_FRAMES: 4, // physics paused for this many frames on fracture (at FIXED_DT each)
-  FRACTURE_SHAKE_AMPLITUDE: 6, // px
-  FRACTURE_SHAKE_DURATION: 0.25, // seconds
-  FRACTURE_FLASH_DURATION: 0.18, // seconds of white-over-world flash
-  FRACTURE_PARTICLES: 16, // spawned on fracture
+  // Tuned so the moment of rupture is felt as *recognition*, not
+  // spectacle — "this is happening" beats "whoa cool."
+  FRACTURE_IFRAMES: 0.34, // post-fracture invulnerability / instability-gain freeze
+  FRACTURE_HITSTOP_FRAMES: 9, // ~150 ms freeze — long enough to register the loss of cohesion
+  FRACTURE_SHAKE_AMPLITUDE: 5, // px — lower than a generic "big bang"
+  FRACTURE_SHAKE_DURATION: 0.38, // longer decay so the aftermath rings
+  FRACTURE_FLASH_DURATION: 0.24, // slightly longer, desaturated
+  FRACTURE_FLASH_MAX_ALPHA: 0.45, // softer than a white-out
+  FRACTURE_PARTICLES: 22, // polygon shards spawned per fracture
+  FRACTURE_SHARD_SIZE_MIN: 2, // px half-extent range
+  FRACTURE_SHARD_SIZE_MAX: 4,
+  FRACTURE_SHARD_SPIN_MAX: 12, // rad/s, sign randomized
+  FRACTURE_ZOOM_PEAK: 0.04, // fraction of camera zoom-in at peak hitstop (0 = off)
+
+  // Pre-fracture dread overlay — pulses red around the frame edges once
+  // instability crosses the aura HOT threshold. "It's coming."
+  DREAD_MAX_ALPHA: 0.30,
+  DREAD_ONSET: 0.85, // ratio at which dread starts painting
 
   // Material behavior.
   BONE_HITS: 3, // rupture hits before bone fully collapses

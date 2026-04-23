@@ -17,6 +17,11 @@ export interface Particle {
   life: number
   maxLife: number
   color: number
+  // Polygon-shard metadata — 0 angle + 0 spin collapses the render to
+  // a pixel square (for wind motes etc, though wind uses its own path).
+  angle: number
+  spin: number
+  size: number
 }
 
 export interface FxState {
@@ -74,9 +79,10 @@ export function tickParticlesPhysics(fx: FxState, dt: number): void {
     p.life -= dt
     if (p.life <= 0)
       continue
-    p.vy += CONFIG.FALL_GRAVITY * 0.35 * dt // light gravity tug, cheaper than real
+    p.vy += CONFIG.FALL_GRAVITY * 0.35 * dt
     p.x += p.vx * dt
     p.y += p.vy * dt
+    p.angle += p.spin * dt
     ps[write++] = p
   }
   ps.length = write
@@ -102,29 +108,35 @@ export function triggerFlash(fx: FxState, duration: number): void {
 }
 
 // Full effects bundle for a fracture — hitstop, shake, flash, debris.
+// Tuned for recognition (long freeze, soft flash) not for spectacle.
 export function triggerFractureFx(fx: FxState, rupture: RuptureResult): void {
   fx.hitstopTicks = CONFIG.FRACTURE_HITSTOP_FRAMES
   triggerShake(fx, CONFIG.FRACTURE_SHAKE_AMPLITUDE, CONFIG.FRACTURE_SHAKE_DURATION)
   triggerFlash(fx, CONFIG.FRACTURE_FLASH_DURATION)
 
-  // Debris color matches the material that failed — so the burst
+  // Debris color matches the material that failed, so the burst
   // "belongs" to the wound.
   let baseColor = PALETTE.materials.bone.highlight
   const firstDestroyed = rupture.affected.find(a => a.destroyed)
   if (firstDestroyed)
     baseColor = PALETTE.materials[firstDestroyed.prevMaterial].highlight
+
   const n = CONFIG.FRACTURE_PARTICLES
+  const sizeRange = CONFIG.FRACTURE_SHARD_SIZE_MAX - CONFIG.FRACTURE_SHARD_SIZE_MIN
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.3
-    const speed = 80 + Math.random() * 140
+    const speed = 70 + Math.random() * 150
     fx.particles.push({
       x: rupture.center.x,
       y: rupture.center.y,
       vx: Math.cos(a) * speed,
       vy: Math.sin(a) * speed - 40, // up-bias so debris arcs
-      life: 0.35 + Math.random() * 0.25,
-      maxLife: 0.6,
+      life: 0.45 + Math.random() * 0.35,
+      maxLife: 0.8,
       color: baseColor,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() * 2 - 1) * CONFIG.FRACTURE_SHARD_SPIN_MAX,
+      size: CONFIG.FRACTURE_SHARD_SIZE_MIN + Math.random() * sizeRange,
     })
   }
 }

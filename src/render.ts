@@ -37,6 +37,7 @@ export interface RenderContext {
   readonly ruptureRingGfx: Graphics
   readonly particlesGfx: Graphics
   readonly flashGfx: Graphics
+  readonly dreadGfx: Graphics
   readonly vignetteGfx: Graphics
   readonly meterBg: Graphics
   readonly meterFg: Graphics
@@ -126,6 +127,12 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const flashGfx = new Graphics()
   uiContainer.addChild(flashGfx)
 
+  // Dread overlay — pulses red at the edges once instability crosses
+  // DREAD_ONSET. Drawn BEFORE the vignette so the vignette's black
+  // corners still darken over it.
+  const dreadGfx = new Graphics()
+  uiContainer.addChild(dreadGfx)
+
   const vignetteGfx = new Graphics()
   drawVignette(vignetteGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
   uiContainer.addChild(vignetteGfx)
@@ -148,6 +155,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     ruptureRingGfx,
     particlesGfx,
     flashGfx,
+    dreadGfx,
     vignetteGfx,
     meterBg,
     meterFg,
@@ -203,12 +211,25 @@ export function render(
   tickWind(ctx.wind, dt, level)
   drawWind(ctx.windGfx, ctx.wind, camera)
 
-  // Camera + shake.
+  // Camera + shake + recognition zoom.
+  // During hitstop we briefly scale the world up to amplify the "this
+  // is happening" read. Eases in across the first half of the freeze,
+  // eases out across the second.
   const off = shakeOffset(fx)
   const camX = camera.x - off.x
   const camY = camera.y - off.y
-  ctx.worldContainer.x = -camX
-  ctx.worldContainer.y = -camY
+  let zoom = 1
+  if (fx.hitstopTicks > 0) {
+    const frac = fx.hitstopTicks / CONFIG.FRACTURE_HITSTOP_FRAMES
+    // Sin curve peaks at mid-freeze, returns to 1 at end.
+    zoom = 1 + CONFIG.FRACTURE_ZOOM_PEAK * Math.sin(frac * Math.PI)
+  }
+  ctx.worldContainer.scale.set(zoom)
+  // Zoom around the screen center: offset accordingly.
+  const cx0 = CONFIG.LOGICAL_WIDTH / 2
+  const cy0 = CONFIG.LOGICAL_HEIGHT / 2
+  ctx.worldContainer.x = -camX * zoom + cx0 * (1 - zoom)
+  ctx.worldContainer.y = -camY * zoom + cy0 * (1 - zoom)
   updateParallax(ctx.parallax, camX, camY)
 
   // Visual fragmentation: above the threshold the player's body jitters
@@ -301,10 +322,25 @@ export function render(
   }
 
   // ─── particles ──────────────────────────────────────────
+  // Each shard is a tiny triangle — rotated by p.angle, scaled by p.size.
+  // Fades to 0 over its lifetime.
   ctx.particlesGfx.clear()
   for (const p of fx.particles) {
     const a = Math.max(0, p.life / p.maxLife)
-    ctx.particlesGfx.rect(p.x - 1, p.y - 1, 2, 2).fill({ color: p.color, alpha: a })
+    const s = p.size
+    const ca = Math.cos(p.angle)
+    const sa = Math.sin(p.angle)
+    // Asymmetric triangle in local space.
+    const verts: [number, number][] = [
+      [s, 0],
+      [-s * 0.6, s * 0.8],
+      [-s * 0.4, -s * 0.7],
+    ]
+    const world: number[] = []
+    for (const [lx, ly] of verts) {
+      world.push(p.x + lx * ca - ly * sa, p.y + lx * sa + ly * ca)
+    }
+    ctx.particlesGfx.poly(world).fill({ color: p.color, alpha: a })
   }
 
   // ─── UI: instability meter ──────────────────────────────
@@ -323,10 +359,32 @@ export function render(
   else ctx.containHint.style.fill = PALETTE.hintText
 
   // ─── flash overlay ──────────────────────────────────────
+  // Softer, slightly warm — less "bright explosion," more "brief
+  // washout of the world around the wound."
   ctx.flashGfx.clear()
   const fa = flashAlpha(fx)
   if (fa > 0) {
     ctx.flashGfx.rect(0, 0, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
-      .fill({ color: PALETTE.player, alpha: fa * 0.5 })
+      .fill({ color: PALETTE.auraWarm, alpha: fa * CONFIG.FRACTURE_FLASH_MAX_ALPHA })
+  }
+
+  // ─── dread overlay (pre-fracture tension) ──────────────
+  ctx.dreadGfx.clear()
+  if (ratio > CONFIG.DREAD_ONSET) {
+    const t = (ratio - CONFIG.DREAD_ONSET) / (1 - CONFIG.DREAD_ONSET)
+    const pulseHz = 3 + t * 8
+    const pulse = 0.5 + 0.5 * Math.sin(ctx.time * pulseHz * Math.PI * 2)
+    const a = t * pulse * CONFIG.DREAD_MAX_ALPHA
+    // Paint only the frame edges — a 40-px-wide border. Keeps the
+    // center of the screen readable; the warning lives in peripheral
+    // vision, which is where "wrong" registers fastest.
+    const w = CONFIG.LOGICAL_WIDTH
+    const h = CONFIG.LOGICAL_HEIGHT
+    const border = 40
+    const color = PALETTE.auraHot
+    ctx.dreadGfx.rect(0, 0, w, border).fill({ color, alpha: a })
+    ctx.dreadGfx.rect(0, h - border, w, border).fill({ color, alpha: a })
+    ctx.dreadGfx.rect(0, border, border, h - border * 2).fill({ color, alpha: a })
+    ctx.dreadGfx.rect(w - border, border, border, h - border * 2).fill({ color, alpha: a })
   }
 }
