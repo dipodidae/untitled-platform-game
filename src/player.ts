@@ -1,5 +1,6 @@
 import type { FxState } from './fx'
 import type { InstabilityState } from './instability'
+import type { BroadphaseGrid } from './physics/broadphase'
 import type { RuptureResult } from './rupture'
 import type { Level } from './world/level'
 import { CONFIG } from './config'
@@ -17,14 +18,9 @@ import {
   resetInstability,
   updateInstability,
 } from './instability'
-import {
-  moveAndCollideX,
-  moveAndCollideY,
-  rectOverlapsHazard,
-  tryCornerCorrection,
-} from './physics'
+import { moveAndCollide, rectOverlapsHazard } from './physics'
 import { performRupture } from './rupture'
-import { resetLevel } from './world/level'
+import { rebuildCollidersFromTiles, resetLevel } from './world/level'
 
 export interface Player {
   x: number
@@ -146,7 +142,7 @@ export function respawn(p: Player, level: Level): void {
   resetLevel(level)
 }
 
-export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): void {
+export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: BroadphaseGrid, dt: number): void {
   if (!p.alive)
     return // respawn handled one tick later by game.ts
 
@@ -171,6 +167,10 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
     p.lastRupture = rupture
     onFractured(p.instability)
     triggerFractureFx(fx, rupture)
+    // Rupture mutated tile grid — regenerate polygon colliders so the
+    // next tick's physics sees the carved world. (Step 5 removes this
+    // once rupture writes directly to polygon colliders.)
+    rebuildCollidersFromTiles(level)
     // Consume the rest of this tick — the rupture IS the tick's action.
     return
   }
@@ -204,11 +204,10 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
   const prevVy = p.vy
   const wasGrounded = p.grounded
 
-  moveAndCollideX(p, level, dt)
-  tryCornerCorrection(p, level, dt)
-  moveAndCollideY(p, level, dt)
+  broadphase.build(level)
+  moveAndCollide(p, level, dt, broadphase)
 
-  // Landing impact (measured at peak vy before the Y-collide stopped us).
+  // Landing impact (measured at peak vy before collision stopped us).
   // Zero if we weren't actually airborne before this tick.
   const landed = !wasGrounded && p.grounded
   const landedImpactVy = landed ? Math.max(0, prevVy) : 0
@@ -225,7 +224,7 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
   }
 
   // Fall-out safety net.
-  if (p.y > level.height * CONFIG.TILE_SIZE + 100) {
+  if (p.y > level.worldHeight + 100) {
     die(p, level)
     return
   }

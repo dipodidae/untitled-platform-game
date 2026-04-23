@@ -1,16 +1,17 @@
 import type { Application } from 'pixi.js'
 import type { Camera } from './camera'
 import type { FxState } from './fx'
-import type { Level } from './world/level'
 import type { Player } from './player'
 import type { RenderContext } from './render'
+import type { Level } from './world/level'
 import { createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
 import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics } from './fx'
 import { endFrame, respawnPressed } from './input'
-import { createLevel } from './world/level'
+import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
 import { buildScene, render } from './render'
+import { createLevel } from './world/level'
 
 export interface GameState {
   readonly app: Application
@@ -19,6 +20,7 @@ export interface GameState {
   readonly camera: Camera
   readonly renderCtx: RenderContext
   readonly fx: FxState
+  readonly broadphase: BroadphaseGrid
   accumulator: number
 }
 
@@ -27,8 +29,9 @@ export function createGame(app: Application): GameState {
   const player = createPlayer(level)
   const camera = createCamera(player)
   const fx = createFxState()
+  const broadphase = new BroadphaseGrid()
   const renderCtx = buildScene(app, level)
-  return { app, level, player, camera, renderCtx, fx, accumulator: 0 }
+  return { app, level, player, camera, renderCtx, fx, broadphase, accumulator: 0 }
 }
 
 // One fixed physics step. Hitstop short-circuits the step so the fracture
@@ -51,7 +54,7 @@ function fixedUpdate(state: GameState): void {
     respawn(state.player, state.level)
   }
 
-  updatePlayer(state.player, state.level, state.fx, CONFIG.FIXED_DT)
+  updatePlayer(state.player, state.level, state.fx, state.broadphase, CONFIG.FIXED_DT)
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
   endFrame()
 }

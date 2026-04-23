@@ -24,7 +24,14 @@ import type { MaterialId } from '../materials'
 import type { Polygon } from '../math/polygon'
 import type { Vec2 } from '../math/vec2'
 import { CONFIG } from '../config'
-import { charToMaterial, MAT_EMPTY } from '../materials'
+import {
+  charToMaterial,
+  MAT_DIRT,
+  MAT_EMPTY,
+  MAT_HAZARD,
+  MAT_STEEL,
+  MAT_STONE,
+} from '../materials'
 import { bounds, decompose } from '../math/polygon'
 
 export type MaterialName = 'dirt' | 'stone' | 'steel' | 'hazard'
@@ -291,6 +298,29 @@ export function createLevel(rows: readonly string[] = DEFAULT_LEVEL_STRINGS): Le
     damage,
     pristineTiles,
   }
+}
+
+// Convert a MaterialId back to its parser char — used by rebuild-from-tiles
+// so we can reuse the greedy mesher without duplicating it.
+function matIdToChar(m: MaterialId): string {
+  switch (m) {
+    case MAT_EMPTY: return '.'
+    case MAT_DIRT: return 'd'
+    case MAT_STONE: return 's'
+    case MAT_STEEL: return 'S'
+    case MAT_HAZARD: return 'x'
+    default: return '.'
+  }
+}
+
+// Regenerate level.colliders from the current tile grid. Called after
+// tile-based destruction (rupture writes to level.tiles; physics reads
+// level.colliders). Step 5 replaces this with direct polygon clipping.
+export function rebuildCollidersFromTiles(level: Level): void {
+  if (level.tiles.length === 0)
+    return // JSON-loaded polygon level — nothing to rebuild from.
+  const rows = level.tiles.map(row => row.map(matIdToChar).join(''))
+  level.colliders = tilemapToPolygons(rows)
 }
 
 // Restore level to authored state. Resets both tile grid and collider list
