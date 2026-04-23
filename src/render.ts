@@ -211,8 +211,23 @@ export function render(
   ctx.worldContainer.y = -camY
   updateParallax(ctx.parallax, camX, camY)
 
-  ctx.playerGfx.x = player.x
-  ctx.playerGfx.y = player.y
+  // Visual fragmentation: above the threshold the player's body jitters
+  // sub-pixel-ish. Reads as "not entirely here." Jitter scales with
+  // instability above threshold; zero below.
+  const ratio0 = player.instability.value / CONFIG.INSTABILITY_MAX
+  let jx = 0
+  let jy = 0
+  if (ratio0 > CONFIG.DEGRADE_FRAGMENT_THRESH) {
+    const t = (ratio0 - CONFIG.DEGRADE_FRAGMENT_THRESH) / (1 - CONFIG.DEGRADE_FRAGMENT_THRESH)
+    const amp = t * CONFIG.DEGRADE_FRAGMENT_JITTER
+    // Multi-frequency noise so the jitter feels organic rather than
+    // regular sine-wave wobble.
+    jx = Math.sin(ctx.time * 47 + player.y * 0.3) * amp
+      + Math.sin(ctx.time * 83) * amp * 0.4
+    jy = Math.cos(ctx.time * 59 + player.x * 0.3) * amp * 0.7
+  }
+  ctx.playerGfx.x = player.x + jx
+  ctx.playerGfx.y = player.y + jy
   // Post-fracture flicker. In FAULTLINE this reads as "not fully here yet."
   const iframeBlink
     = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0

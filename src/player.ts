@@ -87,8 +87,14 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   if (!locked && jumpPressed())
     p.bufferTimer = CONFIG.JUMP_BUFFER
 
+  // Degradation modifiers (post-controller). Base numbers unchanged —
+  // we only scale their output. The body is failing; the controller
+  // isn't.
+  const instab = p.instability.value / CONFIG.INSTABILITY_MAX
+  const effectiveMaxRun = CONFIG.MAX_RUN * (1 + instab * CONFIG.DEGRADE_OVERSPEED)
+
   // Horizontal acceleration. Turnaround boost kicks in when input opposes vx.
-  const targetVx = inputX * CONFIG.MAX_RUN
+  const targetVx = inputX * effectiveMaxRun
   let accel: number
   if (inputX !== 0) {
     const turning = p.vx !== 0 && Math.sign(inputX) !== Math.sign(p.vx)
@@ -99,6 +105,18 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   else {
     accel = p.grounded ? CONFIG.GROUND_DECEL : CONFIG.AIR_DECEL
   }
+
+  // Damping reduction: whenever we're applying a deceleration (input is
+  // zero, or turning against current velocity), scale the effective
+  // response down as instability rises. Accelerating in-direction keeps
+  // full responsiveness — so the feeling is "I can still go, I just
+  // can't stop." No change to base accel/decel constants.
+  const currentSign = Math.sign(p.vx)
+  const intendSign = inputX === 0 ? -currentSign : Math.sign(inputX)
+  const decelerating = currentSign !== 0 && intendSign === -currentSign
+  if (decelerating)
+    accel *= 1 - instab * CONFIG.DEGRADE_DAMPING_REDUCTION
+
   const dv = accel * dt
   if (p.vx < targetVx)
     p.vx = Math.min(p.vx + dv, targetVx)
@@ -217,7 +235,9 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
   // it accumulates under our feet and causes jitter against the slope.
   // Jumping (p.jumpedThisTick) cleared p.grounded already.
   if (!p.grounded) {
-    const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+    const instabRatio = p.instability.value / CONFIG.INSTABILITY_MAX
+    const gravMult = 1 + instabRatio * CONFIG.DEGRADE_GRAVITY_AMP
+    const gravity = (p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY) * gravMult
     p.vy += gravity * dt
     if (p.vy > CONFIG.MAX_FALL)
       p.vy = CONFIG.MAX_FALL

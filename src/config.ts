@@ -129,6 +129,19 @@ export const CONFIG = {
   COLOR_HAZARD: 0xD8444E,
   COLOR_HAZARD_SPIKE: 0xF09098,
 
+  // ───────────────────────── DEGRADATION ──────────────────────────
+  // Post-controller modifiers. Base accel/decel/gravity untouched. The
+  // controller is still perfect; the body is failing. All scale with
+  // instability ratio (0..1), applied at the output layer.
+  //
+  // Litmus: at max, the player should think "I can still win, but I
+  // don't trust myself anymore."
+  DEGRADE_DAMPING_REDUCTION: 0.55, // ground/air decel loses this fraction at ratio=1 (harder to stop)
+  DEGRADE_OVERSPEED: 0.12, // MAX_RUN gains this fraction at ratio=1 (easier to overshoot)
+  DEGRADE_GRAVITY_AMP: 0.10, // gravity amplified by this fraction at ratio=1 (weighted-feeling falls)
+  DEGRADE_FRAGMENT_THRESH: 0.7, // ratio above which visual fragmentation kicks in
+  DEGRADE_FRAGMENT_JITTER: 1.2, // max jitter amplitude in px at ratio=1
+
   // ───────────────────────── AESTHETIC / FEEL ─────────────────────
   // Wind: purely aesthetic drift of ambient motes + rupture debris.
   // Never affects gameplay collision. "The world is already falling
