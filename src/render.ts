@@ -97,12 +97,13 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const containArrowGfx = new Graphics()
   worldContainer.addChild(containArrowGfx)
 
+  // Instability presence. Not a meter chassis — no segments, no clean
+  // chrome. Just a thin baseline that the fill grows out of. The value
+  // lives in the fill's behavior (jitter, ember flakes) more than its
+  // length.
   const meterBg = new Graphics()
-  meterBg
-    .rect(CONFIG.METER_X - 1, CONFIG.METER_Y - 1, CONFIG.METER_W + 2, CONFIG.METER_H + 2)
-    .fill(PALETTE.meterChassis)
-    .rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, CONFIG.METER_H)
-    .fill(PALETTE.meterDim)
+  meterBg.rect(CONFIG.METER_X, CONFIG.METER_Y + CONFIG.METER_H - 1, CONFIG.METER_W, 1)
+    .fill({ color: PALETTE.meterDim, alpha: 0.6 })
   uiContainer.addChild(meterBg)
 
   const meterFg = new Graphics()
@@ -275,18 +276,53 @@ export function render(
   ctx.auraGfx.circle(cx, cy, auraR).fill({ color, alpha: auraAlpha * 0.4 })
   ctx.auraGfx.circle(cx, cy, auraR * 0.55).fill({ color, alpha: auraAlpha })
 
-  // ─── rupture preview ────────────────────────────────────
+  // ─── rupture foresight ──────────────────────────────────
+  // Multi-step projection of the player's motion and the rupture shape
+  // they would carve at the projected instant. Gravity-only (no
+  // collision): shows where you're *going*, not where you'll land.
+  // Faint by design — mastery tool, not a constant guide.
   ctx.previewGfx.clear()
+  ctx.previewGfx.x = 0
+  ctx.previewGfx.y = 0
+  ctx.previewGfx.rotation = 0
   if (
     player.alive
     && player.instability.value >= CONFIG.GHOST_INSTABILITY_THRESHOLD
     && player.iframeTimer <= 0
   ) {
-    const shape = computeRuptureShape(player.vx, player.vy)
-    ctx.previewGfx.x = player.x + CONFIG.PLAYER_W / 2
-    ctx.previewGfx.y = player.y + CONFIG.PLAYER_H / 2
-    ctx.previewGfx.rotation = shape.angle
-    drawEllipseOutline(ctx.previewGfx, shape.rx, shape.ry, PALETTE.auraHot, 0.45, 0.05)
+    const baseCx = player.x + CONFIG.PLAYER_W / 2
+    const baseCy = player.y + CONFIG.PLAYER_H / 2
+    const samples = CONFIG.PREVIEW_SAMPLES
+    // Body footprint trail — faint rects at sampled future positions.
+    for (let i = 1; i <= samples; i++) {
+      const t = (i / samples) * CONFIG.PREVIEW_LOOKAHEAD
+      const g = player.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+      const fx0 = player.x + player.vx * t
+      const fy0 = player.y + player.vy * t + 0.5 * g * t * t
+      const alpha = CONFIG.PREVIEW_ALPHA * (1 - i / (samples + 1))
+      ctx.previewGfx.rect(fx0, fy0, CONFIG.PLAYER_W, CONFIG.PLAYER_H)
+        .stroke({ width: 1, color: PALETTE.auraHot, alpha })
+    }
+    // Final-sample rupture ghost — the SHAPE that would carve at the
+    // projected velocity. Stroke-only so it doesn't overwhelm.
+    const tFinal = CONFIG.PREVIEW_LOOKAHEAD
+    const gFinal = player.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+    const vxFinal = player.vx
+    const vyFinal = Math.min(CONFIG.MAX_FALL, player.vy + gFinal * tFinal)
+    const fxF = baseCx + player.vx * tFinal
+    const fyF = baseCy + player.vy * tFinal + 0.5 * gFinal * tFinal * tFinal
+    const shapeFinal = computeRuptureShape(vxFinal, vyFinal)
+    ctx.previewGfx.x = fxF
+    ctx.previewGfx.y = fyF
+    ctx.previewGfx.rotation = shapeFinal.angle
+    drawEllipseOutline(
+      ctx.previewGfx,
+      shapeFinal.rx,
+      shapeFinal.ry,
+      PALETTE.auraHot,
+      CONFIG.PREVIEW_ALPHA,
+      0.04,
+    )
   }
 
   // ─── post-fracture ring ────────────────────────────────
@@ -343,12 +379,33 @@ export function render(
     ctx.particlesGfx.poly(world).fill({ color: p.color, alpha: a })
   }
 
-  // ─── UI: instability meter ──────────────────────────────
+  // ─── UI: instability presence (not a meter) ─────────────
+  // The fill jitters sub-pixel with the aura pulse at high ratio. At
+  // peak, small "ember" flakes pop off the right edge — the thing is
+  // audibly leaking. No segment dividers, no "100% label" — the shape
+  // itself tells you how close you are.
   ctx.meterFg.clear()
-  const fillW = Math.round(CONFIG.METER_W * ratio)
-  if (fillW > 0) {
+  const fillW = CONFIG.METER_W * ratio
+  if (fillW > 0.5) {
     const color2 = ratio > CONFIG.AURA_THRESH_HOT ? PALETTE.meterBright : auraColorFor(ratio)
-    ctx.meterFg.rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H).fill(color2)
+    const jitterAmp = ratio > 0.5 ? (ratio - 0.5) * 2 : 0
+    const jx = (Math.random() - 0.5) * jitterAmp
+    const jy = (Math.random() - 0.5) * jitterAmp * 0.4
+    ctx.meterFg
+      .rect(CONFIG.METER_X + jx, CONFIG.METER_Y + jy, fillW, CONFIG.METER_H)
+      .fill({ color: color2, alpha: 0.92 })
+    // Ember flakes — only when the instability is really close to
+    // fracture. Small pixels jumping off the leading edge.
+    if (ratio > CONFIG.AURA_THRESH_HOT) {
+      const leadX = CONFIG.METER_X + fillW
+      const embers = 3
+      for (let i = 0; i < embers; i++) {
+        const dx = Math.random() * 4
+        const dy = (Math.random() - 0.5) * CONFIG.METER_H
+        ctx.meterFg.rect(leadX + dx, CONFIG.METER_Y + CONFIG.METER_H / 2 + dy, 1, 1)
+          .fill({ color: PALETTE.meterBright, alpha: 0.5 + Math.random() * 0.4 })
+      }
+    }
   }
 
   // Containment-hint tint.

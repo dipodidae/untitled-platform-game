@@ -126,6 +126,11 @@ export const CONFIG = {
   AURA_COLOR_RED: 0xFF3A3A,
 
   GHOST_INSTABILITY_THRESHOLD: 92, // start rendering rupture preview at this instability
+  // Multi-step foresight: how far forward (seconds) to project + how many
+  // samples along that path. Faint by design — mastery layer, not crutch.
+  PREVIEW_LOOKAHEAD: 0.28,
+  PREVIEW_SAMPLES: 3,
+  PREVIEW_ALPHA: 0.32,
 
   // UI meter
   METER_X: 8,
