@@ -20,7 +20,7 @@ import {
   resetInstability,
   updateInstability,
 } from './instability'
-import { applySlopeProjection, moveAndCollide, rectOverlapsHazard, tryStickToGround } from './physics'
+import { applySlopeProjection, moveAndCollide, overlapsLethal, tryStickToGround } from './physics'
 import { performRupture } from './rupture'
 import { resetLevel } from './world/level'
 
@@ -172,7 +172,14 @@ export function respawn(p: Player, level: Level): void {
   resetLevel(level)
 }
 
-export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: BroadphaseGrid, dt: number): void {
+export function updatePlayer(
+  p: Player,
+  level: Level,
+  fx: FxState,
+  broadphase: BroadphaseGrid,
+  now: number,
+  dt: number,
+): void {
   if (!p.alive)
     return // respawn handled one tick later by game.ts
 
@@ -189,7 +196,7 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
   if (p.instability.fractureQueued) {
     const cx = p.x + p.w / 2
     const cy = p.y + p.h / 2
-    const rupture = performRupture(level, cx, cy, p.vx, p.vy)
+    const rupture = performRupture(level, cx, cy, p.vx, p.vy, now)
     p.vx = rupture.impulse.x
     p.vy = rupture.impulse.y
     p.iframeTimer = CONFIG.FRACTURE_IFRAMES
@@ -269,8 +276,10 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, broadphase: B
     p.coyoteTimer = CONFIG.COYOTE_TIME
   }
 
-  // Hazard check AFTER movement. Pass-through hazards kill on AABB overlap.
-  if (rectOverlapsHazard(level, p.x, p.y, p.w, p.h)) {
+  // Lethal overlap AFTER movement. Shards (left by broken glass) kill on
+  // AABB overlap. In FAULTLINE the only thing that can hurt you is what
+  // you broke — "you don't die, you break."
+  if (overlapsLethal(level, p.x, p.y, p.w, p.h)) {
     die(p, level)
     return
   }

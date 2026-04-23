@@ -108,7 +108,7 @@ export function tryStickToGround(p: Player, broadphase: BroadphaseGrid): void {
     p.y + p.h + dist + 2,
     candidates,
   )
-  const physical = candidates.filter(c => c.material !== 'hazard')
+  const physical = candidates.filter(c => c.material !== 'shard')
   const savedY = p.y
   // Push down by `dist`, find deepest contact with a floor-ish normal,
   // then resolve along that normal so we settle on top.
@@ -166,7 +166,7 @@ export function moveAndCollide(
     p.y + p.h + padY,
     candidates,
   )
-  const physical = candidates.filter(c => c.material !== 'hazard')
+  const physical = candidates.filter(c => c.material !== 'shard')
 
   const prevY = p.y
   tryCornerNudge(p, dt, physical)
@@ -217,8 +217,6 @@ export function moveAndCollide(
 
     if (bestNy < GROUND_NORMAL_Y) {
       grounded = true
-      // Prefer the flattest ground normal — if we touch a slope AND a
-      // floor in the same tick, track the floor.
       if (bestNy < gny) {
         gnx = bestNx
         gny = bestNy
@@ -228,15 +226,37 @@ export function moveAndCollide(
       touchingWall = true
   }
 
+  // Soft contact damping: if any touched collider this tick was SOFT,
+  // bleed velocity. Cost of hiding in the padded places.
+  let touchedSoft = false
+  const postBox = playerBox(p)
+  for (const c of physical) {
+    if (!c.alive || c.material !== 'soft')
+      continue
+    if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
+      || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1)
+      continue
+    touchedSoft = true
+    break
+  }
+  if (touchedSoft) {
+    const factor = Math.pow(CONFIG.SOFT_DAMPING_PER_SEC, dt)
+    p.vx *= factor
+    p.vy *= factor
+  }
+
   p.grounded = grounded
   p.touchingWall = touchingWall
   p.groundNormal = grounded ? { x: gnx, y: gny } : null
 }
 
-export function overlapsHazard(level: Level, x: number, y: number, w: number, h: number): boolean {
+// Player AABB vs. any lethal collider. Only SHARDS are lethal in
+// FAULTLINE — everything else is solid or pass-through-harmless. Shards
+// are what you leave behind when you ruin yourself.
+export function overlapsLethal(level: Level, x: number, y: number, w: number, h: number): boolean {
   const box: AABB = { x, y, w, h }
   for (const c of level.colliders) {
-    if (!c.alive || c.material !== 'hazard')
+    if (!c.alive || c.material !== 'shard')
       continue
     if (x + w < c.minX || x > c.maxX || y + h < c.minY || y > c.maxY)
       continue

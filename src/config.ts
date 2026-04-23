@@ -88,7 +88,16 @@ export const CONFIG = {
   FRACTURE_FLASH_DURATION: 0.18, // seconds of white-over-world flash
   FRACTURE_PARTICLES: 16, // spawned on fracture
 
-  STONE_HITS: 2, // rupture hits before stone breaks
+  // Material behavior.
+  BONE_HITS: 3, // rupture hits before bone fully collapses
+  GLASS_SHARD_COUNT: 5, // shards spawned per glass break
+  GLASS_SHARD_TTL: 6, // seconds a shard persists
+  GLASS_SHARD_SPREAD: 18, // px — shard placement scatter from break center
+  GLASS_SHARD_SIZE: 5, // px — half-extent of each shard triangle
+  SOFT_DAMPING_PER_SEC: 0.65, // per-second velocity retained while in soft contact (0..1)
+  SOFT_RUPTURE_SCALE: 0.55, // rupture radius multiplier when clipping soft (absorbs some)
+  RESONANT_IMPULSE_BONUS: 300, // base impulse added away from resonant (replaces steel bonus)
+  RESONANT_CHAIN_MULT: 0.35, // +this × (chain length − 1) multiplicative bonus
 
   // ───────────────────────── READABILITY ─────────────────────────
   // Aura: radial glow under the player, tinted by instability.

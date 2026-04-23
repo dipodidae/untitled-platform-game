@@ -27,7 +27,23 @@ import type { Vec2 } from '../math/vec2'
 import { CONFIG } from '../config'
 import { bounds, decompose } from '../math/polygon'
 
-export type MaterialName = 'dirt' | 'stone' | 'steel' | 'hazard'
+// ─── materials ───────────────────────────────────────────────────────────
+// Four authored materials, each producing its own kind of story:
+//
+//   glass     — breaks on a single rupture. Leaves SHARDS behind that kill
+//               on contact. Overzealous destruction becomes its own trap.
+//   bone      — old, structural. Damage accumulates across ruptures
+//               (BONE_HITS before it fully collapses). The thing you
+//               primed earlier and forgot about.
+//   resonant  — indestructible. Rupture impulse compounds when you touch
+//               a chain of it — launches you farther than you meant.
+//   soft      — solid but yielding. Dampens motion on contact; ruptures
+//               carve it at a reduced radius. Safe, but costly: you
+//               cannot keep your momentum here.
+//
+// `shard` is a runtime-only material spawned from broken glass. Never
+// authored in a level file.
+export type MaterialName = 'glass' | 'bone' | 'resonant' | 'soft' | 'shard'
 
 export interface Collider {
   id: number
@@ -39,8 +55,11 @@ export interface Collider {
   minY: number
   maxX: number
   maxY: number
-  damage: number // stone-chip counter; unused for other materials
+  damage: number // hit counter; consulted by bone (via BONE_HITS)
   alive: boolean
+  // Runtime-ephemeral colliders (shards). When set, collider is removed
+  // once game time passes this value. null for authored colliders.
+  expiresAt: number | null
 }
 
 export interface Level {
@@ -85,6 +104,7 @@ export function buildCollider(
   material: MaterialName,
   vertices: Polygon,
   oneWay = false,
+  expiresAt: number | null = null,
 ): Collider {
   const pieces = decompose(vertices)
   const c: Collider = {
@@ -99,9 +119,25 @@ export function buildCollider(
     maxY: 0,
     damage: 0,
     alive: true,
+    expiresAt,
   }
   computeColliderBounds(c)
   return c
+}
+
+// Purge expired runtime colliders (shards). Called from the physics loop
+// before building the broadphase so shards don't stick around past their
+// lifetime.
+export function tickEphemeral(level: Level, now: number): void {
+  let write = 0
+  const list = level.colliders
+  for (let read = 0; read < list.length; read++) {
+    const c = list[read]!
+    if (c.expiresAt !== null && now >= c.expiresAt)
+      continue
+    list[write++] = c
+  }
+  list.length = write
 }
 
 export function refreshCollider(c: Collider): void {
@@ -121,15 +157,18 @@ function snapshot(colliders: readonly Collider[]): PristineCollider[] {
 // ─── tilemap → polygons (greedy rectangle meshing) ───────────────────────
 
 export function tilemapToPolygons(rows: readonly string[]): Collider[] {
+  // Legacy glyphs map to the FAULTLINE taxonomy. Old "dirt" ground is
+  // now bone; old "stone" reads as more bone; steel → resonant;
+  // hazards from authored tile layouts become fixed-long-lifetime shards.
   const charMat: Record<string, MaterialName | null> = {
     '.': null,
     ' ': null,
-    'd': 'dirt',
-    '#': 'dirt',
-    's': 'stone',
-    'S': 'steel',
-    'x': 'hazard',
-    'X': 'hazard',
+    'd': 'bone',
+    '#': 'bone',
+    's': 'bone',
+    'S': 'resonant',
+    'x': 'shard',
+    'X': 'shard',
   }
   const h = rows.length
   const w = rows[0]?.length ?? 0

@@ -54,9 +54,10 @@ export function performRupture(
   py: number,
   vx: number,
   vy: number,
+  now: number,
 ): RuptureResult {
   const shape = computeRuptureShape(vx, vy)
-  const outcome = applyRupture(level, px, py, shape)
+  const outcome = applyRupture(level, px, py, shape, now)
 
   // ─── self-impulse ────────────────────────────────────────────
   const speed = Math.hypot(vx, vy)
@@ -84,7 +85,10 @@ export function performRupture(
     impulseY = -CONFIG.RUPTURE_IMPULSE
   }
 
-  // Reflection bonus — adds impulse away from hard (steel) surfaces.
+  // Resonant reflection — adds impulse away from resonant surfaces, with
+  // a chain multiplier: a rupture touching N resonant colliders launches
+  // you (1 + (N-1) × RESONANT_CHAIN_MULT) as hard. Tells the "chained
+  // resonant sent me way further than I expected" story.
   let reflectionActive = false
   let refDirX = 0
   let refDirY = 0
@@ -93,8 +97,10 @@ export function performRupture(
     if (smag > 0.0001) {
       refDirX = outcome.reflection.x / smag
       refDirY = outcome.reflection.y / smag
-      impulseX += refDirX * CONFIG.RUPTURE_STEEL_BONUS
-      impulseY += refDirY * CONFIG.RUPTURE_STEEL_BONUS
+      const chainMult = 1 + (outcome.reflectionCount - 1) * CONFIG.RESONANT_CHAIN_MULT
+      const bonus = CONFIG.RESONANT_IMPULSE_BONUS * chainMult
+      impulseX += refDirX * bonus
+      impulseY += refDirY * bonus
       reflectionActive = true
     }
   }

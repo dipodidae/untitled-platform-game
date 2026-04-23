@@ -1,5 +1,6 @@
 import type { RuptureResult } from './rupture'
 import { CONFIG } from './config'
+import { PALETTE } from './render/palette'
 
 // Central effects state. Hitstop / shake / flash / particle timers live
 // in one `FxState` so a single module owns timing and the renderer reads
@@ -106,13 +107,12 @@ export function triggerFractureFx(fx: FxState, rupture: RuptureResult): void {
   triggerShake(fx, CONFIG.FRACTURE_SHAKE_AMPLITUDE, CONFIG.FRACTURE_SHAKE_DURATION)
   triggerFlash(fx, CONFIG.FRACTURE_FLASH_DURATION)
 
-  // Debris color matches what shattered so the burst "belongs" to the
-  // wound. Stone fragments read cooler than dirt. Art pass (FAULTLINE 2)
-  // swaps this to a palette-driven lookup.
-  let baseColor = 0xFFDD88
+  // Debris color matches the material that failed — so the burst
+  // "belongs" to the wound.
+  let baseColor = PALETTE.materials.bone.highlight
   const firstDestroyed = rupture.affected.find(a => a.destroyed)
   if (firstDestroyed)
-    baseColor = firstDestroyed.prevMaterial === 'stone' ? CONFIG.COLOR_STONE : CONFIG.COLOR_DIRT
+    baseColor = PALETTE.materials[firstDestroyed.prevMaterial].highlight
   const n = CONFIG.FRACTURE_PARTICLES
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.3

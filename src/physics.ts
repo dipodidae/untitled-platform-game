@@ -3,7 +3,7 @@
 export {
   applySlopeProjection,
   moveAndCollide,
-  overlapsHazard as rectOverlapsHazard,
+  overlapsLethal,
   tryStickToGround,
 } from './physics/resolve'
 export { BroadphaseGrid } from './physics/broadphase'

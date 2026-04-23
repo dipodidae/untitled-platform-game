@@ -11,7 +11,7 @@ import { endFrame, respawnPressed } from './input'
 import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
 import { buildScene, render } from './render'
-import { fromJson, type LevelJson } from './world/level'
+import { fromJson, type LevelJson, tickEphemeral } from './world/level'
 import showcaseJson from './levels/showcase.json'
 
 export interface GameState {
@@ -23,6 +23,9 @@ export interface GameState {
   readonly fx: FxState
   readonly broadphase: BroadphaseGrid
   accumulator: number
+  // Continuous game time (seconds). Drives shard TTLs and any other
+  // wall-clock-like timers that need a consistent reading across ticks.
+  now: number
 }
 
 export function createGame(app: Application): GameState {
@@ -32,7 +35,7 @@ export function createGame(app: Application): GameState {
   const fx = createFxState()
   const broadphase = new BroadphaseGrid()
   const renderCtx = buildScene(app, level)
-  return { app, level, player, camera, renderCtx, fx, broadphase, accumulator: 0 }
+  return { app, level, player, camera, renderCtx, fx, broadphase, accumulator: 0, now: 0 }
 }
 
 // One fixed physics step. Hitstop short-circuits the step so the fracture
@@ -55,7 +58,9 @@ function fixedUpdate(state: GameState): void {
     respawn(state.player, state.level)
   }
 
-  updatePlayer(state.player, state.level, state.fx, state.broadphase, CONFIG.FIXED_DT)
+  state.now += CONFIG.FIXED_DT
+  tickEphemeral(state.level, state.now)
+  updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
   endFrame()
 }

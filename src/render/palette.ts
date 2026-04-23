@@ -1,13 +1,6 @@
-// FAULTLINE palette. One emotional spectrum. Every color here belongs to
-// the same twilight — cool ashen ground, muted rust for threat, a pale
-// living warmth for the player against a bruised sky.
-//
-// The vibe: things were colorful once. They aren't anymore. You are a
-// small warm thing inside a world that's already losing its grip.
-//
-// Materials get { fill, edge, shadow, highlight } so the renderer can
-// fake directional light cheaply — top-facing edges lit, bottom-facing
-// edges in shadow, inner AO stroke from `shadow`.
+// FAULTLINE palette. One emotional spectrum. Every color belongs to the
+// same twilight — ashen materials, muted rust for threat, a small warm
+// body against a bruised sky.
 
 import type { MaterialName } from '../world/level'
 
@@ -40,51 +33,54 @@ export interface Palette {
 }
 
 export const PALETTE: Palette = {
-  // Bruised evening — not quite night, not quite anything else.
   skyTop: 0x15161E,
   skyBottom: 0x2A2530,
   vignette: 0x08080D,
   parallaxFar: 0x1C1E28,
   parallaxNear: 0x262833,
   windMote: 0x6E6C78,
-  // Player reads as the last warm thing. Pale amber, slightly grubby.
   player: 0xC8B48E,
   playerEdge: 0xDFC8A0,
   playerShadow: 0x3A2F22,
-  // Instability aura. One color family; only intensity moves.
-  auraCool: 0x4A5C6A, // low: cold, contained
-  auraWarm: 0xA87450, // rising: warming from within
-  auraHot: 0xC24634, // near-max: bleeding red
-  // UI. No chrome. The bar is a scar, not a meter.
+  auraCool: 0x4A5C6A,
+  auraWarm: 0xA87450,
+  auraHot: 0xC24634,
   meterDim: 0x2A2530,
   meterBright: 0xC24634,
   meterChassis: 0x0A0A10,
   hintText: 0x8A8690,
   hintDim: 0x3A3640,
   materials: {
-    dirt: {
-      // Ashen sand — loose, cool, forgiving to break.
-      fill: 0x6A5853,
-      edge: 0x8A7A72,
-      shadow: 0x3A2E2A,
-      highlight: 0x9C8C82,
+    // Pale bluish-green, almost translucent. Reads as fragile instantly.
+    glass: {
+      fill: 0x4E6470,
+      edge: 0x9ABCC6,
+      shadow: 0x22303A,
+      highlight: 0xCDE4EA,
     },
-    stone: {
-      // Colder, bluer — reads as older, more set in its ways.
-      fill: 0x4E525E,
-      edge: 0x707585,
-      shadow: 0x252932,
-      highlight: 0x8891A0,
+    // Off-white yellow-gray. The floor of this world is old bone.
+    bone: {
+      fill: 0xB6A684,
+      edge: 0xD4C8A4,
+      shadow: 0x564A34,
+      highlight: 0xE8DDBA,
     },
-    steel: {
-      // Pale blue-gray, nearly white but not warm. The unbreakable thing.
-      fill: 0x8895A4,
-      edge: 0xBEC8D6,
-      shadow: 0x3A424C,
-      highlight: 0xDEE4EC,
+    // Steel-cold with a subtle violet cast — hums even when still.
+    resonant: {
+      fill: 0x5E6A80,
+      edge: 0x9FAEC8,
+      shadow: 0x2E3442,
+      highlight: 0xC6D4E8,
     },
-    hazard: {
-      // Dried-blood rust. Never bright. Always present.
+    // Mauve-pink, slightly pillowy. Inviting, expensive.
+    soft: {
+      fill: 0x7C5C6A,
+      edge: 0xA1838F,
+      shadow: 0x3E2A34,
+      highlight: 0xBE9EAA,
+    },
+    // Shards left by glass breaks. Rust-red, always present.
+    shard: {
       fill: 0x7A3A36,
       edge: 0xA4504A,
       shadow: 0x3A1A18,
