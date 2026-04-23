@@ -67,7 +67,7 @@ export function rectOverlapsHazard(
 // single-pass swept collisions produce on axis-aligned grids.
 //
 // We set p.touchingWall when an X collision stopped horizontal motion — the
-// pressure system reads this to award "pressed into a wall while moving" gain.
+// instability system reads this to award "pressed into a wall while moving" gain.
 export function moveAndCollideX(p: Player, level: Level, dt: number): void {
   p.touchingWall = false
   p.x += p.vx * dt

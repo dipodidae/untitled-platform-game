@@ -94,7 +94,7 @@ export function decompose(poly: Polygon): Polygon[] {
 // Boolean difference: subject − clippers. Returns the remaining polygons as a
 // flat list of simple rings (outer rings only — we ignore holes, they'd
 // complicate physics and we don't generate them in practice from a circular
-// blast clip).
+// rupture clip).
 export function polygonDifference(subject: Polygon, clippers: Polygon[]): Polygon[] {
   if (subject.length < 3 || clippers.length === 0)
     return [subject.slice()]
@@ -139,7 +139,7 @@ export function circleToPolygon(cx: number, cy: number, rx: number, ry: number, 
 
 // Is a point inside a polygon? Crossing-number test — works for any simple
 // polygon (convex or not). Used by destruction to decide which colliders
-// the blast center sits inside.
+// the rupture center sits inside.
 export function pointInPolygon(poly: Polygon, p: Vec2): boolean {
   let inside = false
   const n = poly.length

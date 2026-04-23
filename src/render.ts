@@ -1,16 +1,16 @@
 import type { Application } from 'pixi.js'
 import type { Camera } from './camera'
 import type { FxState } from './fx'
-import type { Level } from './world/level'
 import type { Player } from './player'
+import type { Level } from './world/level'
 import { Container, Graphics, Text } from 'pixi.js'
-import { computeBlastShape } from './blast'
 import { CONFIG } from './config'
 import { flashAlpha, shakeOffset } from './fx'
 import { drawColliders, hashColliders } from './render/world'
+import { computeRuptureShape } from './rupture'
 
 // The scene graph.
-//   worldContainer  → camera-panned; colliders, player, aura, particles, ghost
+//   worldContainer  → camera-panned; colliders, player, aura, particles, preview
 //   uiContainer     → screen-fixed; meter, hints, flash overlay
 //
 // Collider Graphics rebuilds only when the collider list mutates (destruction).
@@ -23,15 +23,15 @@ export interface RenderContext {
   readonly auraGfx: Graphics
   readonly playerGfx: Graphics
   readonly eyeGfx: Graphics
-  readonly ghostGfx: Graphics
-  readonly ventArrowGfx: Graphics
-  readonly blastRingGfx: Graphics
+  readonly previewGfx: Graphics // upcoming-rupture silhouette (foresight)
+  readonly containArrowGfx: Graphics
+  readonly ruptureRingGfx: Graphics // lingering ring during post-fracture iframes
   readonly particlesGfx: Graphics
   readonly flashGfx: Graphics
   readonly meterBg: Graphics
   readonly meterFg: Graphics
   readonly hint: Text
-  readonly ventHint: Text
+  readonly containHint: Text
   readonly matLegend: Text
   worldCacheKey: number
   time: number
@@ -54,11 +54,11 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const particlesGfx = new Graphics()
   worldContainer.addChild(particlesGfx)
 
-  const ghostGfx = new Graphics()
-  worldContainer.addChild(ghostGfx)
+  const previewGfx = new Graphics()
+  worldContainer.addChild(previewGfx)
 
-  const blastRingGfx = new Graphics()
-  worldContainer.addChild(blastRingGfx)
+  const ruptureRingGfx = new Graphics()
+  worldContainer.addChild(ruptureRingGfx)
 
   const playerGfx = new Graphics()
   playerGfx.rect(0, 0, CONFIG.PLAYER_W, CONFIG.PLAYER_H).fill(CONFIG.COLOR_PLAYER)
@@ -67,8 +67,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
   playerGfx.addChild(eyeGfx)
   worldContainer.addChild(playerGfx)
 
-  const ventArrowGfx = new Graphics()
-  worldContainer.addChild(ventArrowGfx)
+  const containArrowGfx = new Graphics()
+  worldContainer.addChild(containArrowGfx)
 
   const meterBg = new Graphics()
   meterBg
@@ -76,7 +76,6 @@ export function buildScene(app: Application, level: Level): RenderContext {
     .fill(0x000000)
     .rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, CONFIG.METER_H)
     .fill(0x2A2F3C)
-  // Quarter-segment dividers — hand-placed so the meter reads as 4 chunks.
   for (let i = 1; i < 4; i++) {
     const x = CONFIG.METER_X + Math.round((CONFIG.METER_W * i) / 4)
     meterBg.rect(x, CONFIG.METER_Y, 1, CONFIG.METER_H).fill(0x1A1A2E)
@@ -87,20 +86,20 @@ export function buildScene(app: Application, level: Level): RenderContext {
   uiContainer.addChild(meterFg)
 
   const hint = new Text({
-    text: 'Arrows/WASD move  •  Space/Z jump  •  V or Shift vent  •  R respawn',
+    text: 'Arrows/WASD move  •  Space/Z jump  •  V or Shift contain  •  R respawn',
     style: { fontFamily: 'monospace', fontSize: 10, fill: 0xCBD0DC },
   })
   hint.x = 6
   hint.y = CONFIG.METER_Y + CONFIG.METER_H + 6
   uiContainer.addChild(hint)
 
-  const ventHint = new Text({
-    text: 'VENT',
+  const containHint = new Text({
+    text: 'CONTAIN',
     style: { fontFamily: 'monospace', fontSize: 9, fill: 0x6FD1FF },
   })
-  ventHint.x = CONFIG.METER_X + CONFIG.METER_W + 6
-  ventHint.y = CONFIG.METER_Y + 1
-  uiContainer.addChild(ventHint)
+  containHint.x = CONFIG.METER_X + CONFIG.METER_W + 6
+  containHint.y = CONFIG.METER_Y + 1
+  uiContainer.addChild(containHint)
 
   const matLegend = new Text({
     text: 'dirt · stone(2hit) · steel→ricochet · hazard!',
@@ -121,23 +120,23 @@ export function buildScene(app: Application, level: Level): RenderContext {
     auraGfx,
     playerGfx,
     eyeGfx,
-    ghostGfx,
-    ventArrowGfx,
-    blastRingGfx,
+    previewGfx,
+    containArrowGfx,
+    ruptureRingGfx,
     particlesGfx,
     flashGfx,
     meterBg,
     meterFg,
     hint,
-    ventHint,
+    containHint,
     matLegend,
     worldCacheKey: hashColliders(level),
     time: 0,
   }
 }
 
-// Piecewise aura color by pressure ratio (0..1). Above HOT we return RED and
-// modulate alpha via a time-based pulse elsewhere.
+// Piecewise aura color by instability ratio (0..1). Above HOT we return
+// RED and modulate alpha via a time-based pulse elsewhere.
 function auraColorFor(ratio: number): number {
   if (ratio <= CONFIG.AURA_THRESH_COOL)
     return CONFIG.AURA_COLOR_COOL
@@ -148,7 +147,7 @@ function auraColorFor(ratio: number): number {
   return CONFIG.AURA_COLOR_RED
 }
 
-// Blast shape drawn at origin; caller positions + rotates the Graphics node.
+// Rupture shape drawn at origin; caller positions + rotates the node.
 function drawEllipseOutline(
   g: Graphics,
   rx: number,
@@ -190,7 +189,7 @@ export function render(
 
   ctx.playerGfx.x = Math.round(player.x)
   ctx.playerGfx.y = Math.round(player.y)
-  // Hide the player during i-frames by flickering — classic dynamite telegraph.
+  // Flicker during iframes — classic post-fracture telegraph.
   const iframeBlink
     = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0
   ctx.playerGfx.alpha = iframeBlink
@@ -198,7 +197,7 @@ export function render(
   ctx.eyeGfx.y = 4
 
   // ─── aura ───────────────────────────────────────────────
-  const ratio = player.pressure.value / CONFIG.PRESSURE_MAX
+  const ratio = player.instability.value / CONFIG.INSTABILITY_MAX
   const auraR
     = CONFIG.AURA_BASE_RADIUS + ratio * (CONFIG.AURA_MAX_RADIUS - CONFIG.AURA_BASE_RADIUS)
   const color = auraColorFor(ratio)
@@ -221,51 +220,50 @@ export function render(
     )
     .fill({ color, alpha: auraAlpha })
 
-  // ─── ghost blast preview ────────────────────────────────
-  ctx.ghostGfx.clear()
+  // ─── rupture preview ────────────────────────────────────
+  ctx.previewGfx.clear()
   if (
     player.alive
-    && player.pressure.value >= CONFIG.GHOST_PRESSURE_THRESHOLD
+    && player.instability.value >= CONFIG.GHOST_INSTABILITY_THRESHOLD
     && player.iframeTimer <= 0
   ) {
-    const shape = computeBlastShape(player.vx, player.vy)
-    ctx.ghostGfx.x = Math.round(player.x + CONFIG.PLAYER_W / 2)
-    ctx.ghostGfx.y = Math.round(player.y + CONFIG.PLAYER_H / 2)
-    ctx.ghostGfx.rotation = shape.angle
-    drawEllipseOutline(ctx.ghostGfx, shape.rx, shape.ry, 0xFFFFFF, 0.55, 0.08)
+    const shape = computeRuptureShape(player.vx, player.vy)
+    ctx.previewGfx.x = Math.round(player.x + CONFIG.PLAYER_W / 2)
+    ctx.previewGfx.y = Math.round(player.y + CONFIG.PLAYER_H / 2)
+    ctx.previewGfx.rotation = shape.angle
+    drawEllipseOutline(ctx.previewGfx, shape.rx, shape.ry, 0xFFFFFF, 0.55, 0.08)
   }
 
-  // ─── post-detonation ring (lingers during iframes) ─────
-  ctx.blastRingGfx.clear()
-  if (player.lastBlast && player.iframeTimer > 0) {
-    const b = player.lastBlast
-    const t = player.iframeTimer / CONFIG.BLAST_IFRAMES
+  // ─── post-fracture ring (lingers during iframes) ────────
+  ctx.ruptureRingGfx.clear()
+  if (player.lastRupture && player.iframeTimer > 0) {
+    const r = player.lastRupture
+    const t = player.iframeTimer / CONFIG.FRACTURE_IFRAMES
     const scale = 1 + (1 - t) * 0.6 // expand out as it fades
-    ctx.blastRingGfx.x = Math.round(b.center.x)
-    ctx.blastRingGfx.y = Math.round(b.center.y)
-    ctx.blastRingGfx.rotation = b.shape.angle
-    const ringColor = b.reflection.active ? CONFIG.AURA_COLOR_HOT : CONFIG.AURA_COLOR_RED
+    ctx.ruptureRingGfx.x = Math.round(r.center.x)
+    ctx.ruptureRingGfx.y = Math.round(r.center.y)
+    ctx.ruptureRingGfx.rotation = r.shape.angle
+    const ringColor = r.reflection.active ? CONFIG.AURA_COLOR_HOT : CONFIG.AURA_COLOR_RED
     drawEllipseOutline(
-      ctx.blastRingGfx,
-      b.shape.rx * scale,
-      b.shape.ry * scale,
+      ctx.ruptureRingGfx,
+      r.shape.rx * scale,
+      r.shape.ry * scale,
       ringColor,
       t,
       0.0,
     )
   }
 
-  // ─── vent arrow ─────────────────────────────────────────
-  ctx.ventArrowGfx.clear()
-  if (player.pressure.venting) {
-    // Downward-arrow pair, small pulse on ctx.time for juice.
+  // ─── containment arrow ──────────────────────────────────
+  ctx.containArrowGfx.clear()
+  if (player.instability.containing) {
     const bob = Math.sin(ctx.time * 18) * 1.5
     const bx = Math.round(player.x + CONFIG.PLAYER_W / 2)
     const by = Math.round(player.y + CONFIG.PLAYER_H + 4 + bob)
-    ctx.ventArrowGfx
+    ctx.containArrowGfx
       .poly([bx - 4, by, bx + 4, by, bx, by + 5])
       .fill({ color: 0x6FD1FF, alpha: 0.85 })
-    ctx.ventArrowGfx
+    ctx.containArrowGfx
       .poly([bx - 3, by + 6, bx + 3, by + 6, bx, by + 10])
       .fill({ color: 0x6FD1FF, alpha: 0.55 })
   }
@@ -279,25 +277,24 @@ export function render(
       .fill({ color: p.color, alpha: a })
   }
 
-  // ─── UI: pressure meter ─────────────────────────────────
+  // ─── UI: instability meter ──────────────────────────────
   ctx.meterFg.clear()
   const fillW = Math.round(CONFIG.METER_W * ratio)
   if (fillW > 0) {
     let metColor = auraColorFor(ratio)
     if (ratio > CONFIG.AURA_THRESH_HOT) {
-      // Match the aura pulse so the bar and the player feel linked.
       const pulse = 0.5 + 0.5 * Math.sin(ctx.time * 12 * Math.PI * 2)
       metColor = pulse > 0.5 ? CONFIG.AURA_COLOR_RED : CONFIG.AURA_COLOR_HOT
     }
     ctx.meterFg.rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H).fill(metColor)
   }
 
-  // Vent-hint color: highlighted while venting, dim while stunned.
-  if (player.pressure.venting)
-    ctx.ventHint.style.fill = 0xFFFFFF
-  else if (player.pressure.ventStunTimer > 0)
-    ctx.ventHint.style.fill = 0x4A4F58
-  else ctx.ventHint.style.fill = 0x6FD1FF
+  // Containment-hint color: highlighted while containing, dim while stunned.
+  if (player.instability.containing)
+    ctx.containHint.style.fill = 0xFFFFFF
+  else if (player.instability.containmentStunTimer > 0)
+    ctx.containHint.style.fill = 0x4A4F58
+  else ctx.containHint.style.fill = 0x6FD1FF
 
   // ─── flash overlay ──────────────────────────────────────
   ctx.flashGfx.clear()

@@ -31,7 +31,7 @@ export function createGame(app: Application): GameState {
   return { app, level, player, camera, renderCtx, fx, accumulator: 0 }
 }
 
-// One fixed physics step. Hitstop short-circuits the step so the detonation
+// One fixed physics step. Hitstop short-circuits the step so the fracture
 // visually "lands" — shake and flash keep animating on render cadence
 // regardless. Input edges are latched at the end of the step.
 function fixedUpdate(state: GameState): void {
@@ -43,7 +43,7 @@ function fixedUpdate(state: GameState): void {
 
   if (!state.player.alive) {
     // Automatic respawn on the tick after death — the death tick's visuals
-    // (shake if hazard-killed mid-blast, etc.) already rendered.
+    // (shake if hazard-killed mid-rupture, etc.) already rendered.
     respawn(state.player, state.level)
   }
   else if (respawnPressed()) {

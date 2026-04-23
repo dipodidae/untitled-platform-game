@@ -1,13 +1,13 @@
-import type { BlastResult } from './blast'
+import type { RuptureResult } from './rupture'
 import { CONFIG } from './config'
 import { MAT_STONE } from './materials'
 
-// Central juice bag. All screen-shake / flash / hitstop / particle state
-// lives in one `FxState` object so a single module tick owns timing and
-// the renderer has a single place to read.
+// Central effects state. Hitstop / shake / flash / particle timers live
+// in one `FxState` so a single module owns timing and the renderer reads
+// from one place.
 //
-// Hitstop here is counted in TICKS, not seconds, because the brief spec'd
-// "4 frames of paused physics" — a deterministic integer count at fixed dt.
+// Hitstop is counted in TICKS (not seconds) because the identity brief
+// demands an exact frame count for the fracture recognition beat.
 
 export interface Particle {
   x: number
@@ -63,7 +63,7 @@ export function tickFxRender(fx: FxState, dt: number): void {
 }
 
 // Particles advance at physics cadence so they stay deterministic w.r.t.
-// destruction — they spawn from a detonation, and detonations are physics events.
+// destruction — they spawn from a fracture, and fractures are physics events.
 // Iterates in place: swap dead particles with the tail and shrink length, so the
 // hot path doesn't allocate a fresh array every tick.
 export function tickParticlesPhysics(fx: FxState, dt: number): void {
@@ -84,7 +84,7 @@ export function tickParticlesPhysics(fx: FxState, dt: number): void {
 
 export function triggerShake(fx: FxState, amplitude: number, duration: number): void {
   // Take the louder of what's already playing vs. what was just requested,
-  // so a chained detonation doesn't cut a big shake short.
+  // so a chained fracture doesn't cut a big shake short.
   if (duration > fx.shakeTimer) {
     fx.shakeTimer = duration
     fx.shakeDuration = duration
@@ -101,30 +101,29 @@ export function triggerFlash(fx: FxState, duration: number): void {
   }
 }
 
-// Call the full juice bundle for a detonation. Centralizes the three signals
-// the brief calls out (hitstop, shake, flash) plus a small debris burst.
-export function triggerDetonationFx(fx: FxState, blast: BlastResult): void {
-  fx.hitstopTicks = CONFIG.BLAST_HITSTOP_FRAMES
-  triggerShake(fx, CONFIG.BLAST_SHAKE_AMPLITUDE, CONFIG.BLAST_SHAKE_DURATION)
-  triggerFlash(fx, CONFIG.BLAST_FLASH_DURATION)
+// Full effects bundle for a fracture — hitstop, shake, flash, debris.
+export function triggerFractureFx(fx: FxState, rupture: RuptureResult): void {
+  fx.hitstopTicks = CONFIG.FRACTURE_HITSTOP_FRAMES
+  triggerShake(fx, CONFIG.FRACTURE_SHAKE_AMPLITUDE, CONFIG.FRACTURE_SHAKE_DURATION)
+  triggerFlash(fx, CONFIG.FRACTURE_FLASH_DURATION)
 
-  // Debris particles — color matches the first destroyed material we see so
-  // the burst visually "belongs" to the tile being broken.
+  // Debris color matches the first broken tile so the burst "belongs" to
+  // what shattered.
   let baseColor = 0xFFDD88
-  const firstDestroyed = blast.affectedTiles.find(t => t.destroyed)
+  const firstDestroyed = rupture.affectedTiles.find(t => t.destroyed)
   if (firstDestroyed) {
     baseColor
       = firstDestroyed.prevMat === MAT_STONE ? CONFIG.COLOR_STONE : CONFIG.COLOR_DIRT
   }
-  const n = CONFIG.BLAST_PARTICLES
+  const n = CONFIG.FRACTURE_PARTICLES
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.3
     const speed = 80 + Math.random() * 140
     fx.particles.push({
-      x: blast.center.x,
-      y: blast.center.y,
+      x: rupture.center.x,
+      y: rupture.center.y,
       vx: Math.cos(a) * speed,
-      vy: Math.sin(a) * speed - 40, // a little up-bias so debris arcs
+      vy: Math.sin(a) * speed - 40, // up-bias so debris arcs
       life: 0.35 + Math.random() * 0.25,
       maxLife: 0.6,
       color: baseColor,

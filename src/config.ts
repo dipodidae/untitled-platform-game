@@ -44,45 +44,49 @@ export const CONFIG = {
   FIXED_DT: 1 / 60, // physics step
   MAX_FRAME_DT: 0.25, // guard against tab-stall spiral of death
 
-  // ───────────────────────── PRESSURE ─────────────────────────
-  // Core resource. 0..PRESSURE_MAX. Detonates at PRESSURE_MAX.
-  PRESSURE_MAX: 100,
-  PRESSURE_JUMP: 8, // flat add per jump fired
-  PRESSURE_WALL_PER_SEC: 3, // while pressed into a wall AND moving into it
-  PRESSURE_DASH: 20, // reserved for a future dash action — applied via addPressure hook
-  PRESSURE_LAND_MIN_VY: 150, // below this impact |vy| → 0 gain (soft landings free)
-  PRESSURE_LAND_MAX_GAIN: 15, // gain at MAX_FALL impact (scales linearly between min and max)
-  PRESSURE_RUN_PER_SEC: 2, // gain while on ground at ≥ max run speed
-  PRESSURE_RUN_THRESHOLD: 0.95, // fraction of MAX_RUN that counts as "max speed"
-  PRESSURE_IDLE_BLEED_PER_SEC: 6, // stand still on ground → this much drains per second
-  PRESSURE_IDLE_VX_MAX: 8, // |vx| must be under this to count as "standing still"
-  PRESSURE_VENT_DRAIN_PER_SEC: 40, // active-vent drain rate
-  VENT_STUN: 0.15, // post-vent stun: can't jump or vent again during this window
+  // ───────────────────────── INSTABILITY ─────────────────────────
+  // The thing holding you together is failing. 0..INSTABILITY_MAX. At max
+  // you fracture — cohesion is lost, the world takes the shape of your
+  // rupture.
+  INSTABILITY_MAX: 100,
+  INSTABILITY_JUMP: 8, // flat add per jump fired
+  INSTABILITY_WALL_PER_SEC: 3, // while pressed into a wall AND moving into it
+  INSTABILITY_DASH: 20, // reserved hook for any future one-shot gain
+  INSTABILITY_LAND_MIN_VY: 150, // below this impact |vy| → 0 gain (soft landings free)
+  INSTABILITY_LAND_MAX_GAIN: 15, // gain at MAX_FALL impact (scales linearly between min and max)
+  INSTABILITY_RUN_PER_SEC: 2, // gain while on ground at ≥ max run speed
+  INSTABILITY_RUN_THRESHOLD: 0.95, // fraction of MAX_RUN that counts as "max speed"
+  INSTABILITY_IDLE_BLEED_PER_SEC: 6, // stand still on ground → this much drains per second
+  INSTABILITY_IDLE_VX_MAX: 8, // |vx| must be under this to count as "standing still"
+  INSTABILITY_CONTAIN_DRAIN_PER_SEC: 40, // active containment drain rate
+  CONTAINMENT_STUN: 0.15, // post-containment stun: no jump or re-contain during this window
 
-  // ───────────────────────── DETONATION ─────────────────────────
-  BLAST_BASE_RADIUS: 32, // symmetric radius at zero velocity
-  BLAST_MAJOR_MAX: 56, // long axis at max speed
-  BLAST_MINOR_MIN: 24, // short axis (perpendicular) at max speed
-  BLAST_SPEED_NORM: 260, // |v| at which shape saturates (≈ MAX_RUN + typical fall contribution)
-  BLAST_IMPULSE: 320, // base self-impulse magnitude (px/s). ~4 tiles lift off ground with JUMP_GRAVITY.
-  BLAST_MIN_SPEED_FOR_V_DIR: 40, // |v| below this → use terrain-normal instead of -velocity for impulse direction
-  BLAST_STEEL_BONUS: 180, // extra impulse added away from steel surfaces the blast touches
-  BLAST_IFRAMES: 0.3, // post-detonation invulnerability / pressure-gain freeze
-  BLAST_HITSTOP_FRAMES: 4, // physics paused for this many frames on detonation (at FIXED_DT each)
-  BLAST_SHAKE_AMPLITUDE: 6, // px
-  BLAST_SHAKE_DURATION: 0.25, // seconds
-  BLAST_FLASH_DURATION: 0.18, // seconds of white-over-world flash
-  BLAST_PARTICLES: 16, // spawned on detonation
+  // ───────────────────────── RUPTURE (shape) ─────────────────────
+  RUPTURE_BASE_RADIUS: 32, // symmetric radius at zero velocity
+  RUPTURE_MAJOR_MAX: 56, // long axis at max speed
+  RUPTURE_MINOR_MIN: 24, // short axis (perpendicular) at max speed
+  RUPTURE_SPEED_NORM: 260, // |v| at which shape saturates (≈ MAX_RUN + typical fall contribution)
+  RUPTURE_IMPULSE: 320, // base self-impulse magnitude (px/s). ~4 tiles lift off ground with JUMP_GRAVITY.
+  RUPTURE_MIN_SPEED_FOR_V_DIR: 40, // |v| below this → use terrain-normal instead of -velocity for impulse direction
+  RUPTURE_STEEL_BONUS: 180, // extra impulse added away from hard surfaces the rupture touches
 
-  STONE_HITS: 2, // blast hits before stone breaks
+  // ───────────────────────── FRACTURE (event) ────────────────────
+  FRACTURE_IFRAMES: 0.3, // post-fracture invulnerability / instability-gain freeze
+  FRACTURE_HITSTOP_FRAMES: 4, // physics paused for this many frames on fracture (at FIXED_DT each)
+  FRACTURE_SHAKE_AMPLITUDE: 6, // px
+  FRACTURE_SHAKE_DURATION: 0.25, // seconds
+  FRACTURE_FLASH_DURATION: 0.18, // seconds of white-over-world flash
+  FRACTURE_PARTICLES: 16, // spawned on fracture
+
+  STONE_HITS: 2, // rupture hits before stone breaks
 
   // ───────────────────────── READABILITY ─────────────────────────
-  // Aura: radial glow under the player, tinted by pressure.
+  // Aura: radial glow under the player, tinted by instability.
   AURA_THRESH_COOL: 0.33, // ≤ this → blue
   AURA_THRESH_WARM: 0.66, // ≤ this → yellow
   AURA_THRESH_HOT: 0.9, // ≤ this → orange; above → pulsing red
-  AURA_BASE_RADIUS: 10, // px at 0 pressure
-  AURA_MAX_RADIUS: 22, // px at 100 pressure
+  AURA_BASE_RADIUS: 10, // px at 0 instability
+  AURA_MAX_RADIUS: 22, // px at 100 instability
   AURA_PULSE_MIN_HZ: 3, // red-pulse frequency at 90%
   AURA_PULSE_MAX_HZ: 12, // red-pulse frequency at 100%
   AURA_COLOR_COOL: 0x4AA3FF,
@@ -90,7 +94,7 @@ export const CONFIG = {
   AURA_COLOR_HOT: 0xF08A3C,
   AURA_COLOR_RED: 0xFF3A3A,
 
-  GHOST_PRESSURE_THRESHOLD: 92, // start rendering blast preview at this pressure
+  GHOST_INSTABILITY_THRESHOLD: 92, // start rendering rupture preview at this instability
 
   // UI meter
   METER_X: 8,

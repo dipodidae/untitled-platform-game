@@ -1,30 +1,30 @@
-import type { BlastResult } from './blast'
 import type { FxState } from './fx'
+import type { InstabilityState } from './instability'
+import type { RuptureResult } from './rupture'
 import type { Level } from './world/level'
-import type { PressureState } from './pressure'
-import { performBlast } from './blast'
 import { CONFIG } from './config'
-import { triggerDetonationFx } from './fx'
+import { triggerFractureFx } from './fx'
 import {
+  containHeld,
   jumpPressed,
   jumpReleased,
   leftDown,
   rightDown,
-  ventHeld,
 } from './input'
-import { resetLevel } from './world/level'
+import {
+  createInstabilityState,
+  onFractured,
+  resetInstability,
+  updateInstability,
+} from './instability'
 import {
   moveAndCollideX,
   moveAndCollideY,
   rectOverlapsHazard,
   tryCornerCorrection,
 } from './physics'
-import {
-  createPressureState,
-  onDetonated,
-  resetPressure,
-  updatePressure,
-} from './pressure'
+import { performRupture } from './rupture'
+import { resetLevel } from './world/level'
 
 export interface Player {
   x: number
@@ -38,15 +38,14 @@ export interface Player {
   bufferTimer: number
   facing: 1 | -1
 
-  // ─── new: dynamite-platformer state ───
-  pressure: PressureState
+  instability: InstabilityState
   touchingWall: boolean // written by moveAndCollideX each tick
   jumpedThisTick: boolean // set only on ticks where a jump actually fired
-  iframeTimer: number // post-detonation invulnerability window
+  iframeTimer: number // post-fracture invulnerability window
   alive: boolean // false ⇒ game.ts triggers a respawn at frame end
 
-  // Signalling for the renderer — last detonation's blast, cleared after one frame.
-  lastBlast: BlastResult | null
+  // Renderer handle for the last rupture — cleared once iframes close.
+  lastRupture: RuptureResult | null
 }
 
 export function createPlayer(level: Level): Player {
@@ -61,18 +60,19 @@ export function createPlayer(level: Level): Player {
     coyoteTimer: 0,
     bufferTimer: 0,
     facing: 1,
-    pressure: createPressureState(),
+    instability: createInstabilityState(),
     touchingWall: false,
     jumpedThisTick: false,
     iframeTimer: 0,
     alive: true,
-    lastBlast: null,
+    lastRupture: null,
   }
 }
 
 function handleInput(p: Player, dt: number, locked: boolean): void {
-  // "locked" = vent is active OR post-vent stun. No input-driven movement,
-  // no jump firing. Gravity and current vx decay still apply below.
+  // "locked" = containment is active OR post-containment stun. No
+  // input-driven movement, no jump firing. Gravity + current vx decay
+  // still apply below.
   const inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
   if (inputX !== 0)
     p.facing = inputX === 1 ? 1 : -1
@@ -118,7 +118,7 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   }
 }
 
-// Kill + reset. Destruction is wiped on death per the brief.
+// Kill + reset. The world does not forgive — destruction is wiped on death.
 function die(p: Player, level: Level): void {
   p.alive = false
   p.vx = 0
@@ -141,8 +141,8 @@ export function respawn(p: Player, level: Level): void {
   p.jumpedThisTick = false
   p.iframeTimer = 0
   p.alive = true
-  p.lastBlast = null
-  resetPressure(p.pressure)
+  p.lastRupture = null
+  resetInstability(p.instability)
   resetLevel(level)
 }
 
@@ -150,28 +150,28 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
   if (!p.alive)
     return // respawn handled one tick later by game.ts
 
-  // `lastBlast` is an ephemeral renderer handle. Drop it once the i-frame
-  // window closes — by then the flash/shake/debris have all finished.
-  if (p.lastBlast && p.iframeTimer <= 0)
-    p.lastBlast = null
+  // `lastRupture` is an ephemeral renderer handle. Drop it once the
+  // i-frame window closes — by then flash/shake/debris are all finished.
+  if (p.lastRupture && p.iframeTimer <= 0)
+    p.lastRupture = null
 
-  // ─── deferred detonation ──────────────────────────────────────
-  // Fires at the top of the tick AFTER pressure hit max, so the renderer
-  // got one guaranteed frame to show the ghost preview at peak. Hitstop
-  // is triggered inside triggerDetonationFx — game.ts will skip the next
-  // few ticks based on fx.hitstopTicks.
-  if (p.pressure.detonateQueued) {
+  // ─── deferred fracture ──────────────────────────────────────
+  // Fires at the top of the tick AFTER instability hit max, so the
+  // renderer got one guaranteed frame to show the preview at peak.
+  // Hitstop is triggered inside triggerFractureFx — game.ts skips the
+  // next few ticks based on fx.hitstopTicks.
+  if (p.instability.fractureQueued) {
     const cx = p.x + p.w / 2
     const cy = p.y + p.h / 2
-    const blast = performBlast(level, cx, cy, p.vx, p.vy)
-    p.vx = blast.impulse.x
-    p.vy = blast.impulse.y
-    p.iframeTimer = CONFIG.BLAST_IFRAMES
+    const rupture = performRupture(level, cx, cy, p.vx, p.vy)
+    p.vx = rupture.impulse.x
+    p.vy = rupture.impulse.y
+    p.iframeTimer = CONFIG.FRACTURE_IFRAMES
     p.grounded = false // launch clears ground contact for the next tick
-    p.lastBlast = blast
-    onDetonated(p.pressure)
-    triggerDetonationFx(fx, blast)
-    // Consume the rest of this tick — the blast IS the tick's action.
+    p.lastRupture = rupture
+    onFractured(p.instability)
+    triggerFractureFx(fx, rupture)
+    // Consume the rest of this tick — the rupture IS the tick's action.
     return
   }
 
@@ -185,11 +185,12 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
 
   p.jumpedThisTick = false
 
-  // Vent state: if player is holding vent AND has no stun AND not detonating,
-  // we lock movement this tick. Pressure module still decides the authoritative
-  // state and handles draining; we just need to know up-front to lock input.
+  // Containment state: holding V/Shift with no stun and not fracturing
+  // locks movement this tick. The instability module decides the
+  // authoritative state + draining; we just need to know up-front to
+  // gate input.
   const locked
-    = ventHeld() && p.pressure.ventStunTimer <= 0 && !p.pressure.detonateQueued
+    = containHeld() && p.instability.containmentStunTimer <= 0 && !p.instability.fractureQueued
 
   handleInput(p, dt, locked)
 
@@ -207,8 +208,8 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
   tryCornerCorrection(p, level, dt)
   moveAndCollideY(p, level, dt)
 
-  // Landing impact for pressure (measured at the peak vy before the Y-collide
-  // stopped us). Zero if we weren't actually airborne before this tick.
+  // Landing impact (measured at peak vy before the Y-collide stopped us).
+  // Zero if we weren't actually airborne before this tick.
   const landed = !wasGrounded && p.grounded
   const landedImpactVy = landed ? Math.max(0, prevVy) : 0
 
@@ -223,28 +224,26 @@ export function updatePlayer(p: Player, level: Level, fx: FxState, dt: number): 
     return
   }
 
-  // Fall-out safety net — still die and respawn. Won't normally trigger now
-  // that the floor is bedrock, but useful if you carve too greedily.
+  // Fall-out safety net.
   if (p.y > level.height * CONFIG.TILE_SIZE + 100) {
     die(p, level)
     return
   }
 
   // "Pressed into a wall while moving" — input direction must match the
-  // wall side we just collided with. facing tracks last non-zero inputX, so
-  // if input is live this tick the facing matches the direction we pushed.
+  // wall side we just collided with.
   const inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
   const wallMoving = p.touchingWall && inputX !== 0
 
-  updatePressure(
-    p.pressure,
+  updateInstability(
+    p.instability,
     {
       grounded: p.grounded,
       vxAbs: Math.abs(p.vx),
       jumpedThisTick: p.jumpedThisTick,
       landedImpactVy,
       touchingWallMoving: wallMoving,
-      ventHeld: ventHeld(),
+      containHeld: containHeld(),
       iframes: p.iframeTimer > 0,
     },
     dt,

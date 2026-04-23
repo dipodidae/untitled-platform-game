@@ -1,7 +1,7 @@
 // Material / tile table.
 //
 // The tilemap stores a material id per cell (not just solid/empty). All
-// terrain questions — "is it solid?", "can a blast break it?", "does it
+// terrain questions — "is it solid?", "can a rupture break it?", "does it
 // kill on contact?" — route through this module so there's exactly one
 // source of truth for per-material behavior.
 //
@@ -28,12 +28,12 @@ export function isSolid(mat: number): boolean {
   return mat === MAT_DIRT || mat === MAT_STONE || mat === MAT_STEEL
 }
 
-// Can a blast remove this tile (given enough hits)?
+// Can a rupture remove this tile (given enough hits)?
 export function isDestructible(mat: number): boolean {
   return mat === MAT_DIRT || mat === MAT_STONE
 }
 
-// Does the blast reflect away from this material?
+// Does a rupture reflect away from this material?
 export function isReflective(mat: number): boolean {
   return mat === MAT_STEEL
 }
