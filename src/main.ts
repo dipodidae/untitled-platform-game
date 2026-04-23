@@ -39,6 +39,10 @@ async function main(): Promise<void> {
   initInput()
   const state = createGame(app)
   startLoop(state)
+
+  // Expose game state for the smoke test. Harmless in prod; lets the
+  // CI verify player motion without resorting to screenshot heuristics.
+  ;(window as unknown as { __game: unknown }).__game = state
 }
 
 main().catch((err: unknown) => {

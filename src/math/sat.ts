@@ -65,13 +65,16 @@ function overlapOnAxis(
   const b = projectPolygon(poly, ax, ay)
   if (a.max < b.min || b.max < a.min)
     return null
+  // `left`  = magnitude of the AABB-displacement in the +axis direction that
+  //           separates (pushes AABB until a.min > b.max).
+  // `right` = magnitude of the -axis displacement that separates (pushes
+  //           AABB until a.max < b.min).
+  // The smaller is the cheaper resolution; its direction is the normal.
   const left = b.max - a.min
   const right = a.max - b.min
-  // Choose smaller overlap and remember whether the axis must be flipped so
-  // the final normal points polygon→AABB.
   if (left < right)
-    return { depth: left, flip: true }
-  return { depth: right, flip: false }
+    return { depth: left, flip: false } // push along +axis; keep sign
+  return { depth: right, flip: true } // push along -axis; caller negates
 }
 
 // SAT vs convex polygon. For a CONVEX poly the only axes we need are:

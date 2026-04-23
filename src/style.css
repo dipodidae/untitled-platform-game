@@ -2,11 +2,12 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: #0b0b14;
+  /* matches PALETTE.skyTop so letterboxing blends with the game's sky */
+  background: #15161e;
   height: 100%;
   overflow: hidden;
   font-family: system-ui, sans-serif;
-  color: #cbd0dc;
+  color: #8a8690;
 }
 
 body {

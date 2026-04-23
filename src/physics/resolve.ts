@@ -180,7 +180,7 @@ export function moveAndCollide(
   let gny = 0
 
   for (let iter = 0; iter < MAX_MTV_ITERS; iter++) {
-    let bestDepth = 0
+    let bestDepth = -1
     let bestNx = 0
     let bestNy = 0
     let found = false
@@ -195,7 +195,11 @@ export function moveAndCollide(
           continue
         if (c.oneWay && !oneWayAllowsContact(p, prevY, hit.normal))
           continue
-        if (hit.depth > bestDepth) {
+        // Always consider any hit — including depth=0 contact.
+        // Without this, a player at rest exactly on top of the floor
+        // (common post-MTV steady state) would not register grounded,
+        // and jumps would silently fail.
+        if (!found || hit.depth > bestDepth) {
           bestDepth = hit.depth
           bestNx = hit.normal.x
           bestNy = hit.normal.y
@@ -206,15 +210,7 @@ export function moveAndCollide(
     if (!found)
       break
 
-    p.x += bestNx * bestDepth
-    p.y += bestNy * bestDepth
-
-    const vn = p.vx * bestNx + p.vy * bestNy
-    if (vn < 0) {
-      p.vx -= bestNx * vn
-      p.vy -= bestNy * vn
-    }
-
+    // Register contact flags even for depth=0 "touching" contacts.
     if (bestNy < GROUND_NORMAL_Y) {
       grounded = true
       if (bestNy < gny) {
@@ -224,6 +220,19 @@ export function moveAndCollide(
     }
     if (Math.abs(bestNx) > WALL_NORMAL_X)
       touchingWall = true
+
+    // Nothing to displace — contact is registered, iteration done.
+    if (bestDepth <= 0.001)
+      break
+
+    p.x += bestNx * bestDepth
+    p.y += bestNy * bestDepth
+
+    const vn = p.vx * bestNx + p.vy * bestNy
+    if (vn < 0) {
+      p.vx -= bestNx * vn
+      p.vy -= bestNy * vn
+    }
   }
 
   // Soft contact damping: if any touched collider this tick was SOFT,
