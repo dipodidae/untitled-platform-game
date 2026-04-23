@@ -3,7 +3,7 @@ import type { InstabilityState } from './instability'
 import type { Vec2 } from './math/vec2'
 import type { BroadphaseGrid } from './physics/broadphase'
 import type { RuptureResult } from './rupture'
-import type { Level } from './world/level'
+import type { Level, MaterialName } from './world/level'
 import { CONFIG } from './config'
 import { triggerFractureFx } from './fx'
 import {
@@ -46,6 +46,8 @@ export interface Player {
   // contact; slope projection + stick-to-ground both read it. null while
   // airborne.
   groundNormal: Vec2 | null
+  groundMaterial: MaterialName | null // material of the collider we're standing on
+  resonantChain: number // consecutive resonant contacts without touching other ground
   dropThroughTimer: number // seconds remaining where one-way platforms are ignored
 
   // Renderer handle for the last rupture — cleared once iframes close.
@@ -71,6 +73,8 @@ export function createPlayer(level: Level): Player {
     alive: true,
     lastRupture: null,
     groundNormal: null,
+    groundMaterial: null,
+    resonantChain: 0,
     dropThroughTimer: 0,
   }
 }
@@ -127,7 +131,16 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   const canJump = !locked && (p.grounded || p.coyoteTimer > 0)
   let firedJump = false
   if (p.bufferTimer > 0 && canJump) {
-    p.vy = -CONFIG.JUMP_VELOCITY
+    let jumpV = CONFIG.JUMP_VELOCITY
+
+    // Resonant momentum inheritance: jumping off resonant gives a boost.
+    // Chain bonus stacks for consecutive resonant contacts.
+    if (p.groundMaterial === 'resonant') {
+      const chainBonus = Math.max(0, p.resonantChain - 1) * CONFIG.RESONANT_CHAIN_JUMP_BONUS
+      jumpV *= CONFIG.RESONANT_JUMP_BOOST + chainBonus
+    }
+
+    p.vy = -jumpV
     p.bufferTimer = 0
     p.coyoteTimer = 0
     p.grounded = false
@@ -167,6 +180,8 @@ export function respawn(p: Player, level: Level): void {
   p.alive = true
   p.lastRupture = null
   p.groundNormal = null
+  p.groundMaterial = null
+  p.resonantChain = 0
   p.dropThroughTimer = 0
   resetInstability(p.instability)
   resetLevel(level)

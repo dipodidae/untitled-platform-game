@@ -102,6 +102,7 @@ export const CONFIG = {
 
   // Material behavior.
   BONE_HITS: 3, // rupture hits before bone fully collapses
+  BONE_FRAGILE_COLLAPSE_TIME: 1.8, // seconds of cumulative contact before collapse
   GLASS_SHARD_COUNT: 5, // shards spawned per glass break
   GLASS_SHARD_TTL: 6, // seconds a shard persists
   GLASS_SHARD_SPREAD: 18, // px — shard placement scatter from break center
@@ -110,6 +111,8 @@ export const CONFIG = {
   SOFT_RUPTURE_SCALE: 0.55, // rupture radius multiplier when clipping soft (absorbs some)
   RESONANT_IMPULSE_BONUS: 300, // base impulse added away from resonant (replaces steel bonus)
   RESONANT_CHAIN_MULT: 0.35, // +this × (chain length − 1) multiplicative bonus
+  RESONANT_JUMP_BOOST: 1.25, // jump velocity multiplier when launching off resonant ground
+  RESONANT_CHAIN_JUMP_BONUS: 0.10, // additional multiplier per chain link (stacks)
 
   // ───────────────────────── READABILITY ─────────────────────────
   // Aura: radial glow under the player, tinted by instability.

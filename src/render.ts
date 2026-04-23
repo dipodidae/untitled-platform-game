@@ -39,6 +39,7 @@ export interface RenderContext {
   readonly containArrowGfx: Graphics
   readonly ruptureRingGfx: Graphics
   readonly particlesGfx: Graphics
+  readonly deathPlaneGfx: Graphics
   readonly flashGfx: Graphics
   readonly dreadGfx: Graphics
   readonly vignetteGfx: Graphics
@@ -52,6 +53,10 @@ export interface RenderContext {
   wasGrounded: boolean
   ruptureFrame: number  // -1 = none, 0+ = frames since rupture
   respawnFrame: number  // -1 = none, 0+ = frames since respawn
+  // Hint fadeout: once the player demonstrates each action the hints
+  // become redundant. Fade them out over ~2 seconds.
+  hintSeen: { moved: boolean, jumped: boolean, contained: boolean }
+  hintAlpha: number
 }
 
 export function buildScene(app: Application, level: Level): RenderContext {
@@ -95,6 +100,11 @@ export function buildScene(app: Application, level: Level): RenderContext {
 
   const particlesGfx = new Graphics()
   worldContainer.addChild(particlesGfx)
+
+  // Death-plane indicator — faint static dots along the bottom of the world
+  // so the player can distinguish "lower floor" from "fall-out void."
+  const deathPlaneGfx = new Graphics()
+  worldContainer.addChild(deathPlaneGfx)
 
   const previewGfx = new Graphics()
   worldContainer.addChild(previewGfx)
@@ -179,6 +189,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     containArrowGfx,
     ruptureRingGfx,
     particlesGfx,
+    deathPlaneGfx,
     flashGfx,
     dreadGfx,
     vignetteGfx,
@@ -191,7 +202,16 @@ export function buildScene(app: Application, level: Level): RenderContext {
     wasGrounded: false,
     ruptureFrame: -1,
     respawnFrame: -1,
+    hintSeen: { moved: false, jumped: false, contained: false },
+    hintAlpha: 0.4,
   }
+}
+
+// Remove scene containers from stage so a fresh buildScene can rebuild them.
+export function teardownScene(ctx: RenderContext): void {
+  ctx.bgContainer.destroy({ children: true })
+  ctx.worldContainer.destroy({ children: true })
+  ctx.uiContainer.destroy({ children: true })
 }
 
 // Instability-driven aura color. Single family (cool → warm → hot), no
@@ -272,6 +292,20 @@ export function render(
   // Always redraw — glass flicker / bone jitter are per-frame effects
   drawColliders(ctx.worldGfx, level)
   ctx.worldCacheKey = hashColliders(level)
+
+  // Death-plane static — faint dots along the world bottom edge so the
+  // player can see where the void begins. Redraws each frame for the
+  // flickering-static feel.
+  ctx.deathPlaneGfx.clear()
+  const dpY = level.worldHeight
+  const dpStep = 4
+  for (let x = Math.floor(camera.x / dpStep) * dpStep; x < camera.x + CONFIG.LOGICAL_WIDTH + dpStep; x += dpStep) {
+    if (Math.random() < 0.35) {
+      const px = x + (Math.random() - 0.5) * 2
+      ctx.deathPlaneGfx.rect(px, dpY + Math.random() * 6, 1, 1)
+        .fill({ color: 0x602020, alpha: 0.2 + Math.random() * 0.15 })
+    }
+  }
 
   // Wind advances at render cadence — purely aesthetic.
   tickWind(ctx.wind, dt, level)
@@ -480,6 +514,22 @@ export function render(
       .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, 1)
       .fill({ color: meterCol })
   }
+
+  // Hint fadeout — track demonstrated actions, then fade to zero.
+  if (Math.abs(player.vx) > 10)
+    ctx.hintSeen.moved = true
+  if (!player.grounded && player.vy < -1)
+    ctx.hintSeen.jumped = true
+  if (player.instability.containing)
+    ctx.hintSeen.contained = true
+
+  const allSeen = ctx.hintSeen.moved && ctx.hintSeen.jumped && ctx.hintSeen.contained
+  const hintTarget = allSeen ? 0 : 0.4
+  ctx.hintAlpha += (hintTarget - ctx.hintAlpha) * Math.min(1, dt * 0.8)
+  if (ctx.hintAlpha < 0.005)
+    ctx.hintAlpha = 0
+  ctx.hint.alpha = ctx.hintAlpha
+  ctx.containHint.alpha = ctx.hintAlpha
 
   // Containment-hint tint.
   if (player.instability.containing)

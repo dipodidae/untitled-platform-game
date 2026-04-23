@@ -178,22 +178,26 @@ export function moveAndCollide(
   let touchingWall = false
   let gnx = 0
   let gny = 0
+  let groundCollider: Collider | null = null
 
   for (let iter = 0; iter < MAX_MTV_ITERS; iter++) {
     let bestDepth = -1
     let bestNx = 0
     let bestNy = 0
+    let bestCollider: Collider | null = null
     let found = false
 
     const box = playerBox(p)
     for (const c of physical) {
       if (!c.alive)
         continue
+      // Glass priming: touched glass acts as one-way (passable from below).
+      const effectiveOneWay = c.oneWay || (c.material === 'glass' && c.touched)
       for (const piece of c.pieces) {
         const hit = satAabbPoly(box, piece)
         if (!hit)
           continue
-        if (c.oneWay && !oneWayAllowsContact(p, prevY, hit.normal))
+        if (effectiveOneWay && !oneWayAllowsContact(p, prevY, hit.normal))
           continue
         // Always consider any hit — including depth=0 contact.
         // Without this, a player at rest exactly on top of the floor
@@ -203,6 +207,7 @@ export function moveAndCollide(
           bestDepth = hit.depth
           bestNx = hit.normal.x
           bestNy = hit.normal.y
+          bestCollider = c
           found = true
         }
       }
@@ -213,6 +218,7 @@ export function moveAndCollide(
     // Register contact flags even for depth=0 "touching" contacts.
     if (bestNy < GROUND_NORMAL_Y) {
       grounded = true
+      groundCollider = bestCollider
       if (bestNy < gny) {
         gnx = bestNx
         gny = bestNy
@@ -252,6 +258,54 @@ export function moveAndCollide(
     const factor = Math.pow(CONFIG.SOFT_DAMPING_PER_SEC, dt)
     p.vx *= factor
     p.vy *= factor
+  }
+
+  // Bone-fragile collapse: increment contactTime for any bone_fragile
+  // collider the player is standing on this tick. Once the timer fills,
+  // the collider dies. Timer persists — leaving and returning continues
+  // the countdown.
+  if (grounded) {
+    for (const c of physical) {
+      if (!c.alive || c.material !== 'bone_fragile')
+        continue
+      if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
+        || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1)
+        continue
+      for (const piece of c.pieces) {
+        const hit = satAabbPoly(postBox, piece)
+        if (hit && hit.normal.y < GROUND_NORMAL_Y) {
+          c.contactTime += dt
+          if (c.contactTime >= CONFIG.BONE_FRAGILE_COLLAPSE_TIME)
+            c.alive = false
+          break
+        }
+      }
+    }
+  }
+
+  // Ground material tracking + glass priming + resonant chain.
+  if (grounded && groundCollider) {
+    p.groundMaterial = groundCollider.material
+
+    // Glass priming: first ground contact marks the glass as touched.
+    // On subsequent approaches from below it acts as one-way.
+    if (groundCollider.material === 'glass' && !groundCollider.touched)
+      groundCollider.touched = true
+
+    // Resonant chain: consecutive resonant contacts stack the boost.
+    if (groundCollider.material === 'resonant') {
+      if (!p.grounded)
+        p.resonantChain++
+    }
+    else {
+      p.resonantChain = 0
+    }
+  }
+  else {
+    // Airborne — keep groundMaterial from last frame for coyote-time
+    // jump boost, but don't reset chain until we land on something else.
+    if (!grounded && !p.grounded)
+      p.groundMaterial = null
   }
 
   p.grounded = grounded

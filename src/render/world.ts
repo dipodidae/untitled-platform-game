@@ -4,6 +4,7 @@
 
 import type { Graphics } from 'pixi.js'
 import type { Collider, Level } from '../world/level'
+import { CONFIG } from '../config'
 import { activePalette } from './palette'
 
 // ─── shared instability state, written once per frame by render.ts ───
@@ -122,9 +123,10 @@ function drawGlass(g: Graphics, c: Collider): void {
   const m = activePalette().materials.glass
   const verts = transformVerts(c.vertices)
 
-  // 40% opacity fill
+  // Primed glass (touched): dimmer fill to indicate one-way state.
+  const fillAlpha = c.touched ? 0.22 : 0.4
   pathPolygon(g, verts)
-  g.fill({ color: m.fill, alpha: 0.4 })
+  g.fill({ color: m.fill, alpha: fillAlpha })
 
   // Bright 1px edge lines + rim ghost offset + random flicker
   const n = verts.length
@@ -296,6 +298,57 @@ function drawSoft(g: Graphics, c: Collider): void {
   }
 }
 
+// ─── bone_fragile ─────────────────────────────────────────────────
+function drawBoneFragile(g: Graphics, c: Collider): void {
+  const m = activePalette().materials.bone_fragile
+  const ratio = Math.min(1, c.contactTime / CONFIG.BONE_FRAGILE_COLLAPSE_TIME)
+
+  // Shake increases with timer ratio
+  const shakeAmp = ratio > 0.5 ? (ratio - 0.5) * 3 : 0
+  const shakeX = shakeAmp > 0 ? (Math.random() - 0.5) * shakeAmp : 0
+  const shakeY = shakeAmp > 0 ? (Math.random() - 0.5) * shakeAmp * 0.5 : 0
+
+  const rawVerts = transformVerts(c.vertices)
+  const verts = rawVerts.map(v => ({ x: v.x + shakeX, y: v.y + shakeY }))
+
+  // Darken fill as timer progresses
+  const fillAlpha = 1.0 - ratio * 0.3
+  pathPolygon(g, verts)
+  g.fill({ color: m.fill, alpha: fillAlpha })
+
+  // Edge lighting (same as bone)
+  const n = verts.length
+  for (let i = 0; i < n; i++) {
+    const p = verts[i]!
+    const q = verts[(i + 1) % n]!
+    const nrm = edgeNormal(p.x, p.y, q.x, q.y)
+    if (!nrm)
+      continue
+    const lit = edgeLit(nrm.nx, nrm.ny)
+    g.moveTo(p.x, p.y).lineTo(q.x, q.y)
+    g.stroke({ width: 1, color: lit ? m.edge : m.shadow, alpha: (lit ? 0.9 : 0.5) * fillAlpha })
+  }
+
+  // Crack scribbles scale with timer
+  const cracks = Math.floor(ratio * 4)
+  if (cracks > 0) {
+    const w = c.maxX - c.minX
+    const h = c.maxY - c.minY
+    if (w >= 6 && h >= 6) {
+      const count = cracks * 3
+      for (let i = 0; i < count; i++) {
+        const seed = idHash(c.id, i + 500)
+        const x0 = c.minX + 2 + ((seed >>> 0) % Math.max(1, Math.floor(w - 4))) + shakeX
+        const y0 = c.minY + 2 + ((seed >>> 8) % Math.max(1, Math.floor(h - 4))) + shakeY
+        const x1 = x0 + ((seed >>> 16) % 7) - 3
+        const y1 = y0 + ((seed >>> 24) % 7) - 3
+        g.moveTo(x0, y0).lineTo(x1, y1)
+        g.stroke({ width: 1, color: m.shadow, alpha: 0.6 + ratio * 0.3 })
+      }
+    }
+  }
+}
+
 // ─── draw dispatch ─────────────────────────────────────────────────
 function drawCollider(g: Graphics, c: Collider): void {
   if (!c.alive)
@@ -304,6 +357,7 @@ function drawCollider(g: Graphics, c: Collider): void {
     case 'shard': drawShard(g, c); return
     case 'glass': drawGlass(g, c); return
     case 'bone': drawBone(g, c); return
+    case 'bone_fragile': drawBoneFragile(g, c); return
     case 'resonant': drawResonant(g, c); return
     case 'soft': drawSoft(g, c); return
   }
@@ -332,7 +386,7 @@ export function getFrameCount(): number {
 export function hashColliders(level: Level): number {
   let h = 0x811C9DC5
   for (const c of level.colliders) {
-    let v = c.vertices.length * 31 + c.damage * 7 + (c.alive ? 1 : 0)
+    let v = c.vertices.length * 31 + c.damage * 7 + (c.alive ? 1 : 0) + Math.floor(c.contactTime * 5) + (c.touched ? 13 : 0)
     v = (v * 31 + c.id) >>> 0
     if (c.expiresAt !== null)
       v ^= Math.floor(c.expiresAt * 10) >>> 0

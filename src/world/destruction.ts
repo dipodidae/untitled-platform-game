@@ -1,11 +1,12 @@
 // Rupture vs. polygon world — per-material response.
 //
-//   glass    → 1 hit, carves like dirt, spawns shard colliders at break
-//   bone     → BONE_HITS-1 cracked states before carving; damage survives
-//              across ruptures (primed earlier, fails later)
-//   resonant → indestructible; contributes to reflection with chain bonus
-//   soft     → destructible but clip radius scaled down (absorbs some)
-//   shard    → runtime-only; lethal on contact, not touched by rupture
+//   glass        → 1 hit, carves like dirt, spawns shard colliders at break
+//   bone         → BONE_HITS-1 cracked states before carving; damage survives
+//                  across ruptures (primed earlier, fails later)
+//   bone_fragile → same as bone during rupture (also has timer-based collapse)
+//   resonant     → indestructible; contributes to reflection with chain bonus
+//   soft         → destructible but clip radius scaled down (absorbs some)
+//   shard        → runtime-only; lethal on contact, not touched by rupture
 //
 // Shards are spawned here — fresh hazard colliders with a TTL.
 
@@ -134,14 +135,14 @@ export function applyRupture(
       continue
     }
 
-    if (c.material === 'bone' && c.damage < CONFIG.BONE_HITS - 1) {
+    if ((c.material === 'bone' || c.material === 'bone_fragile') && c.damage < CONFIG.BONE_HITS - 1) {
       // Mark and leave standing — damage persists across ruptures.
       c.damage++
       const cen = centroidXY(c)
       terX += cen.x - cx
       terY += cen.y - cy
       terCount++
-      affected.push({ id: c.id, prevMaterial: 'bone', destroyed: false, cracked: true })
+      affected.push({ id: c.id, prevMaterial: c.material, destroyed: false, cracked: true })
       next.push(c)
       continue
     }

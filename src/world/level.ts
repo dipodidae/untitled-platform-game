@@ -30,20 +30,23 @@ import { bounds, decompose } from '../math/polygon'
 // ─── materials ───────────────────────────────────────────────────────────
 // Four authored materials, each producing its own kind of story:
 //
-//   glass     — breaks on a single rupture. Leaves SHARDS behind that kill
-//               on contact. Overzealous destruction becomes its own trap.
-//   bone      — old, structural. Damage accumulates across ruptures
-//               (BONE_HITS before it fully collapses). The thing you
-//               primed earlier and forgot about.
-//   resonant  — indestructible. Rupture impulse compounds when you touch
-//               a chain of it — launches you farther than you meant.
-//   soft      — solid but yielding. Dampens motion on contact; ruptures
-//               carve it at a reduced radius. Safe, but costly: you
-//               cannot keep your momentum here.
+//   glass        — breaks on a single rupture. Leaves SHARDS behind that kill
+//                  on contact. Overzealous destruction becomes its own trap.
+//   bone         — old, structural. Damage accumulates across ruptures
+//                  (BONE_HITS before it fully collapses). The thing you
+//                  primed earlier and forgot about.
+//   bone_fragile — aging bone. Collapses after BONE_FRAGILE_COLLAPSE_TIME
+//                  seconds of cumulative player contact. Timer persists
+//                  across touches — once primed, it's counting down.
+//   resonant     — indestructible. Rupture impulse compounds when you touch
+//                  a chain of it — launches you farther than you meant.
+//   soft         — solid but yielding. Dampens motion on contact; ruptures
+//                  carve it at a reduced radius. Safe, but costly: you
+//                  cannot keep your momentum here.
 //
 // `shard` is a runtime-only material spawned from broken glass. Never
 // authored in a level file.
-export type MaterialName = 'glass' | 'bone' | 'resonant' | 'soft' | 'shard'
+export type MaterialName = 'glass' | 'bone' | 'bone_fragile' | 'resonant' | 'soft' | 'shard'
 
 export interface Collider {
   id: number
@@ -56,6 +59,8 @@ export interface Collider {
   maxX: number
   maxY: number
   damage: number // hit counter; consulted by bone (via BONE_HITS)
+  contactTime: number // seconds player has stood on this; consulted by bone_fragile
+  touched: boolean // true after first player ground contact; glass uses this for priming
   alive: boolean
   // Runtime-ephemeral colliders (shards). When set, collider is removed
   // once game time passes this value. null for authored colliders.
@@ -118,6 +123,8 @@ export function buildCollider(
     maxX: 0,
     maxY: 0,
     damage: 0,
+    contactTime: 0,
+    touched: false,
     alive: true,
     expiresAt,
   }
@@ -169,6 +176,7 @@ export function tilemapToPolygons(rows: readonly string[]): Collider[] {
     'S': 'resonant',
     'x': 'shard',
     'X': 'shard',
+    'f': 'bone_fragile',
   }
   const h = rows.length
   const w = rows[0]?.length ?? 0
@@ -279,6 +287,8 @@ export function resetLevel(level: Level): void {
       existing.material = p.material
       existing.oneWay = p.oneWay
       existing.damage = 0
+      existing.contactTime = 0
+      existing.touched = false
       existing.alive = true
       refreshCollider(existing)
       fresh.push(existing)

@@ -65,6 +65,13 @@ export const PALETTE: Palette = {
       shadow: 0x2A1E10,
       highlight: 0xF0E8D0,
     },
+    // Yellowed, aging bone. Reads as "this won't last."
+    bone_fragile: {
+      fill: 0xB8A878,
+      edge: 0xD0C090,
+      shadow: 0x2A1E10,
+      highlight: 0xE0D8A0,
+    },
     // Deep cold navy — hums even when still.
     resonant: {
       fill: 0x1A1E3A,
