@@ -1,33 +1,25 @@
 import type { Application } from 'pixi.js'
 import type { Camera } from './camera'
 import type { FxState } from './fx'
-import type { Level } from './level'
+import type { Level } from './world/level'
 import type { Player } from './player'
 import { Container, Graphics, Text } from 'pixi.js'
 import { computeBlastShape } from './blast'
 import { CONFIG } from './config'
 import { flashAlpha, shakeOffset } from './fx'
-import {
-  MAT_DIRT,
-  MAT_EMPTY,
-  MAT_HAZARD,
-  MAT_STEEL,
-  MAT_STONE,
-} from './materials'
-import { tileAt } from './physics'
+import { drawColliders, hashColliders } from './render/world'
 
 // The scene graph.
-//   worldContainer  → camera-panned; tiles, player, aura, particles, ghost
+//   worldContainer  → camera-panned; colliders, player, aura, particles, ghost
 //   uiContainer     → screen-fixed; meter, hints, flash overlay
 //
-// Re-draws of the tile layer happen when the tilemap is "dirty" (destruction),
-// not every frame. We detect dirt by checksumming the tile+damage grids and
-// only rebuild when the checksum changes — cheap and keeps the hot path tight.
+// Collider Graphics rebuilds only when the collider list mutates (destruction).
+// We detect change via hashColliders; see src/render/world.ts.
 export interface RenderContext {
   readonly app: Application
   readonly worldContainer: Container
   readonly uiContainer: Container
-  readonly tilesGfx: Graphics
+  readonly worldGfx: Graphics
   readonly auraGfx: Graphics
   readonly playerGfx: Graphics
   readonly eyeGfx: Graphics
@@ -41,8 +33,8 @@ export interface RenderContext {
   readonly hint: Text
   readonly ventHint: Text
   readonly matLegend: Text
-  tileCacheKey: number // last tile-grid hash we drew
-  time: number // accumulated render time for pulse / procedural effects
+  worldCacheKey: number
+  time: number
 }
 
 export function buildScene(app: Application, level: Level): RenderContext {
@@ -51,9 +43,9 @@ export function buildScene(app: Application, level: Level): RenderContext {
   app.stage.addChild(worldContainer)
   app.stage.addChild(uiContainer)
 
-  const tilesGfx = new Graphics()
-  drawTiles(tilesGfx, level)
-  worldContainer.addChild(tilesGfx)
+  const worldGfx = new Graphics()
+  drawColliders(worldGfx, level)
+  worldContainer.addChild(worldGfx)
 
   // Aura under the player — added first so it draws behind the player AABB.
   const auraGfx = new Graphics()
@@ -125,7 +117,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     app,
     worldContainer,
     uiContainer,
-    tilesGfx,
+    worldGfx,
     auraGfx,
     playerGfx,
     eyeGfx,
@@ -139,80 +131,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
     hint,
     ventHint,
     matLegend,
-    tileCacheKey: hashTiles(level),
+    worldCacheKey: hashColliders(level),
     time: 0,
-  }
-}
-
-// Cheap mixing-hash of (material, damage) so we can detect destruction.
-function hashTiles(level: Level): number {
-  let h = 0x811C9DC5 // FNV-ish
-  for (let y = 0; y < level.height; y++) {
-    const tr = level.tiles[y]
-    const dr = level.damage[y]
-    if (!tr || !dr)
-      continue
-    for (let x = 0; x < level.width; x++) {
-      const v = ((tr[x] ?? 0) << 3) | (dr[x] ?? 0)
-      h ^= v
-      h = Math.imul(h, 0x01000193) >>> 0
-    }
-  }
-  return h
-}
-
-function drawTiles(g: Graphics, level: Level): void {
-  g.clear()
-  const TS = CONFIG.TILE_SIZE
-  for (let ty = 0; ty < level.height; ty++) {
-    for (let tx = 0; tx < level.width; tx++) {
-      const mat = tileAt(level, tx, ty)
-      if (mat === MAT_EMPTY)
-        continue
-      const x = tx * TS
-      const y = ty * TS
-      const aboveIsEmpty = tileAt(level, tx, ty - 1) === MAT_EMPTY
-
-      if (mat === MAT_DIRT) {
-        g.rect(x, y, TS, TS).fill(CONFIG.COLOR_DIRT)
-        if (aboveIsEmpty)
-          g.rect(x, y, TS, 2).fill(CONFIG.COLOR_DIRT_TOP)
-      }
-      else if (mat === MAT_STONE) {
-        const dmg = level.damage[ty]?.[tx] ?? 0
-        const body = dmg > 0 ? CONFIG.COLOR_STONE_CRACKED : CONFIG.COLOR_STONE
-        g.rect(x, y, TS, TS).fill(body)
-        if (aboveIsEmpty)
-          g.rect(x, y, TS, 2).fill(CONFIG.COLOR_STONE_TOP)
-        if (dmg > 0) {
-          // Hand-drawn cracks so damaged stone reads distinctly at a glance.
-          g.rect(x + 3, y + 3, 2, 6).fill(CONFIG.COLOR_STONE_CRACK)
-          g.rect(x + 3, y + 9, 8, 2).fill(CONFIG.COLOR_STONE_CRACK)
-          g.rect(x + 9, y + 5, 2, 4).fill(CONFIG.COLOR_STONE_CRACK)
-        }
-      }
-      else if (mat === MAT_STEEL) {
-        g.rect(x, y, TS, TS).fill(CONFIG.COLOR_STEEL)
-        if (aboveIsEmpty)
-          g.rect(x, y, TS, 2).fill(CONFIG.COLOR_STEEL_TOP)
-        // Rivet dots — telegraph "this one reflects" with a distinct texture.
-        g.rect(x + 3, y + 3, 2, 2).fill(CONFIG.COLOR_STEEL_TOP)
-        g.rect(x + TS - 5, y + 3, 2, 2).fill(CONFIG.COLOR_STEEL_TOP)
-        g.rect(x + 3, y + TS - 5, 2, 2).fill(CONFIG.COLOR_STEEL_TOP)
-        g.rect(x + TS - 5, y + TS - 5, 2, 2).fill(CONFIG.COLOR_STEEL_TOP)
-      }
-      else if (mat === MAT_HAZARD) {
-        // Spike glyph — triangles along the top edge. Kept abstract (we're
-        // using Graphics), but reads as "don't touch".
-        g.rect(x, y + TS - 4, TS, 4).fill(CONFIG.COLOR_HAZARD)
-        for (let i = 0; i < 3; i++) {
-          const sx = x + 1 + i * 5
-          g.poly([sx, y + TS - 4, sx + 2, y + 2, sx + 4, y + TS - 4]).fill(
-            CONFIG.COLOR_HAZARD_SPIKE,
-          )
-        }
-      }
-    }
   }
 }
 
@@ -256,11 +176,11 @@ export function render(
 ): void {
   ctx.time += dt
 
-  // Rebuild tile Graphics only when the tilemap actually changed.
-  const key = hashTiles(level)
-  if (key !== ctx.tileCacheKey) {
-    drawTiles(ctx.tilesGfx, level)
-    ctx.tileCacheKey = key
+  // Rebuild world Graphics only when a collider list actually changed.
+  const key = hashColliders(level)
+  if (key !== ctx.worldCacheKey) {
+    drawColliders(ctx.worldGfx, level)
+    ctx.worldCacheKey = key
   }
 
   // Apply camera + shake in one go.

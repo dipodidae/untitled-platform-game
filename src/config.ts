@@ -114,6 +114,11 @@ export const CONFIG = {
   COLOR_STEEL_TOP: 0xC8D2E0,
   COLOR_HAZARD: 0xD8444E,
   COLOR_HAZARD_SPIKE: 0xF09098,
+
+  // ───────────────────────── ART DIRECTION ─────────────────────────
+  // Single knob for the whole look — swaps material + parallax palettes.
+  // See src/render/palette.ts for preset definitions.
+  PALETTE_PRESET: 'dusk' as 'dusk' | 'dawn',
 } as const
 
 export type Config = typeof CONFIG

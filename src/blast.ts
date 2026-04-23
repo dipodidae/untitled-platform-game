@@ -1,4 +1,4 @@
-import type { Level } from './level'
+import type { Level } from './world/level'
 import type { MaterialId } from './materials'
 import { CONFIG } from './config'
 import {

@@ -1,4 +1,4 @@
-import type { Level } from './level'
+import type { Level } from './world/level'
 import type { Player } from './player'
 import { CONFIG } from './config'
 

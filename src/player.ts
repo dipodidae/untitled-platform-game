@@ -1,6 +1,6 @@
 import type { BlastResult } from './blast'
 import type { FxState } from './fx'
-import type { Level } from './level'
+import type { Level } from './world/level'
 import type { PressureState } from './pressure'
 import { performBlast } from './blast'
 import { CONFIG } from './config'
@@ -12,7 +12,7 @@ import {
   rightDown,
   ventHeld,
 } from './input'
-import { resetLevel } from './level'
+import { resetLevel } from './world/level'
 import {
   moveAndCollideX,
   moveAndCollideY,
