@@ -1,0 +1,645 @@
+// Procedural player renderer for FAULTLINE.
+// Draws a warm, semi-coherent pixel mass — no sprites, no outlines.
+// Everything is PixiJS v8 Graphics calls each frame.
+
+import type { Graphics } from 'pixi.js'
+
+// ─── public interface ────────────────────────────────────────────────
+export interface PlayerRenderState {
+  vx: number
+  vy: number
+  grounded: boolean
+  wasGrounded: boolean // caller tracks: was grounded last frame
+  facing: 1 | -1
+  containing: boolean
+  alive: boolean
+  iframeTimer: number
+  ruptureFrame: number // -1 = no rupture; 0,1,2,3… = frames since rupture fired
+  respawnFrame: number // -1 = not respawning; 0,1,2,3… = frames since respawn
+  instability: number // 0..1 normalized
+}
+
+// ─── colors ──────────────────────────────────────────────────────────
+const COL_OUTER = 0x7A2A08
+const COL_MID = 0xC85A20
+const COL_CORE = 0xE87030
+const COL_BLOB_A = 0xF0A050
+const COL_BLOB_B = 0xFF7030
+const COL_FORESIGHT = 0x4060C0
+
+// ─── base shape (10×14, center = 0,0) ────────────────────────────────
+// Slightly taller than wide. Left bulges ~1px. Bottom flat, top rounded.
+interface V { x: number; y: number }
+
+const BASE_VERTICES: V[] = [
+  { x: -6, y: 7 },   // bottom-left (flat bottom)
+  { x: 5, y: 7 },    // bottom-right
+  { x: 5, y: 4 },    // right lower
+  { x: 5, y: 0 },    // right mid
+  { x: 4, y: -4 },   // right upper
+  { x: 2, y: -6 },   // top-right
+  { x: -1, y: -7 },  // top center (slight left lean)
+  { x: -4, y: -6 },  // top-left
+  { x: -6, y: -3 },  // left upper (bulges 1px more than right)
+  { x: -6, y: 2 },   // left mid
+]
+
+// Pre-compute vertex normals (outward-facing) for inset operations
+function computeNormals(verts: V[]): V[] {
+  const n = verts.length
+  const normals: V[] = []
+  for (let i = 0; i < n; i++) {
+    const prev = verts[(i - 1 + n) % n]!
+    const cur = verts[i]!
+    const next = verts[(i + 1) % n]!
+    // Average of the two adjacent edge normals
+    const dx1 = cur.x - prev.x
+    const dy1 = cur.y - prev.y
+    const dx2 = next.x - cur.x
+    const dy2 = next.y - cur.y
+    // Edge normals (outward for CCW winding — our verts go CW visually,
+    // so inward is actually outward in screen coords; we negate later)
+    let nx = -(dy1 + dy2)
+    let ny = dx1 + dx2
+    const len = Math.sqrt(nx * nx + ny * ny) || 1
+    nx /= len
+    ny /= len
+    normals.push({ x: nx, y: ny })
+  }
+  return normals
+}
+
+const BASE_NORMALS = computeNormals(BASE_VERTICES)
+
+function insetVerts(verts: V[], normals: V[], amount: number): V[] {
+  return verts.map((v, i) => ({
+    x: v.x + normals[i]!.x * amount,
+    y: v.y + normals[i]!.y * amount,
+  }))
+}
+
+// Circle of same area as the base polygon (~10×14 → area ≈ ~120 px²)
+const BASE_AREA = 120
+const CIRCLE_R = Math.sqrt(BASE_AREA / Math.PI)
+
+function circleVerts(count: number): V[] {
+  const out: V[] = []
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 - Math.PI / 2
+    out.push({ x: Math.cos(a) * CIRCLE_R, y: Math.sin(a) * CIRCLE_R })
+  }
+  return out
+}
+
+const CIRCLE_TARGET = circleVerts(BASE_VERTICES.length)
+
+// ─── module state ────────────────────────────────────────────────────
+let _lastTickTime = 0
+let _tickIndex = 0
+
+// 8Hz tick decisions (cached per interval)
+interface TickDecisions {
+  edgeJitter: number[]    // per-vertex jitter offset (-2..+2)
+  splitHalves: boolean    // body renders in two offset halves
+  splitOffA: V            // offset for first half
+  splitOffB: V            // offset for second half
+  swapBlobs: boolean      // swap heat blob positions
+  coreSpike: boolean      // white core flash
+  dropVerts: number[]     // indices of vertices to drop (notch)
+  alternateFrame: boolean // double silhouette toggle
+  separateTopBot: boolean // top/bottom separation
+}
+
+let _decisions: TickDecisions = freshDecisions()
+
+function freshDecisions(): TickDecisions {
+  return {
+    edgeJitter: BASE_VERTICES.map(() => 0),
+    splitHalves: false,
+    splitOffA: { x: 0, y: 0 },
+    splitOffB: { x: 0, y: 0 },
+    swapBlobs: false,
+    coreSpike: false,
+    dropVerts: [],
+    alternateFrame: false,
+    separateTopBot: false,
+  }
+}
+
+function rndInt(lo: number, hi: number): number {
+  return lo + Math.floor(Math.random() * (hi - lo + 1))
+}
+
+function tickDecisions(inst: number): void {
+  const d = freshDecisions()
+
+  // Edge jitter per vertex
+  for (let i = 0; i < BASE_VERTICES.length; i++) {
+    if (inst <= 0.3) {
+      d.edgeJitter[i] = Math.random() < 0.1 ? rndInt(-1, 1) : 0
+    }
+    else if (inst <= 0.6) {
+      d.edgeJitter[i] = Math.random() < 0.3 ? rndInt(-1, 1) : 0
+    }
+    else if (inst <= 0.8) {
+      d.edgeJitter[i] = Math.random() < 0.5
+        ? (Math.random() < 0.1 ? rndInt(-2, 2) : rndInt(-1, 1))
+        : 0
+    }
+    else {
+      d.edgeJitter[i] = Math.random() < 0.6
+        ? (Math.random() < 0.2 ? rndInt(-2, 2) : rndInt(-1, 1))
+        : 0
+    }
+  }
+
+  // Stage 3 (0.6–0.8): split halves
+  if (inst > 0.6 && inst <= 0.8) {
+    d.splitHalves = true
+    d.splitOffA = { x: rndInt(-1, 1), y: rndInt(-1, 1) }
+    d.splitOffB = { x: rndInt(-1, 1), y: rndInt(-1, 1) }
+  }
+
+  // Blob swap
+  if (inst > 0.7) {
+    d.swapBlobs = Math.random() < 0.15
+  }
+  else if (inst > 0.6) {
+    d.swapBlobs = Math.random() < 0.20
+  }
+
+  // Stage 4 (0.8–1.0)
+  if (inst > 0.8) {
+    d.coreSpike = Math.random() < 0.15
+    d.alternateFrame = Math.random() < 0.5
+    d.separateTopBot = Math.random() < 0.25
+    // Drop 2–3 consecutive verts (notch)
+    if (Math.random() < 0.20) {
+      const start = rndInt(0, BASE_VERTICES.length - 1)
+      const count = rndInt(2, 3)
+      for (let j = 0; j < count; j++) {
+        d.dropVerts.push((start + j) % BASE_VERTICES.length)
+      }
+    }
+  }
+
+  _decisions = d
+}
+
+// Shadow trail (stage 2)
+let _shadowTimer = 0
+let _shadowX = 0
+let _shadowY = 0
+let _shadowAlpha = 0
+
+// Trail pixel (stage 2, fast movement)
+interface TrailPx { x: number; y: number; life: number }
+let _trails: TrailPx[] = []
+
+// Landing squash
+let _squashFrames = 0
+let _squashFactor = 1.0
+let _squashAsymL = 0
+let _squashAsymR = 0
+
+// Direction lag
+let _lagFrames = 0
+let _lagDir = 0
+let _prevFacing: 1 | -1 = 1
+
+// Containment lerp
+let _containLerp = 0 // 0 = base shape, 1 = circle
+let _containRing = 0 // pull ring radius offset (4..0)
+
+// Rebound after contain release
+let _reboundFrames = 0 // 3,2,1,0
+let _wasContaining = false
+
+// Respawn birth jitter fade
+let _birthJitter = 0 // starts at 0.15, fades over 60 frames
+
+// Frame counter for alternating effects
+let _frameCount = 0
+
+// ─── main draw ───────────────────────────────────────────────────────
+export function drawPlayer(
+  g: Graphics,
+  state: PlayerRenderState,
+  instability: number,
+  time: number,
+): void {
+  g.clear()
+  _frameCount++
+
+  // ─── rupture sequence ──────────────────────────────────────
+  if (state.ruptureFrame >= 0) {
+    if (state.ruptureFrame === 0) {
+      // Frame 0: render body normally (fall through)
+    }
+    else if (state.ruptureFrame === 1) {
+      // Implosion frame: hollow inward-collapsed stroke only
+      const collapsed = insetVerts(BASE_VERTICES, BASE_NORMALS, 3)
+      pathPoly(g, collapsed)
+      g.stroke({ width: 1, color: COL_CORE, alpha: 1.0 })
+      return
+    }
+    else {
+      // Frame 2+: nothing
+      return
+    }
+  }
+
+  // ─── respawn expand ────────────────────────────────────────
+  if (state.respawnFrame >= 0 && state.respawnFrame <= 4) {
+    if (state.respawnFrame === 0) {
+      // Single pixel
+      g.rect(-0.5, -0.5, 1, 1).fill({ color: COL_CORE })
+      return
+    }
+    // Expand from point to full over frames 1–4
+    const t = state.respawnFrame / 4
+    const scaled = BASE_VERTICES.map(v => ({ x: v.x * t, y: v.y * t }))
+    pathPoly(g, scaled)
+    g.fill({ color: COL_MID })
+    return
+  }
+
+  // Birth jitter after respawn (15% fading over 60 frames)
+  if (state.respawnFrame >= 5 && state.respawnFrame < 65) {
+    _birthJitter = 0.15 * (1 - (state.respawnFrame - 5) / 60)
+  }
+  else if (state.respawnFrame >= 65) {
+    _birthJitter = 0
+  }
+
+  if (!state.alive) return
+
+  // ─── 8 Hz clock ────────────────────────────────────────────
+  const tickInterval = 0.125
+  if (time - _lastTickTime >= tickInterval) {
+    _lastTickTime = time
+    _tickIndex++
+    tickDecisions(instability)
+  }
+
+  // ─── containment ──────────────────────────────────────────
+  const containTarget = state.containing ? 1 : 0
+  const containSpeed = 0.30 / 4 // 30% over 4 frames ≈ lerp factor per frame
+  _containLerp += (containTarget - _containLerp) * (containSpeed * 60) * (1 / 60)
+  _containLerp = Math.max(0, Math.min(1, _containLerp))
+
+  if (state.containing) {
+    if (_containRing < 4) _containRing = 4
+    _containRing = Math.max(0, _containRing - 0.5)
+    _wasContaining = true
+  }
+  else {
+    _containRing = 0
+    if (_wasContaining) {
+      _reboundFrames = 3
+      _wasContaining = false
+    }
+  }
+
+  // ─── rebound after contain release ─────────────────────────
+  let reboundOffset = 0
+  if (_reboundFrames > 0) {
+    if (_reboundFrames === 3) reboundOffset = 2
+    else if (_reboundFrames === 2) reboundOffset = 0.5
+    else reboundOffset = 0
+    _reboundFrames--
+  }
+
+  // ─── movement deformation ──────────────────────────────────
+  let scaleX = 1.0
+  let scaleY = 1.0
+
+  // Jump stretch
+  if (state.vy < -1.5) {
+    const absVy = Math.abs(state.vy) / 60 // normalize: vy is px/s, visuals want px/frame scale
+    scaleY = 1.0 + Math.min(absVy * 0.04, 0.25)
+    scaleX = 1.0 - Math.min(absVy * 0.02, 0.12)
+  }
+
+  // Landing squash
+  if (!state.wasGrounded && state.grounded && state.vy >= 0) {
+    _squashFrames = 6
+    _squashFactor = 0.65
+    if (instability > 0.6) {
+      _squashAsymL = (Math.random() * 2 - 1) * instability * 0.15
+      _squashAsymR = (Math.random() * 2 - 1) * instability * 0.15
+    }
+    else {
+      _squashAsymL = 0
+      _squashAsymR = 0
+    }
+  }
+  if (_squashFrames > 0) {
+    _squashFrames--
+    _squashFactor += (1.0 - _squashFactor) * 0.3 // lerp toward 1
+    scaleY *= _squashFactor
+    scaleX *= 1.0 + (1.0 - _squashFactor) * 0.6
+  }
+
+  // ─── direction lag ─────────────────────────────────────────
+  let lagOffsetX = 0
+  if (state.facing !== _prevFacing) {
+    _lagFrames = 2
+    _lagDir = _prevFacing // old direction
+    _prevFacing = state.facing
+  }
+  if (_lagFrames > 0) {
+    lagOffsetX = _lagDir * 1 // 1px in old direction
+    _lagFrames--
+  }
+
+  // ─── build transformed vertices ────────────────────────────
+  let verts = BASE_VERTICES.map((v, i) => {
+    // Containment: lerp toward circle
+    const ct = CIRCLE_TARGET[i]!
+    let bx = v.x + (ct.x - v.x) * _containLerp
+    let by = v.y + (ct.y - v.y) * _containLerp
+
+    // Rebound overshoot
+    if (reboundOffset > 0) {
+      bx += BASE_NORMALS[i]!.x * reboundOffset
+      by += BASE_NORMALS[i]!.y * reboundOffset
+    }
+
+    // Squash asymmetry (left vs right half)
+    if (_squashFrames > 0 && instability > 0.6) {
+      const asym = bx < 0 ? _squashAsymL : _squashAsymR
+      bx *= 1 + asym
+    }
+
+    // Movement deformation
+    bx *= scaleX
+    by *= scaleY
+
+    // Edge jitter (unless containing)
+    if (!state.containing) {
+      const jit = _decisions.edgeJitter[i] || 0
+      const birth = _birthJitter > 0 && Math.random() < _birthJitter ? rndInt(-1, 1) : 0
+      bx += jit + birth
+      by += jit + birth
+    }
+
+    return { x: bx + lagOffsetX, y: by }
+  })
+
+  // ─── iframes blink (handled externally, but respect alive) ─
+  // The caller sets alpha on the container; we just draw.
+
+  // ─── stage 4: drop vertices (notch) ───────────────────────
+  if (_decisions.dropVerts.length > 0 && instability > 0.8) {
+    const dropSet = new Set(_decisions.dropVerts)
+    verts = verts.filter((_, i) => !dropSet.has(i))
+  }
+
+  // ─── shadow trail (stage 2: 0.3–0.6) ──────────────────────
+  if (instability > 0.3 && instability <= 0.6) {
+    _shadowTimer += 1 / 60
+    if (_shadowTimer >= 3.0) {
+      _shadowTimer = 0
+      _shadowAlpha = 0.2
+    }
+  }
+  if (_shadowAlpha > 0) {
+    _shadowAlpha -= 0.02
+    const shadowVerts = BASE_VERTICES.map(v => ({
+      x: v.x + (_shadowX * 0.1),
+      y: v.y + (_shadowY * 0.1),
+    }))
+    pathPoly(g, shadowVerts)
+    g.fill({ color: COL_OUTER, alpha: Math.max(0, _shadowAlpha) })
+  }
+  _shadowX = state.vx
+  _shadowY = state.vy
+
+  // ─── movement smear (stage 3: 0.6–0.8) ────────────────────
+  if (instability > 0.6 && instability <= 0.8 && (Math.abs(state.vx) > 2.5 || Math.abs(state.vy) > 2.5)) {
+    // Draw a 2px wide smear line at 25% opacity
+    g.moveTo(-state.vx / 30, -state.vy / 30)
+      .lineTo(0, 0)
+    g.stroke({ width: 2, color: COL_MID, alpha: 0.25 })
+  }
+
+  // ─── trailing pixel (stage 2, fast) ────────────────────────
+  if (instability > 0.3 && instability <= 0.6 && Math.abs(state.vx) > 2.5 * 60) {
+    _trails.push({ x: -state.vx / 60, y: -state.vy / 60, life: 3 })
+  }
+  _trails = _trails.filter(t => {
+    t.life--
+    if (t.life <= 0) return false
+    g.rect(t.x - 0.5, t.y - 0.5, 1, 1)
+      .fill({ color: COL_OUTER, alpha: t.life / 3 })
+    return true
+  })
+
+  // ─── stage 4: alternating silhouettes ──────────────────────
+  if (instability > 0.8 && _decisions.alternateFrame && _frameCount % 2 === 0) {
+    const altVerts = verts.map(v => ({ x: v.x + 1, y: v.y }))
+    drawBody(g, altVerts, instability, time, state.containing, _decisions.coreSpike)
+    return
+  }
+
+  // ─── stage 4: top/bottom separation ────────────────────────
+  if (instability > 0.8 && _decisions.separateTopBot) {
+    const half = Math.floor(verts.length / 2)
+    const topHalf = verts.slice(0, half).map(v => ({ x: v.x, y: v.y - 1 }))
+    const botHalf = verts.slice(half).map(v => ({ x: v.x, y: v.y + 1 }))
+    if (topHalf.length >= 3) {
+      drawBody(g, topHalf, instability, time, state.containing, _decisions.coreSpike)
+    }
+    if (botHalf.length >= 3) {
+      drawBody(g, botHalf, instability, time, state.containing, false)
+    }
+    return
+  }
+
+  // ─── stage 3: split halves ─────────────────────────────────
+  if (_decisions.splitHalves && instability > 0.6) {
+    const half = Math.floor(verts.length / 2)
+    const hA = verts.slice(0, half).map(v => ({
+      x: v.x + _decisions.splitOffA.x,
+      y: v.y + _decisions.splitOffA.y,
+    }))
+    const hB = verts.slice(half).map(v => ({
+      x: v.x + _decisions.splitOffB.x,
+      y: v.y + _decisions.splitOffB.y,
+    }))
+    if (hA.length >= 3) {
+      pathPoly(g, hA)
+      g.fill({ color: COL_OUTER })
+    }
+    if (hB.length >= 3) {
+      pathPoly(g, hB)
+      g.fill({ color: COL_OUTER })
+    }
+    // Still draw mid + core on the unsplit position
+    const midVerts = insetVerts(verts, computeNormals(verts), 2)
+    pathPoly(g, midVerts)
+    g.fill({ color: COL_MID })
+    return
+  }
+
+  // ─── normal body draw ──────────────────────────────────────
+  drawBody(g, verts, instability, time, state.containing, _decisions.coreSpike)
+
+  // ─── containment pull ring ─────────────────────────────────
+  if (state.containing && _containRing > 0) {
+    const ringVerts = insetVerts(verts, computeNormals(verts), -(4 + _containRing))
+    pathPoly(g, ringVerts)
+    g.stroke({ width: 1, color: COL_OUTER, alpha: 0.10 })
+  }
+}
+
+// ─── body layers ─────────────────────────────────────────────────────
+function drawBody(
+  g: Graphics,
+  verts: V[],
+  instability: number,
+  time: number,
+  containing: boolean,
+  coreSpike: boolean,
+): void {
+  if (verts.length < 3) return
+
+  const normals = computeNormals(verts)
+
+  // Layer 1: outer body (edge darkening)
+  pathPoly(g, verts)
+  g.fill({ color: COL_OUTER })
+
+  // Layer 2: mid body (inset 2px)
+  const midVerts = insetVerts(verts, normals, 2)
+  if (midVerts.length >= 3) {
+    pathPoly(g, midVerts)
+    g.fill({ color: COL_MID })
+  }
+
+  // Layer 3: core glow (inset 5px)
+  const coreVerts = insetVerts(verts, normals, 5)
+  if (containing) {
+    // Tighter, brighter core during containment
+    g.circle(0, 0, 3).fill({ color: 0xFFB060, alpha: 0.95 })
+  }
+  else if (coreSpike) {
+    // White spike flash (stage 4)
+    if (coreVerts.length >= 3) {
+      pathPoly(g, coreVerts)
+      g.fill({ color: 0xFFFFFF, alpha: 0.9 })
+    }
+  }
+  else if (coreVerts.length >= 3) {
+    pathPoly(g, coreVerts)
+    g.fill({ color: COL_CORE, alpha: 0.8 })
+  }
+
+  // Internal heat blobs (skip if containing — frozen)
+  if (!containing) {
+    drawHeatBlobs(g, instability, time)
+  }
+}
+
+// ─── heat blobs ──────────────────────────────────────────────────────
+function drawHeatBlobs(g: Graphics, instability: number, time: number): void {
+  let speedMult = 1.0
+  let opAdd = 0
+  let phaseB = 0
+  if (instability > 0.7) {
+    speedMult = 3.0
+    opAdd = 0.1
+    phaseB = instability * 3.0
+  }
+  else if (instability > 0.3) {
+    speedMult = 1.8
+    opAdd = 0.1
+    phaseB = instability * 3.0
+  }
+
+  const t = time * speedMult
+  let axPos = {
+    x: Math.sin(t * 0.8) * 2,
+    y: Math.cos(t * 1.1) * 1.5,
+  }
+  let bxPos = {
+    x: Math.cos(t * 1.3 + 1.0 + phaseB) * 1.5,
+    y: Math.sin(t * 0.9 + 2.0 + phaseB) * 2,
+  }
+
+  // Swap on 8Hz decision
+  if (_decisions.swapBlobs) {
+    const tmp = axPos
+    axPos = bxPos
+    bxPos = tmp
+  }
+
+  // Clamp inside ~3px radius of center
+  const clampR = 3
+  const clamp = (p: V): V => {
+    const d = Math.sqrt(p.x * p.x + p.y * p.y)
+    if (d > clampR) return { x: p.x * clampR / d, y: p.y * clampR / d }
+    return p
+  }
+  axPos = clamp(axPos)
+  bxPos = clamp(bxPos)
+
+  // Blob A: 3×4, #f0a050, 0.35
+  g.ellipse(axPos.x, axPos.y, 1.5, 2).fill({ color: COL_BLOB_A, alpha: 0.35 + opAdd })
+  // Blob B: 2×3, #ff7030, 0.25
+  g.ellipse(bxPos.x, bxPos.y, 1, 1.5).fill({ color: COL_BLOB_B, alpha: 0.25 + opAdd })
+}
+
+// ─── foresight ghost ─────────────────────────────────────────────────
+export function drawPlayerGhost(
+  g: Graphics,
+  instability: number,
+  rupturePreview: boolean,
+): void {
+  g.clear()
+  const alpha = 0.12 + instability * 0.22
+
+  let verts: V[]
+  if (rupturePreview) {
+    // Drop every 3rd vertex for broken polygon
+    verts = BASE_VERTICES.filter((_, i) => i % 3 !== 2)
+  }
+  else {
+    verts = [...BASE_VERTICES]
+  }
+
+  if (verts.length < 3) return
+  pathPoly(g, verts)
+  g.fill({ color: COL_FORESIGHT, alpha })
+}
+
+// ─── helpers ─────────────────────────────────────────────────────────
+function pathPoly(g: Graphics, verts: V[]): void {
+  if (verts.length < 3) return
+  const flat: number[] = []
+  for (const v of verts) {
+    flat.push(v.x, v.y)
+  }
+  g.poly(flat)
+}
+
+// Reset module state (call on respawn)
+export function resetPlayerRenderer(): void {
+  _lastTickTime = 0
+  _tickIndex = 0
+  _decisions = freshDecisions()
+  _shadowTimer = 0
+  _shadowAlpha = 0
+  _trails = []
+  _squashFrames = 0
+  _squashFactor = 1.0
+  _lagFrames = 0
+  _lagDir = 0
+  _containLerp = 0
+  _containRing = 0
+  _reboundFrames = 0
+  _wasContaining = false
+  _birthJitter = 0
+  _frameCount = 0
+}

@@ -5,14 +5,15 @@ import type { Player } from './player'
 import type { Level } from './world/level'
 import type { ParallaxState } from './render/parallax'
 import type { WindState } from './render/wind'
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { CONFIG } from './config'
 import { flashAlpha, shakeOffset } from './fx'
 import { createParallax, updateParallax } from './render/parallax'
 import { PALETTE } from './render/palette'
 import { drawSky, drawVignette } from './render/post'
 import { createWindState, drawWind, tickWind, type WindState as WindS } from './render/wind'
-import { drawColliders, hashColliders } from './render/world'
+import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './render/world'
+import { drawPlayer, drawPlayerGhost, resetPlayerRenderer, type PlayerRenderState } from './render/playerRenderer'
 import { computeRuptureShape } from './rupture'
 
 // Scene graph:
@@ -32,6 +33,8 @@ export interface RenderContext {
   readonly auraGfx: Graphics
   readonly playerGfx: Graphics
   readonly eyeGfx: Graphics
+  readonly ghostGfx: Graphics
+  readonly playerGhostGfx: Graphics
   readonly previewGfx: Graphics
   readonly containArrowGfx: Graphics
   readonly ruptureRingGfx: Graphics
@@ -45,6 +48,10 @@ export interface RenderContext {
   readonly containHint: Text
   worldCacheKey: number
   time: number
+  // Player renderer bookkeeping
+  wasGrounded: boolean
+  ruptureFrame: number  // -1 = none, 0+ = frames since rupture
+  respawnFrame: number  // -1 = none, 0+ = frames since respawn
 }
 
 export function buildScene(app: Application, level: Level): RenderContext {
@@ -61,6 +68,20 @@ export function buildScene(app: Application, level: Level): RenderContext {
 
   const parallax = createParallax(level.worldWidth, level.worldHeight)
   bgContainer.addChild(parallax.container)
+
+  // Parallax dither: 2x2 checkerboard for unresolved-signal look
+  const ditherCanvas = document.createElement('canvas')
+  ditherCanvas.width = 2
+  ditherCanvas.height = 2
+  const ditherCtx2d = ditherCanvas.getContext('2d')!
+  ditherCtx2d.fillStyle = 'black'
+  ditherCtx2d.fillRect(0, 0, 1, 1)
+  ditherCtx2d.fillRect(1, 1, 1, 1)
+  const ditherTex = Texture.from({ resource: ditherCanvas, antialias: false })
+  ditherTex.source.scaleMode = 'nearest'
+  const ditherMask = new TilingSprite({ texture: ditherTex, width: CONFIG.LOGICAL_WIDTH * 2, height: CONFIG.LOGICAL_HEIGHT })
+  ditherMask.alpha = 0.5
+  parallax.container.addChild(ditherMask)
 
   const windGfx = new Graphics()
   worldContainer.addChild(windGfx) // behind colliders — occluded by ground
@@ -81,18 +102,14 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const ruptureRingGfx = new Graphics()
   worldContainer.addChild(ruptureRingGfx)
 
+  const playerGhostGfx = new Graphics()
+  worldContainer.addChild(playerGhostGfx) // below player
   const playerGfx = new Graphics()
-  playerGfx.rect(0, 0, CONFIG.PLAYER_W, CONFIG.PLAYER_H).fill(PALETTE.player)
-  playerGfx
-    .moveTo(0, 0).lineTo(CONFIG.PLAYER_W, 0)
-    .stroke({ width: 1, color: PALETTE.playerEdge, alpha: 0.9 })
-  playerGfx
-    .moveTo(0, CONFIG.PLAYER_H - 1).lineTo(CONFIG.PLAYER_W, CONFIG.PLAYER_H - 1)
-    .stroke({ width: 1, color: PALETTE.playerShadow, alpha: 0.7 })
-  const eyeGfx = new Graphics()
-  eyeGfx.rect(0, 0, 2, 2).fill(PALETTE.playerShadow)
-  playerGfx.addChild(eyeGfx)
   worldContainer.addChild(playerGfx)
+  const eyeGfx = new Graphics() // unused but kept for interface compat
+
+  const ghostGfx = new Graphics()
+  worldContainer.addChild(ghostGfx)
 
   const containArrowGfx = new Graphics()
   worldContainer.addChild(containArrowGfx)
@@ -102,7 +119,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
   // lives in the fill's behavior (jitter, ember flakes) more than its
   // length.
   const meterBg = new Graphics()
-  meterBg.rect(CONFIG.METER_X, CONFIG.METER_Y + CONFIG.METER_H - 1, CONFIG.METER_W, 1)
+  meterBg.rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, 1)
     .fill({ color: PALETTE.meterDim, alpha: 0.6 })
   uiContainer.addChild(meterBg)
 
@@ -134,9 +151,14 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const dreadGfx = new Graphics()
   uiContainer.addChild(dreadGfx)
 
+  hint.alpha = 0.4
+  containHint.alpha = 0.4
+
   const vignetteGfx = new Graphics()
   drawVignette(vignetteGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
   uiContainer.addChild(vignetteGfx)
+  // CRT shader handles vignette now; keep node but hide it
+  vignetteGfx.visible = false
 
   return {
     app,
@@ -151,6 +173,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
     auraGfx,
     playerGfx,
     eyeGfx,
+    ghostGfx,
+    playerGhostGfx,
     previewGfx,
     containArrowGfx,
     ruptureRingGfx,
@@ -164,6 +188,9 @@ export function buildScene(app: Application, level: Level): RenderContext {
     containHint,
     worldCacheKey: hashColliders(level),
     time: 0,
+    wasGrounded: false,
+    ruptureFrame: -1,
+    respawnFrame: -1,
   }
 }
 
@@ -175,6 +202,21 @@ function auraColorFor(ratio: number): number {
   if (ratio <= 0.85)
     return PALETTE.auraWarm
   return PALETTE.auraHot
+}
+
+function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF
+  const br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF
+  const rr = Math.round(ar + (br - ar) * t)
+  const rg = Math.round(ag + (bg - ag) * t)
+  const rb = Math.round(ab + (bb - ab) * t)
+  return (rr << 16) | (rg << 8) | rb
+}
+
+function meterColorForRatio(r: number): number {
+  if (r <= 0.5)
+    return lerpColor(0x4A6040, 0xC8A020, r * 2)
+  return lerpColor(0xC8A020, 0xC82020, (r - 0.5) * 2)
 }
 
 function drawEllipseOutline(
@@ -192,6 +234,27 @@ function drawEllipseOutline(
   })
 }
 
+// Dashed ellipse outline (3px on / 3px off)
+function drawDashedEllipse(
+  g: Graphics,
+  rx: number,
+  ry: number,
+  color: number,
+  alpha: number,
+): void {
+  const segments = 48
+  for (let i = 0; i < segments; i++) {
+    // Alternate: 2 segments on, 2 off (~3px chunks)
+    if (Math.floor(i / 2) % 2 !== 0)
+      continue
+    const a0 = (i / segments) * Math.PI * 2
+    const a1 = ((i + 1) / segments) * Math.PI * 2
+    g.moveTo(Math.cos(a0) * rx, Math.sin(a0) * ry)
+      .lineTo(Math.cos(a1) * rx, Math.sin(a1) * ry)
+    g.stroke({ width: 1, color, alpha })
+  }
+}
+
 export function render(
   ctx: RenderContext,
   player: Player,
@@ -202,11 +265,13 @@ export function render(
 ): void {
   ctx.time += dt
 
-  const key = hashColliders(level)
-  if (key !== ctx.worldCacheKey) {
-    drawColliders(ctx.worldGfx, level)
-    ctx.worldCacheKey = key
-  }
+  // Pipe instability into world rendering system
+  const instability = player.instability.value / CONFIG.INSTABILITY_MAX
+  setWorldInstability(instability, dt)
+
+  // Always redraw — glass flicker / bone jitter are per-frame effects
+  drawColliders(ctx.worldGfx, level)
+  ctx.worldCacheKey = hashColliders(level)
 
   // Wind advances at render cadence — purely aesthetic.
   tickWind(ctx.wind, dt, level)
@@ -248,14 +313,47 @@ export function render(
       + Math.sin(ctx.time * 83) * amp * 0.4
     jy = Math.cos(ctx.time * 59 + player.x * 0.3) * amp * 0.7
   }
-  ctx.playerGfx.x = player.x + jx
-  ctx.playerGfx.y = player.y + jy
+  // Position the player Graphics at the center of the AABB (playerRenderer draws around 0,0)
+  ctx.playerGfx.x = player.x + CONFIG.PLAYER_W / 2 + jx
+  ctx.playerGfx.y = player.y + CONFIG.PLAYER_H / 2 + jy
   // Post-fracture flicker. In FAULTLINE this reads as "not fully here yet."
   const iframeBlink
     = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0
   ctx.playerGfx.alpha = iframeBlink
-  ctx.eyeGfx.x = player.facing >= 0 ? CONFIG.PLAYER_W - 4 : 2
-  ctx.eyeGfx.y = 4
+
+  // Track rupture / respawn frame counters
+  if (!player.alive && ctx.ruptureFrame === -1) {
+    ctx.ruptureFrame = 0
+  }
+  else if (ctx.ruptureFrame >= 0) {
+    ctx.ruptureFrame++
+  }
+  if (player.alive && ctx.ruptureFrame >= 0) {
+    // Player respawned
+    ctx.ruptureFrame = -1
+    ctx.respawnFrame = 0
+    resetPlayerRenderer()
+  }
+  if (ctx.respawnFrame >= 0) {
+    ctx.respawnFrame++
+    if (ctx.respawnFrame > 65) ctx.respawnFrame = -1
+  }
+
+  const prs: PlayerRenderState = {
+    vx: player.vx,
+    vy: player.vy,
+    grounded: player.grounded,
+    wasGrounded: ctx.wasGrounded,
+    facing: player.facing,
+    containing: player.instability.containing,
+    alive: player.alive,
+    iframeTimer: player.iframeTimer,
+    ruptureFrame: ctx.ruptureFrame,
+    respawnFrame: ctx.respawnFrame,
+    instability: ratio0,
+  }
+  drawPlayer(ctx.playerGfx, prs, ratio0, ctx.time)
+  ctx.wasGrounded = player.grounded
 
   // ─── aura (radial, single-family) ────────────────────────
   const ratio = player.instability.value / CONFIG.INSTABILITY_MAX
@@ -293,15 +391,15 @@ export function render(
     const baseCx = player.x + CONFIG.PLAYER_W / 2
     const baseCy = player.y + CONFIG.PLAYER_H / 2
     const samples = CONFIG.PREVIEW_SAMPLES
-    // Body footprint trail — faint rects at sampled future positions.
+    // Hollow polygon outlines in cold blue — mastery tool.
+    const prevAlpha = 0.15 + instability * 0.25
     for (let i = 1; i <= samples; i++) {
       const t = (i / samples) * CONFIG.PREVIEW_LOOKAHEAD
       const g = player.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
       const fx0 = player.x + player.vx * t
       const fy0 = player.y + player.vy * t + 0.5 * g * t * t
-      const alpha = CONFIG.PREVIEW_ALPHA * (1 - i / (samples + 1))
       ctx.previewGfx.rect(fx0, fy0, CONFIG.PLAYER_W, CONFIG.PLAYER_H)
-        .stroke({ width: 1, color: PALETTE.auraHot, alpha })
+        .stroke({ width: 1, color: PALETTE.auraCool, alpha: prevAlpha })
     }
     // Final-sample rupture ghost — the SHAPE that would carve at the
     // projected velocity. Stroke-only so it doesn't overwhelm.
@@ -315,14 +413,8 @@ export function render(
     ctx.previewGfx.x = fxF
     ctx.previewGfx.y = fyF
     ctx.previewGfx.rotation = shapeFinal.angle
-    drawEllipseOutline(
-      ctx.previewGfx,
-      shapeFinal.rx,
-      shapeFinal.ry,
-      PALETTE.auraHot,
-      CONFIG.PREVIEW_ALPHA,
-      0.04,
-    )
+    // Dashed rupture ellipse in red at 40% opacity
+    drawDashedEllipse(ctx.previewGfx, shapeFinal.rx, shapeFinal.ry, 0xCC2020, 0.4)
   }
 
   // ─── post-fracture ring ────────────────────────────────
@@ -379,33 +471,14 @@ export function render(
     ctx.particlesGfx.poly(world).fill({ color: p.color, alpha: a })
   }
 
-  // ─── UI: instability presence (not a meter) ─────────────
-  // The fill jitters sub-pixel with the aura pulse at high ratio. At
-  // peak, small "ember" flakes pop off the right edge — the thing is
-  // audibly leaking. No segment dividers, no "100% label" — the shape
-  // itself tells you how close you are.
+  // ─── UI: instability bar (1px tall pixel line) ────────────
   ctx.meterFg.clear()
   const fillW = CONFIG.METER_W * ratio
   if (fillW > 0.5) {
-    const color2 = ratio > CONFIG.AURA_THRESH_HOT ? PALETTE.meterBright : auraColorFor(ratio)
-    const jitterAmp = ratio > 0.5 ? (ratio - 0.5) * 2 : 0
-    const jx = (Math.random() - 0.5) * jitterAmp
-    const jy = (Math.random() - 0.5) * jitterAmp * 0.4
+    const meterCol = meterColorForRatio(ratio)
     ctx.meterFg
-      .rect(CONFIG.METER_X + jx, CONFIG.METER_Y + jy, fillW, CONFIG.METER_H)
-      .fill({ color: color2, alpha: 0.92 })
-    // Ember flakes — only when the instability is really close to
-    // fracture. Small pixels jumping off the leading edge.
-    if (ratio > CONFIG.AURA_THRESH_HOT) {
-      const leadX = CONFIG.METER_X + fillW
-      const embers = 3
-      for (let i = 0; i < embers; i++) {
-        const dx = Math.random() * 4
-        const dy = (Math.random() - 0.5) * CONFIG.METER_H
-        ctx.meterFg.rect(leadX + dx, CONFIG.METER_Y + CONFIG.METER_H / 2 + dy, 1, 1)
-          .fill({ color: PALETTE.meterBright, alpha: 0.5 + Math.random() * 0.4 })
-      }
-    }
+      .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, 1)
+      .fill({ color: meterCol })
   }
 
   // Containment-hint tint.
@@ -425,23 +498,29 @@ export function render(
       .fill({ color: PALETTE.auraWarm, alpha: fa * CONFIG.FRACTURE_FLASH_MAX_ALPHA })
   }
 
-  // ─── dread overlay (pre-fracture tension) ──────────────
+  // Dread overlay removed — CRT shader handles dread pulse via uDread uniform.
   ctx.dreadGfx.clear()
-  if (ratio > CONFIG.DREAD_ONSET) {
-    const t = (ratio - CONFIG.DREAD_ONSET) / (1 - CONFIG.DREAD_ONSET)
-    const pulseHz = 3 + t * 8
-    const pulse = 0.5 + 0.5 * Math.sin(ctx.time * pulseHz * Math.PI * 2)
-    const a = t * pulse * CONFIG.DREAD_MAX_ALPHA
-    // Paint only the frame edges — a 40-px-wide border. Keeps the
-    // center of the screen readable; the warning lives in peripheral
-    // vision, which is where "wrong" registers fastest.
-    const w = CONFIG.LOGICAL_WIDTH
-    const h = CONFIG.LOGICAL_HEIGHT
-    const border = 40
-    const color = PALETTE.auraHot
-    ctx.dreadGfx.rect(0, 0, w, border).fill({ color, alpha: a })
-    ctx.dreadGfx.rect(0, h - border, w, border).fill({ color, alpha: a })
-    ctx.dreadGfx.rect(0, border, border, h - border * 2).fill({ color, alpha: a })
-    ctx.dreadGfx.rect(w - border, border, border, h - border * 2).fill({ color, alpha: a })
+
+  // ─── player foresight ghost (renders BELOW main player) ────
+  ctx.playerGhostGfx.clear()
+  if (
+    player.alive
+    && player.instability.value >= CONFIG.GHOST_INSTABILITY_THRESHOLD
+    && player.iframeTimer <= 0
+  ) {
+    // Place ghost at the final foresight sample position
+    const tGhost = CONFIG.PREVIEW_LOOKAHEAD
+    const gGhost = player.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+    ctx.playerGhostGfx.x = player.x + CONFIG.PLAYER_W / 2 + player.vx * tGhost
+    ctx.playerGhostGfx.y = player.y + CONFIG.PLAYER_H / 2 + player.vy * tGhost + 0.5 * gGhost * tGhost * tGhost
+    const rupturePreviewActive = ratio0 >= 0.95
+    drawPlayerGhost(ctx.playerGhostGfx, ratio0, rupturePreviewActive)
+  }
+
+  // ─── double-exposure ghost (instability > 0.8) ────────
+  ctx.ghostGfx.clear()
+  if (shouldDrawDoubleExposure()) {
+    ctx.ghostGfx.rect(player.x + 2, player.y, CONFIG.PLAYER_W, CONFIG.PLAYER_H)
+      .fill({ color: PALETTE.player, alpha: 0.3 })
   }
 }

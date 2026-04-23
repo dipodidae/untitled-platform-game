@@ -33,58 +33,58 @@ export interface Palette {
 }
 
 export const PALETTE: Palette = {
-  skyTop: 0x15161E,
-  skyBottom: 0x2A2530,
-  vignette: 0x08080D,
-  parallaxFar: 0x1C1E28,
-  parallaxNear: 0x262833,
-  windMote: 0x6E6C78,
-  player: 0xC8B48E,
-  playerEdge: 0xDFC8A0,
-  playerShadow: 0x3A2F22,
-  auraCool: 0x4A5C6A,
-  auraWarm: 0xA87450,
-  auraHot: 0xC24634,
-  meterDim: 0x2A2530,
-  meterBright: 0xC24634,
+  skyTop: 0x04060F,
+  skyBottom: 0x0F1A28,
+  vignette: 0x000000,
+  parallaxFar: 0x0A0F1A,
+  parallaxNear: 0x141C28,
+  windMote: 0x3A5070,
+  player: 0xE0D8C8,
+  playerEdge: 0xFFFFFF,
+  playerShadow: 0x1A2A38,
+  auraCool: 0x4060C0,
+  auraWarm: 0xC8A020,
+  auraHot: 0xCC2020,
+  meterDim: 0x4A6040,
+  meterBright: 0xC82020,
   meterChassis: 0x0A0A10,
-  hintText: 0x8A8690,
+  hintText: 0x8090A0,
   hintDim: 0x3A3640,
   materials: {
-    // Pale bluish-green, almost translucent. Reads as fragile instantly.
+    // Pale blue-grey, translucent. Fragile light.
     glass: {
-      fill: 0x4E6470,
-      edge: 0x9ABCC6,
-      shadow: 0x22303A,
-      highlight: 0xCDE4EA,
+      fill: 0xB8CFE0,
+      edge: 0xE8F4FF,
+      shadow: 0x1A2A38,
+      highlight: 0xFFFFFF,
     },
-    // Off-white yellow-gray. The floor of this world is old bone.
+    // Yellowed off-white. The floor of this world is old bone.
     bone: {
-      fill: 0xB6A684,
-      edge: 0xD4C8A4,
-      shadow: 0x564A34,
-      highlight: 0xE8DDBA,
+      fill: 0xC8B89A,
+      edge: 0xE8D8B8,
+      shadow: 0x2A1E10,
+      highlight: 0xF0E8D0,
     },
-    // Steel-cold with a subtle violet cast — hums even when still.
+    // Deep cold navy — hums even when still.
     resonant: {
-      fill: 0x5E6A80,
-      edge: 0x9FAEC8,
-      shadow: 0x2E3442,
-      highlight: 0xC6D4E8,
+      fill: 0x1A1E3A,
+      edge: 0x4060C0,
+      shadow: 0x05070F,
+      highlight: 0x8090FF,
     },
-    // Mauve-pink, slightly pillowy. Inviting, expensive.
+    // Mauve-grey, slightly pillowy. Inviting, expensive.
     soft: {
-      fill: 0x7C5C6A,
-      edge: 0xA1838F,
-      shadow: 0x3E2A34,
-      highlight: 0xBE9EAA,
+      fill: 0x7A5A70,
+      edge: 0xC090B0,
+      shadow: 0x1A0A18,
+      highlight: 0xE0B0D0,
     },
-    // Shards left by glass breaks. Rust-red, always present.
+    // Shards left by glass breaks. Harsh red, always present.
     shard: {
-      fill: 0x7A3A36,
-      edge: 0xA4504A,
-      shadow: 0x3A1A18,
-      highlight: 0xC66A60,
+      fill: 0xCC2020,
+      edge: 0xFF6040,
+      shadow: 0x200000,
+      highlight: 0xFFAAAA,
     },
   },
 }

@@ -11,6 +11,7 @@ import { endFrame, respawnPressed } from './input'
 import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
 import { buildScene, render } from './render'
+import { CRTFilter } from './render/CRTFilter'
 import { fromJson, type LevelJson, tickEphemeral } from './world/level'
 import showcaseJson from './levels/showcase.json'
 
@@ -22,6 +23,7 @@ export interface GameState {
   readonly renderCtx: RenderContext
   readonly fx: FxState
   readonly broadphase: BroadphaseGrid
+  readonly crtFilter: CRTFilter
   accumulator: number
   // Continuous game time (seconds). Drives shard TTLs and any other
   // wall-clock-like timers that need a consistent reading across ticks.
@@ -35,7 +37,9 @@ export function createGame(app: Application): GameState {
   const fx = createFxState()
   const broadphase = new BroadphaseGrid()
   const renderCtx = buildScene(app, level)
-  return { app, level, player, camera, renderCtx, fx, broadphase, accumulator: 0, now: 0 }
+  const crtFilter = new CRTFilter()
+  app.stage.filters = [crtFilter]
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0 }
 }
 
 // One fixed physics step. Hitstop short-circuits the step so the fracture
@@ -85,5 +89,14 @@ export function startLoop(state: GameState): void {
     // so its lerp rate stays tied to display refresh, same as the original.
     updateCamera(state.camera, state.player, state.level)
     render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt)
+
+    // Update CRT shader uniforms
+    const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX
+    state.crtFilter.time = state.now
+    state.crtFilter.instability = ratio
+    // Dread: 0 below onset, ramps to 1 at max instability
+    state.crtFilter.dread = ratio > CONFIG.DREAD_ONSET
+      ? (ratio - CONFIG.DREAD_ONSET) / (1 - CONFIG.DREAD_ONSET)
+      : 0
   })
 }

@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@playwright/test": "^1.59.1",
     "pixi.js": "^8.18.1",
     "poly-decomp-es": "^0.4.2",
     "polygon-clipping": "^0.15.7"
