@@ -13,27 +13,42 @@ export const CONFIG = {
   SPAWN_X: 32,
   SPAWN_Y: 200,
 
-  // Horizontal movement
-  MAX_RUN: 110, // top horizontal speed, px/s
-  GROUND_ACCEL: 700, // accel while input held, on ground
-  GROUND_DECEL: 900, // decel when no input, on ground (slightly > accel = firm stops)
-  AIR_ACCEL: 500, // accel while input held, mid-air (lower so jumps commit)
-  AIR_DECEL: 300, // decel when no input, mid-air
-  TURN_BOOST: 1.5, // accel × this when input direction is opposite current vx — snappy turns
+  // ───────────────────────── HORIZONTAL MOVEMENT ───────────────────
+  // Celeste-grade: near-instant accel, instant stops, full air authority.
+  MAX_RUN: 120, // top horizontal speed, px/s
+  GROUND_ACCEL: 1800, // near-instant to max speed (~0.07s)
+  GROUND_DECEL: 2400, // frame-perfect stops
+  AIR_ACCEL: 1400, // strong air steering — player owns their arc
+  AIR_DECEL: 900, // meaningful air friction on release
+  TURN_BOOST: 2.0, // snappy turnaround multiplier
 
-  // Jump — tuned so v0=275, g_up=785 → apex ≈ 48 px (3 tiles), t_apex ≈ 0.35 s
-  //   h_apex = v0² / (2·g) ≈ 48.1
-  //   t_apex = v0 / g      ≈ 0.35
-  JUMP_VELOCITY: 275, // instant upward velocity on jump
-  JUMP_GRAVITY: 785, // gravity while vy < 0 (ascent)
-  FALL_GRAVITY: 1700, // gravity while vy ≥ 0 (descent) — ~2.16× ascent, classic floaty-up/snappy-down
-  MAX_FALL: 360, // terminal velocity cap
-  JUMP_CUT_MULT: 0.5, // multiply upward vy by this when jump is released early — variable jump height
+  // ───────────────────────── JUMP ──────────────────────────────────
+  // Tuned: v0=290, g_up=750 → apex ≈ 56 px (~3.5 tiles), t_apex ≈ 0.39 s
+  // Descent gravity ~2.3× ascent: floaty-up / snappy-down Celeste feel.
+  JUMP_VELOCITY: 290, // instant upward velocity on jump
+  JUMP_GRAVITY: 750, // gravity while vy < 0 (ascent) — slightly lower for hang time
+  FALL_GRAVITY: 1750, // gravity while vy ≥ 0 (descent)
+  MAX_FALL: 380, // terminal velocity cap
+  JUMP_CUT_MULT: 0.4, // variable jump height — stronger cut for more height control
 
-  // Feel / input forgiveness
-  COYOTE_TIME: 0.1, // seconds after leaving a ledge during which jump still fires
-  JUMP_BUFFER: 0.12, // seconds before landing a jump press is remembered
-  CORNER_NUDGE: 4, // max px of head-corner clip to auto-nudge sideways while jumping
+  // ───────────────────────── AIR EXPRESSION ────────────────────────
+  // Air snap: amplified control window right after jump for trajectory correction.
+  AIR_SNAP_WINDOW: 0.08, // seconds after jump with boosted air control
+  AIR_SNAP_MULT: 1.8, // air accel multiplier during snap window
+  AIR_BRAKE_MULT: 1.4, // air decel boost when reversing direction mid-air
+
+  // ───────────────────────── WALL MECHANICS ────────────────────────
+  WALL_SLIDE_SPEED: 60, // max fall speed while wall-sliding
+  WALL_SLIDE_ACCEL: 400, // how fast you approach slide speed (gravity replacement)
+  WALL_JUMP_VX: 170, // horizontal impulse away from wall
+  WALL_JUMP_VY: 270, // vertical impulse (slightly less than ground jump)
+  WALL_STICK_TIME: 0.06, // grace period: wall-jump still valid after leaving wall
+  WALL_JUMP_INPUT_LOCK: 0.08, // seconds after wall-jump where input toward wall is suppressed
+
+  // ───────────────────────── FEEL / FORGIVENESS ────────────────────
+  COYOTE_TIME: 0.12, // generous coyote time
+  JUMP_BUFFER: 0.15, // generous buffer
+  CORNER_NUDGE: 5, // max px of head-corner clip to auto-nudge sideways while jumping
 
   // Camera
   CAM_DEADZONE_W: 40, // player can drift this wide before cam pans horizontally
@@ -68,6 +83,7 @@ export const CONFIG = {
   INSTABILITY_RUN_THRESHOLD: 0.95, // fraction of MAX_RUN that counts as "max speed"
   INSTABILITY_IDLE_BLEED_PER_SEC: 6, // stand still on ground → this much drains per second
   INSTABILITY_IDLE_VX_MAX: 8, // |vx| must be under this to count as "standing still"
+  INSTABILITY_AIR_BLEED_PER_SEC: 1.5, // slow drain while airborne — skilled movement is rewarded
   INSTABILITY_CONTAIN_DRAIN_PER_SEC: 40, // active containment drain rate
   CONTAINMENT_STUN: 0.15, // post-containment stun: no jump or re-contain during this window
 
@@ -139,7 +155,7 @@ export const CONFIG = {
   METER_X: 8,
   METER_Y: 8,
   METER_W: 120,
-  METER_H: 12,
+  METER_H: 3,
 
   // Colors (replace any Graphics in render.ts with Sprites when swapping in art)
   COLOR_SKY: 0x1A1A2E,
@@ -165,9 +181,9 @@ export const CONFIG = {
   //
   // Litmus: at max, the player should think "I can still win, but I
   // don't trust myself anymore."
-  DEGRADE_DAMPING_REDUCTION: 0.55, // ground/air decel loses this fraction at ratio=1 (harder to stop)
-  DEGRADE_OVERSPEED: 0.12, // MAX_RUN gains this fraction at ratio=1 (easier to overshoot)
-  DEGRADE_GRAVITY_AMP: 0.10, // gravity amplified by this fraction at ratio=1 (weighted-feeling falls)
+  DEGRADE_DAMPING_REDUCTION: 0.30, // decel loses this fraction at ratio=1 (harder to stop, but mild)
+  DEGRADE_OVERSPEED: 0.18, // MAX_RUN gains this fraction at ratio=1 (momentum exaggeration)
+  DEGRADE_GRAVITY_AMP: 0.0, // NO gravity penalty — never punish air control
   DEGRADE_FRAGMENT_THRESH: 0.7, // ratio above which visual fragmentation kicks in
   DEGRADE_FRAGMENT_JITTER: 1.2, // max jitter amplitude in px at ratio=1
 
@@ -180,7 +196,7 @@ export const CONFIG = {
   WIND_GUST_AMPLITUDE: 6, // slow sinusoidal gust, px/s
   WIND_GUST_HZ: 0.07, // very slow, half-minute-ish cycle
   WIND_MOTE_COUNT: 48, // ambient motes on-screen at any time
-  WIND_MOTE_MAX_ALPHA: 0.35,
+  WIND_MOTE_MAX_ALPHA: 0.45,
 
   // Vignette softness.
   VIGNETTE_STRENGTH: 0.55, // 0 = off, 1 = hard black at corners

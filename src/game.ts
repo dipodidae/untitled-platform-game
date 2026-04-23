@@ -10,6 +10,7 @@ import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics }
 import { endFrame, respawnPressed } from './input'
 import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
+import { createProwler, updateProwler, checkProwlerPlayerContact, prowlerReactToRupture, type Prowler } from './prowler'
 import { buildScene, render, teardownScene } from './render'
 import { CRTFilter } from './render/CRTFilter'
 import { resetPlayerRenderer } from './render/playerRenderer'
@@ -38,6 +39,7 @@ export interface GameState {
   // wall-clock-like timers that need a consistent reading across ticks.
   now: number
   levelIndex: number
+  prowlers: Prowler[]
 }
 
 export function createGame(app: Application): GameState {
@@ -46,10 +48,11 @@ export function createGame(app: Application): GameState {
   const camera = createCamera(player)
   const fx = createFxState()
   const broadphase = new BroadphaseGrid()
+  const prowlers = level.prowlerSpawns.map(s => createProwler(s.x, s.y))
   const renderCtx = buildScene(app, level)
   const crtFilter = new CRTFilter()
   app.stage.filters = [crtFilter]
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0 }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers }
 }
 
 // Transition to the next level. Wraps back to level 1 after the last.
@@ -60,6 +63,8 @@ function advanceLevel(state: GameState): void {
   state.camera = createCamera(state.player)
   state.now = 0
   state.accumulator = 0
+
+  state.prowlers = state.level.prowlerSpawns.map(s => createProwler(s.x, s.y))
 
   // Clean up visual state from the previous level.
   state.fx.hitstopTicks = 0
@@ -104,6 +109,20 @@ function fixedUpdate(state: GameState): void {
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
 
+  // Update prowlers + check player contact
+  for (const pr of state.prowlers) {
+    updateProwler(pr, state.player, state.level, state.broadphase, CONFIG.FIXED_DT)
+    checkProwlerPlayerContact(pr, state.player)
+  }
+
+  // Rupture reaction — if a rupture happened this tick, notify all prowlers
+  if (state.player.lastRupture && state.player.iframeTimer > CONFIG.FRACTURE_IFRAMES - CONFIG.FIXED_DT * 2) {
+    const r = state.player.lastRupture
+    for (const pr of state.prowlers) {
+      prowlerReactToRupture(pr, r.center.x, r.center.y)
+    }
+  }
+
   if (checkLevelTransition(state))
     advanceLevel(state)
 
@@ -129,7 +148,7 @@ export function startLoop(state: GameState): void {
     // Camera smoothing runs once per rendered frame (not per physics tick)
     // so its lerp rate stays tied to display refresh, same as the original.
     updateCamera(state.camera, state.player, state.level)
-    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt)
+    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers)
 
     // Update CRT shader uniforms
     const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX

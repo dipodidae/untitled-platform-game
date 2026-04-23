@@ -176,6 +176,7 @@ export function moveAndCollide(
 
   let grounded = false
   let touchingWall = false
+  let wallSide: -1 | 0 | 1 = 0
   let gnx = 0
   let gny = 0
   let groundCollider: Collider | null = null
@@ -224,8 +225,10 @@ export function moveAndCollide(
         gny = bestNy
       }
     }
-    if (Math.abs(bestNx) > WALL_NORMAL_X)
+    if (Math.abs(bestNx) > WALL_NORMAL_X) {
       touchingWall = true
+      wallSide = bestNx > 0 ? -1 : 1 // normal points away from wall; wall on opposite side
+    }
 
     // Nothing to displace — contact is registered, iteration done.
     if (bestDepth <= 0.001)
@@ -310,6 +313,7 @@ export function moveAndCollide(
 
   p.grounded = grounded
   p.touchingWall = touchingWall
+  p.wallSide = touchingWall ? wallSide : 0
   p.groundNormal = grounded ? { x: gnx, y: gny } : null
 }
 

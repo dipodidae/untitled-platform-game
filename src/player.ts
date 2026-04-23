@@ -38,6 +38,11 @@ export interface Player {
 
   instability: InstabilityState
   touchingWall: boolean // written by moveAndCollide each tick
+  wallSide: -1 | 0 | 1 // -1 = wall on left, 1 = wall on right, 0 = no wall
+  wallSliding: boolean // true when sliding on a wall (input toward wall + airborne)
+  wallStickTimer: number // grace period after leaving wall where wall-jump still works
+  wallJumpInputLock: number // seconds remaining where input toward wall is suppressed
+  airSnapTimer: number // seconds remaining in post-jump amplified air control window
   jumpedThisTick: boolean // set only on ticks where a jump actually fired
   iframeTimer: number // post-fracture invulnerability window
   alive: boolean // false ⇒ game.ts triggers a respawn at frame end
@@ -68,6 +73,11 @@ export function createPlayer(level: Level): Player {
     facing: 1,
     instability: createInstabilityState(),
     touchingWall: false,
+    wallSide: 0,
+    wallSliding: false,
+    wallStickTimer: 0,
+    wallJumpInputLock: 0,
+    airSnapTimer: 0,
     jumpedThisTick: false,
     iframeTimer: 0,
     alive: true,
@@ -83,7 +93,15 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   // "locked" = containment is active OR post-containment stun. No
   // input-driven movement, no jump firing. Gravity + current vx decay
   // still apply below.
-  const inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
+  let inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
+
+  // Wall-jump input lock: suppress input TOWARD the wall we just jumped from.
+  // This prevents immediately re-sticking and makes wall-jumps feel decisive.
+  if (p.wallJumpInputLock > 0) {
+    p.wallJumpInputLock -= dt
+    if (inputX === p.wallSide) inputX = 0
+  }
+
   if (inputX !== 0)
     p.facing = inputX === 1 ? 1 : -1
 
@@ -92,29 +110,48 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     p.bufferTimer = CONFIG.JUMP_BUFFER
 
   // Degradation modifiers (post-controller). Base numbers unchanged —
-  // we only scale their output. The body is failing; the controller
-  // isn't.
+  // we only scale their output. The body is failing; the controller isn't.
   const instab = p.instability.value / CONFIG.INSTABILITY_MAX
   const effectiveMaxRun = CONFIG.MAX_RUN * (1 + instab * CONFIG.DEGRADE_OVERSPEED)
 
-  // Horizontal acceleration. Turnaround boost kicks in when input opposes vx.
+  // ─── wall slide detection ─────────────────────────────────────────
+  // Airborne + touching wall + holding input toward wall = wall slide.
+  const canWallSlide = !p.grounded && p.touchingWall && p.wallSide !== 0
+    && inputX === p.wallSide && p.vy >= 0
+  p.wallSliding = canWallSlide
+
+  // Wall stick timer: grace period after leaving a wall where wall-jump
+  // is still valid. Starts when we WERE touching and now aren't.
+  if (p.touchingWall && p.wallSide !== 0 && !p.grounded) {
+    p.wallStickTimer = CONFIG.WALL_STICK_TIME
+  }
+  else if (p.wallStickTimer > 0) {
+    p.wallStickTimer -= dt
+  }
+
+  // ─── horizontal acceleration ──────────────────────────────────────
   const targetVx = inputX * effectiveMaxRun
   let accel: number
   if (inputX !== 0) {
     const turning = p.vx !== 0 && Math.sign(inputX) !== Math.sign(p.vx)
-    accel = p.grounded ? CONFIG.GROUND_ACCEL : CONFIG.AIR_ACCEL
-    if (turning)
-      accel *= CONFIG.TURN_BOOST
+    if (p.grounded) {
+      accel = CONFIG.GROUND_ACCEL
+    }
+    else {
+      accel = CONFIG.AIR_ACCEL
+      // Air snap: boosted control right after a jump
+      if (p.airSnapTimer > 0) accel *= CONFIG.AIR_SNAP_MULT
+      // Air brake: boosted decel when reversing direction mid-air
+      if (turning) accel *= CONFIG.AIR_BRAKE_MULT
+    }
+    if (turning) accel *= CONFIG.TURN_BOOST
   }
   else {
     accel = p.grounded ? CONFIG.GROUND_DECEL : CONFIG.AIR_DECEL
+    if (!p.grounded && p.airSnapTimer > 0) accel *= CONFIG.AIR_SNAP_MULT
   }
 
-  // Damping reduction: whenever we're applying a deceleration (input is
-  // zero, or turning against current velocity), scale the effective
-  // response down as instability rises. Accelerating in-direction keeps
-  // full responsiveness — so the feeling is "I can still go, I just
-  // can't stop." No change to base accel/decel constants.
+  // Instability damping reduction: harder to stop, NOT harder to start.
   const currentSign = Math.sign(p.vx)
   const intendSign = inputX === 0 ? -currentSign : Math.sign(inputX)
   const decelerating = currentSign !== 0 && intendSign === -currentSign
@@ -122,34 +159,52 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     accel *= 1 - instab * CONFIG.DEGRADE_DAMPING_REDUCTION
 
   const dv = accel * dt
-  if (p.vx < targetVx)
-    p.vx = Math.min(p.vx + dv, targetVx)
-  else if (p.vx > targetVx)
-    p.vx = Math.max(p.vx - dv, targetVx)
+  if (p.vx < targetVx) p.vx = Math.min(p.vx + dv, targetVx)
+  else if (p.vx > targetVx) p.vx = Math.max(p.vx - dv, targetVx)
 
-  // Fire jump if (a) buffered, (b) grounded or within coyote window, (c) not locked.
-  const canJump = !locked && (p.grounded || p.coyoteTimer > 0)
+  // ─── jump: ground, coyote, OR wall ───────────────────────────────
+  const canGroundJump = !locked && (p.grounded || p.coyoteTimer > 0)
+  const canWallJump = !locked && !p.grounded
+    && (p.touchingWall || p.wallStickTimer > 0) && p.wallSide !== 0
   let firedJump = false
-  if (p.bufferTimer > 0 && canJump) {
-    let jumpV = CONFIG.JUMP_VELOCITY
 
-    // Resonant momentum inheritance: jumping off resonant gives a boost.
-    // Chain bonus stacks for consecutive resonant contacts.
-    if (p.groundMaterial === 'resonant') {
-      const chainBonus = Math.max(0, p.resonantChain - 1) * CONFIG.RESONANT_CHAIN_JUMP_BONUS
-      jumpV *= CONFIG.RESONANT_JUMP_BOOST + chainBonus
+  if (p.bufferTimer > 0 && (canGroundJump || canWallJump)) {
+    if (canGroundJump) {
+      // ─── ground / coyote jump ────────────────────────────────────
+      let jumpV = CONFIG.JUMP_VELOCITY
+
+      // Resonant momentum inheritance
+      if (p.groundMaterial === 'resonant') {
+        const chainBonus = Math.max(0, p.resonantChain - 1) * CONFIG.RESONANT_CHAIN_JUMP_BONUS
+        jumpV *= CONFIG.RESONANT_JUMP_BOOST + chainBonus
+      }
+
+      p.vy = -jumpV
+      p.grounded = false
+    }
+    else {
+      // ─── wall jump ───────────────────────────────────────────────
+      // Strong horizontal impulse AWAY from wall + vertical boost.
+      const awayDir = -p.wallSide as -1 | 1
+      p.vx = awayDir * CONFIG.WALL_JUMP_VX
+      p.vy = -CONFIG.WALL_JUMP_VY
+      p.facing = awayDir
+      p.wallJumpInputLock = CONFIG.WALL_JUMP_INPUT_LOCK
+      p.wallSliding = false
+      p.wallStickTimer = 0
     }
 
-    p.vy = -jumpV
     p.bufferTimer = 0
     p.coyoteTimer = 0
-    p.grounded = false
+    p.airSnapTimer = CONFIG.AIR_SNAP_WINDOW
     firedJump = true
     p.jumpedThisTick = true
   }
 
-  // Variable jump height: release-to-cut. Skip on the tick a buffered jump fires
-  // — otherwise a quick tap-before-landing would become an unwanted short hop.
+  // Air snap timer decay
+  if (p.airSnapTimer > 0) p.airSnapTimer -= dt
+
+  // Variable jump height: release-to-cut. Skip on the tick a jump fires.
   if (!firedJump && jumpReleased() && p.vy < 0) {
     p.vy *= CONFIG.JUMP_CUT_MULT
   }
@@ -175,6 +230,11 @@ export function respawn(p: Player, level: Level): void {
   p.bufferTimer = 0
   p.facing = 1
   p.touchingWall = false
+  p.wallSide = 0
+  p.wallSliding = false
+  p.wallStickTimer = 0
+  p.wallJumpInputLock = 0
+  p.airSnapTimer = 0
   p.jumpedThisTick = false
   p.iframeTimer = 0
   p.alive = true
@@ -257,12 +317,19 @@ export function updatePlayer(
   // it accumulates under our feet and causes jitter against the slope.
   // Jumping (p.jumpedThisTick) cleared p.grounded already.
   if (!p.grounded) {
-    const instabRatio = p.instability.value / CONFIG.INSTABILITY_MAX
-    const gravMult = 1 + instabRatio * CONFIG.DEGRADE_GRAVITY_AMP
-    const gravity = (p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY) * gravMult
-    p.vy += gravity * dt
-    if (p.vy > CONFIG.MAX_FALL)
-      p.vy = CONFIG.MAX_FALL
+    if (p.wallSliding) {
+      // Wall slide: reduced gravity — controlled descent.
+      if (p.vy < CONFIG.WALL_SLIDE_SPEED)
+        p.vy = Math.min(p.vy + CONFIG.WALL_SLIDE_ACCEL * dt, CONFIG.WALL_SLIDE_SPEED)
+      else if (p.vy > CONFIG.WALL_SLIDE_SPEED)
+        p.vy = Math.max(p.vy - CONFIG.WALL_SLIDE_ACCEL * dt, CONFIG.WALL_SLIDE_SPEED)
+    }
+    else {
+      // Normal gravity — no instability penalty (DEGRADE_GRAVITY_AMP is 0).
+      const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
+      p.vy += gravity * dt
+      if (p.vy > CONFIG.MAX_FALL) p.vy = CONFIG.MAX_FALL
+    }
   }
 
   // Capture pre-collision vy so we can score landing impact.

@@ -33,23 +33,23 @@ export interface Palette {
 }
 
 export const PALETTE: Palette = {
-  skyTop: 0x04060F,
-  skyBottom: 0x0F1A28,
+  skyTop: 0x080E1E,
+  skyBottom: 0x1A2840,
   vignette: 0x000000,
-  parallaxFar: 0x0A0F1A,
-  parallaxNear: 0x141C28,
-  windMote: 0x3A5070,
+  parallaxFar: 0x0F1828,
+  parallaxNear: 0x1E2838,
+  windMote: 0x506888,
   player: 0xE0D8C8,
   playerEdge: 0xFFFFFF,
   playerShadow: 0x1A2A38,
   auraCool: 0x4060C0,
   auraWarm: 0xC8A020,
   auraHot: 0xCC2020,
-  meterDim: 0x4A6040,
-  meterBright: 0xC82020,
-  meterChassis: 0x0A0A10,
-  hintText: 0x8090A0,
-  hintDim: 0x3A3640,
+  meterDim: 0x5A7050,
+  meterBright: 0xD83030,
+  meterChassis: 0x181820,
+  hintText: 0xA0B0C0,
+  hintDim: 0x505060,
   materials: {
     // Pale blue-grey, translucent. Fragile light.
     glass: {

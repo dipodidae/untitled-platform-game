@@ -14,6 +14,8 @@ import { drawSky, drawVignette } from './render/post'
 import { createWindState, drawWind, tickWind, type WindState as WindS } from './render/wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './render/world'
 import { drawPlayer, drawPlayerGhost, resetPlayerRenderer, type PlayerRenderState } from './render/playerRenderer'
+import { drawProwler } from './render/prowlerRenderer'
+import type { Prowler } from './prowler'
 import { computeRuptureShape } from './rupture'
 
 // Scene graph:
@@ -40,6 +42,7 @@ export interface RenderContext {
   readonly ruptureRingGfx: Graphics
   readonly particlesGfx: Graphics
   readonly deathPlaneGfx: Graphics
+  readonly prowlerGfxList: Graphics[]
   readonly flashGfx: Graphics
   readonly dreadGfx: Graphics
   readonly vignetteGfx: Graphics
@@ -106,6 +109,14 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const deathPlaneGfx = new Graphics()
   worldContainer.addChild(deathPlaneGfx)
 
+  // Prowler graphics — one Graphics per prowler spawn in the level.
+  const prowlerGfxList: Graphics[] = []
+  for (const _s of level.prowlerSpawns) {
+    const g = new Graphics()
+    worldContainer.addChild(g)
+    prowlerGfxList.push(g)
+  }
+
   const previewGfx = new Graphics()
   worldContainer.addChild(previewGfx)
 
@@ -129,8 +140,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
   // lives in the fill's behavior (jitter, ember flakes) more than its
   // length.
   const meterBg = new Graphics()
-  meterBg.rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, 1)
-    .fill({ color: PALETTE.meterDim, alpha: 0.6 })
+  meterBg.rect(CONFIG.METER_X, CONFIG.METER_Y, CONFIG.METER_W, CONFIG.METER_H)
+    .fill({ color: PALETTE.meterChassis, alpha: 0.7 })
   uiContainer.addChild(meterBg)
 
   const meterFg = new Graphics()
@@ -141,7 +152,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     style: { fontFamily: 'monospace', fontSize: 10, fill: PALETTE.hintText },
   })
   hint.x = 6
-  hint.y = CONFIG.METER_Y + CONFIG.METER_H + 6
+  hint.y = CONFIG.METER_Y + CONFIG.METER_H + 4
   uiContainer.addChild(hint)
 
   const containHint = new Text({
@@ -149,7 +160,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     style: { fontFamily: 'monospace', fontSize: 9, fill: PALETTE.hintText },
   })
   containHint.x = CONFIG.METER_X + CONFIG.METER_W + 6
-  containHint.y = CONFIG.METER_Y + 1
+  containHint.y = CONFIG.METER_Y
   uiContainer.addChild(containHint)
 
   const flashGfx = new Graphics()
@@ -161,8 +172,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const dreadGfx = new Graphics()
   uiContainer.addChild(dreadGfx)
 
-  hint.alpha = 0.4
-  containHint.alpha = 0.4
+  hint.alpha = 0.55
+  containHint.alpha = 0.55
 
   const vignetteGfx = new Graphics()
   drawVignette(vignetteGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
@@ -190,6 +201,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     ruptureRingGfx,
     particlesGfx,
     deathPlaneGfx,
+    prowlerGfxList,
     flashGfx,
     dreadGfx,
     vignetteGfx,
@@ -203,7 +215,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     ruptureFrame: -1,
     respawnFrame: -1,
     hintSeen: { moved: false, jumped: false, contained: false },
-    hintAlpha: 0.4,
+    hintAlpha: 0.55,
   }
 }
 
@@ -282,6 +294,7 @@ export function render(
   fx: FxState,
   level: Level,
   dt: number,
+  prowlers?: readonly Prowler[],
 ): void {
   ctx.time += dt
 
@@ -388,6 +401,20 @@ export function render(
   }
   drawPlayer(ctx.playerGfx, prs, ratio0, ctx.time)
   ctx.wasGrounded = player.grounded
+
+  // ─── prowlers ─────────────────────────────────────────────
+  if (prowlers) {
+    for (let i = 0; i < prowlers.length; i++) {
+      const pg = ctx.prowlerGfxList[i]
+      const pr = prowlers[i]
+      if (!pg || !pr) continue
+      pg.x = pr.x + pr.w / 2
+      pg.y = pr.y + pr.h / 2
+      pg.visible = pr.alive
+      if (pr.alive) drawProwler(pg, pr, ctx.time)
+      else pg.clear()
+    }
+  }
 
   // ─── aura (radial, single-family) ────────────────────────
   const ratio = player.instability.value / CONFIG.INSTABILITY_MAX
@@ -511,7 +538,7 @@ export function render(
   if (fillW > 0.5) {
     const meterCol = meterColorForRatio(ratio)
     ctx.meterFg
-      .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, 1)
+      .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H)
       .fill({ color: meterCol })
   }
 
@@ -524,7 +551,7 @@ export function render(
     ctx.hintSeen.contained = true
 
   const allSeen = ctx.hintSeen.moved && ctx.hintSeen.jumped && ctx.hintSeen.contained
-  const hintTarget = allSeen ? 0 : 0.4
+  const hintTarget = allSeen ? 0 : 0.55
   ctx.hintAlpha += (hintTarget - ctx.hintAlpha) * Math.min(1, dt * 0.8)
   if (ctx.hintAlpha < 0.005)
     ctx.hintAlpha = 0

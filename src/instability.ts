@@ -111,6 +111,10 @@ export function updateInstability(
   else if (input.grounded && input.vxAbs < CONFIG.INSTABILITY_IDLE_VX_MAX) {
     s.value = Math.max(0, s.value - CONFIG.INSTABILITY_IDLE_BLEED_PER_SEC * dt)
   }
+  else if (!input.grounded) {
+    // Slow air bleed — skilled airborne play is rewarded with tiny recovery.
+    s.value = Math.max(0, s.value - CONFIG.INSTABILITY_AIR_BLEED_PER_SEC * dt)
+  }
 
   // ─── fracture trigger ─────────────────────────────────────────
   // Flag set here, rupture fires on the next tick — gives the preview one
