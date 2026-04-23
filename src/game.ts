@@ -8,6 +8,7 @@ import { createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
 import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics } from './fx'
 import { endFrame, respawnPressed } from './input'
+import { kineticReactToRupture, updateKinetics } from './kinetic'
 import { BroadphaseGrid } from './physics'
 import { createPlayer, respawn, updatePlayer } from './player'
 import { createProwler, updateProwler, checkProwlerPlayerContact, prowlerReactToRupture, type Prowler } from './prowler'
@@ -106,6 +107,7 @@ function fixedUpdate(state: GameState): void {
 
   state.now += CONFIG.FIXED_DT
   tickEphemeral(state.level, state.now)
+  updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
 
@@ -115,12 +117,13 @@ function fixedUpdate(state: GameState): void {
     checkProwlerPlayerContact(pr, state.player)
   }
 
-  // Rupture reaction — if a rupture happened this tick, notify all prowlers
+  // Rupture reaction — if a rupture happened this tick, notify prowlers + kinetic elements
   if (state.player.lastRupture && state.player.iframeTimer > CONFIG.FRACTURE_IFRAMES - CONFIG.FIXED_DT * 2) {
     const r = state.player.lastRupture
     for (const pr of state.prowlers) {
       prowlerReactToRupture(pr, r.center.x, r.center.y)
     }
+    kineticReactToRupture(state.level, r.center.x, r.center.y)
   }
 
   if (checkLevelTransition(state))

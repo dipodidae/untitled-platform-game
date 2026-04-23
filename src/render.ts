@@ -398,6 +398,9 @@ export function render(
     ruptureFrame: ctx.ruptureFrame,
     respawnFrame: ctx.respawnFrame,
     instability: ratio0,
+    djGlowTimer: player.djGlowTimer,
+    djFiredThisTick: player.djFiredThisTick,
+    groundMaterial: player.groundMaterial,
   }
   drawPlayer(ctx.playerGfx, prs, ratio0, ctx.time)
   ctx.wasGrounded = player.grounded

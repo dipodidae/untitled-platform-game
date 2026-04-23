@@ -26,7 +26,8 @@
     },
     {
       "id": 6, "material": "bone",
-      "vertices": [[700, 335], [770, 335], [770, 360], [700, 360]]
+      "vertices": [[700, 335], [770, 335], [770, 360], [700, 360]],
+      "kinetic": { "type": "breather", "frequency": 0.5, "amplitude": 1.5 }
     },
 
     {
@@ -53,6 +54,16 @@
     {
       "id": 12, "material": "bone",
       "vertices": [[1260, 360], [1360, 360], [1360, 400], [1260, 400]]
+    },
+    {
+      "id": 19, "material": "soft",
+      "vertices": [[870, 330], [940, 330], [940, 345], [870, 345]],
+      "kinetic": { "type": "spring", "stiffness": 160, "damping": 7 }
+    },
+    {
+      "id": 20, "material": "bone",
+      "vertices": [[1040, 300], [1100, 300], [1100, 310], [1040, 310]],
+      "kinetic": { "type": "rotor", "speed": 0.3 }
     },
     {
       "id": 13, "material": "glass",

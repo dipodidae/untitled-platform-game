@@ -45,6 +45,16 @@ export const CONFIG = {
   WALL_STICK_TIME: 0.06, // grace period: wall-jump still valid after leaving wall
   WALL_JUMP_INPUT_LOCK: 0.08, // seconds after wall-jump where input toward wall is suppressed
 
+  // ───────────────────────── DOUBLE JUMP ──────────────────────────
+  // "A deliberate correction or escape, not a second chance float."
+  DJ_VELOCITY: 240, // upward impulse — weaker than ground jump (290) for deliberate feel
+  DJ_HORIZONTAL_INFLUENCE: 60, // px/s added in input direction — subtle directional bias
+  DJ_MOMENTUM_KEEP: 0.7, // fraction of existing vx preserved (no hard override)
+  DJ_INSTABILITY_GAIN: 12, // instability cost — slightly more than a normal jump (8)
+  DJ_GLOW_DURATION: 1.0, // seconds the glitch-glow persists after activation
+  DJ_AFTERIMAGE_COUNT: 3, // number of ghost frames spawned
+  DJ_AFTERIMAGE_LIFE: 0.4, // seconds each afterimage lingers
+
   // ───────────────────────── FEEL / FORGIVENESS ────────────────────
   COYOTE_TIME: 0.12, // generous coyote time
   JUMP_BUFFER: 0.15, // generous buffer

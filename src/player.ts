@@ -15,6 +15,7 @@ import {
   rightDown,
 } from './input'
 import {
+  addInstability,
   createInstabilityState,
   onFractured,
   resetInstability,
@@ -55,6 +56,11 @@ export interface Player {
   resonantChain: number // consecutive resonant contacts without touching other ground
   dropThroughTimer: number // seconds remaining where one-way platforms are ignored
 
+  // Double jump
+  doubleJumpAvailable: boolean // reset on ground/wall contact, consumed on DJ
+  djGlowTimer: number // seconds remaining of glitch-glow effect (0 = inactive)
+  djFiredThisTick: boolean // true only on the tick a double jump fires
+
   // Renderer handle for the last rupture — cleared once iframes close.
   lastRupture: RuptureResult | null
 }
@@ -86,6 +92,9 @@ export function createPlayer(level: Level): Player {
     groundMaterial: null,
     resonantChain: 0,
     dropThroughTimer: 0,
+    doubleJumpAvailable: false,
+    djGlowTimer: 0,
+    djFiredThisTick: false,
   }
 }
 
@@ -201,6 +210,26 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     p.jumpedThisTick = true
   }
 
+  // ─── double jump: mid-air correction ────────────────────────────
+  // Fires when: airborne, no ground/wall jump was available, DJ not consumed.
+  // "A deliberate correction or escape, not a second chance float."
+  p.djFiredThisTick = false
+  if (!firedJump && p.bufferTimer > 0 && !locked
+    && !p.grounded && p.doubleJumpAvailable) {
+    // Preserve horizontal momentum with slight directional influence
+    p.vx = p.vx * CONFIG.DJ_MOMENTUM_KEEP + inputX * CONFIG.DJ_HORIZONTAL_INFLUENCE
+    // Strong upward impulse — kills existing vy first for precision
+    p.vy = -CONFIG.DJ_VELOCITY
+    p.doubleJumpAvailable = false
+    p.djGlowTimer = CONFIG.DJ_GLOW_DURATION
+    p.djFiredThisTick = true
+    p.airSnapTimer = CONFIG.AIR_SNAP_WINDOW
+    p.bufferTimer = 0
+    firedJump = true
+    p.jumpedThisTick = true
+    addInstability(p.instability, CONFIG.DJ_INSTABILITY_GAIN)
+  }
+
   // Air snap timer decay
   if (p.airSnapTimer > 0) p.airSnapTimer -= dt
 
@@ -243,6 +272,9 @@ export function respawn(p: Player, level: Level): void {
   p.groundMaterial = null
   p.resonantChain = 0
   p.dropThroughTimer = 0
+  p.doubleJumpAvailable = false
+  p.djGlowTimer = 0
+  p.djFiredThisTick = false
   resetInstability(p.instability)
   resetLevel(level)
 }
@@ -292,6 +324,8 @@ export function updatePlayer(
     p.iframeTimer -= dt
   if (p.dropThroughTimer > 0)
     p.dropThroughTimer -= dt
+  if (p.djGlowTimer > 0)
+    p.djGlowTimer -= dt
 
   p.jumpedThisTick = false
 
@@ -356,6 +390,11 @@ export function updatePlayer(
   // Arm coyote window iff we just walked off an edge.
   if (wasGrounded && !p.grounded && p.vy >= 0) {
     p.coyoteTimer = CONFIG.COYOTE_TIME
+  }
+
+  // Double jump resets on ground or wall contact — you earn it by landing.
+  if (p.grounded || (p.touchingWall && p.wallSide !== 0)) {
+    p.doubleJumpAvailable = true
   }
 
   // Lethal overlap AFTER movement. Shards (left by broken glass) kill on

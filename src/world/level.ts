@@ -22,8 +22,10 @@
 // `tilemapToPolygons` converts legacy tile-string levels into a collider
 // list via greedy rectangle meshing; kept so old test layouts still load.
 
+import type { KineticJson, KineticState } from '../kinetic'
 import type { Polygon } from '../math/polygon'
 import type { Vec2 } from '../math/vec2'
+import { createKineticState } from '../kinetic'
 import { CONFIG } from '../config'
 import { bounds, decompose } from '../math/polygon'
 
@@ -65,6 +67,9 @@ export interface Collider {
   // Runtime-ephemeral colliders (shards). When set, collider is removed
   // once game time passes this value. null for authored colliders.
   expiresAt: number | null
+  // Kinetic behavior — rotating, breathing, or spring physics.
+  // null for static colliders. Set during level load from JSON.
+  kinetic: KineticState | null
 }
 
 export interface Level {
@@ -92,6 +97,7 @@ export interface LevelJson {
     material: MaterialName
     vertices: [number, number][]
     oneWay?: boolean
+    kinetic?: KineticJson
   }[]
   prowlers?: { x: number, y: number }[]
 }
@@ -129,6 +135,7 @@ export function buildCollider(
     touched: false,
     alive: true,
     expiresAt,
+    kinetic: null,
   }
   computeColliderBounds(c)
   return c
@@ -244,13 +251,14 @@ export function tilemapToPolygons(rows: readonly string[]): Collider[] {
 // ─── loaders ─────────────────────────────────────────────────────────────
 
 export function fromJson(data: LevelJson): Level {
-  const colliders: Collider[] = data.colliders.map(raw =>
-    buildCollider(
-      raw.id,
-      raw.material,
-      raw.vertices.map(([x, y]) => ({ x, y })),
-      raw.oneWay ?? false,
-    ))
+  const colliders: Collider[] = data.colliders.map((raw) => {
+    const verts = raw.vertices.map(([x, y]) => ({ x, y }))
+    const c = buildCollider(raw.id, raw.material, verts, raw.oneWay ?? false)
+    if (raw.kinetic) {
+      c.kinetic = createKineticState(verts, raw.kinetic)
+    }
+    return c
+  })
   return {
     colliders,
     pristineColliders: snapshot(colliders),
@@ -294,6 +302,10 @@ export function resetLevel(level: Level): void {
       existing.contactTime = 0
       existing.touched = false
       existing.alive = true
+      // Re-create kinetic state from base vertices (resets angle/phase/offset)
+      if (existing.kinetic) {
+        existing.kinetic = createKineticState(verts, existing.kinetic as KineticJson)
+      }
       refreshCollider(existing)
       fresh.push(existing)
     }

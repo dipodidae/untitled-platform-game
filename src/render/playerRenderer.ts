@@ -17,6 +17,9 @@ export interface PlayerRenderState {
   ruptureFrame: number // -1 = no rupture; 0,1,2,3… = frames since rupture fired
   respawnFrame: number // -1 = not respawning; 0,1,2,3… = frames since respawn
   instability: number // 0..1 normalized
+  djGlowTimer: number // seconds remaining of glitch-glow (0 = inactive)
+  djFiredThisTick: boolean // true on the tick DJ activates
+  groundMaterial: string | null // for resonant flicker
 }
 
 // ─── colors ──────────────────────────────────────────────────────────
@@ -26,6 +29,9 @@ const COL_CORE = 0xE87030
 const COL_BLOB_A = 0xF0A050
 const COL_BLOB_B = 0xFF7030
 const COL_FORESIGHT = 0x4060C0
+const COL_DJ_GLOW = 0x7050C8 // cool violet
+const COL_DJ_CORE = 0xA080E0 // brighter inner
+const COL_DJ_GHOST = 0x503890 // afterimage tint
 
 // ─── base shape (10×14, center = 0,0) ────────────────────────────────
 // Slightly taller than wide. Left bulges ~1px. Bottom flat, top rounded.
@@ -214,6 +220,17 @@ let _containRing = 0 // pull ring radius offset (4..0)
 // Rebound after contain release
 let _reboundFrames = 0 // 3,2,1,0
 let _wasContaining = false
+
+// Double jump afterimages
+interface DJAfterimage {
+  x: number // offset from current player pos at spawn time
+  y: number
+  life: number // 0..1, decays
+  maxLife: number
+  verts: V[] // snapshot of vertices at spawn
+}
+let _djAfterimages: DJAfterimage[] = []
+let _djGlowPhase = 0 // continuous phase for glow pulsing
 
 // Respawn birth jitter fade
 let _birthJitter = 0 // starts at 0.15, fades over 60 frames
@@ -483,6 +500,74 @@ export function drawPlayer(
     return
   }
 
+  // ─── DJ afterimages (drawn BEHIND body) ──────────────────────
+  _djAfterimages = _djAfterimages.filter((ai) => {
+    ai.life -= 1 / 60
+    if (ai.life <= 0) return false
+    // Non-linear decay: fast initial fade, lingering tail
+    const t = ai.life / ai.maxLife
+    const alpha = t * t * 0.35
+    const ghostVerts = ai.verts.map(v => ({
+      x: v.x + ai.x,
+      y: v.y + ai.y,
+    }))
+    pathPoly(g, ghostVerts)
+    g.fill({ color: COL_DJ_GHOST, alpha })
+    return true
+  })
+
+  // Spawn afterimages on DJ activation
+  if (state.djFiredThisTick) {
+    for (let i = 0; i < 3; i++) {
+      const delay = i * 0.04 // stagger spawn offsets
+      _djAfterimages.push({
+        x: -state.vx * delay * (1 / 60),
+        y: -state.vy * delay * (1 / 60),
+        life: 0.4 - i * 0.08,
+        maxLife: 0.4 - i * 0.08,
+        verts: verts.map(v => ({ x: v.x, y: v.y })),
+      })
+    }
+  }
+
+  // ─── DJ glitch-glow aura (drawn BEHIND body) ─────────────────
+  if (state.djGlowTimer > 0) {
+    _djGlowPhase += 1 / 60
+    const glowT = state.djGlowTimer / 1.0 // normalized 0..1 (1 = just fired)
+    const glowTSq = glowT * glowT // non-linear: bright at start, fast decay
+
+    // Outer unstable ring — offset slightly for "out of phase" feel
+    const offsetX = Math.sin(_djGlowPhase * 17.3) * glowT * 1.5
+    const offsetY = Math.cos(_djGlowPhase * 13.7) * glowT * 1.2
+    const outerR = 10 + glowT * 6
+    // Resonant flicker: near resonant surfaces, glow jitters more
+    const resonantMult = state.groundMaterial === 'resonant' ? 1.4 : 1.0
+    // Instability amplifies glow
+    const instabMult = 1 + instability * 0.3
+
+    // Pulsing outer glow — irregular shape via multiple offset circles
+    const glowAlpha = glowTSq * 0.25 * instabMult * resonantMult
+    g.circle(offsetX, offsetY, outerR)
+      .fill({ color: COL_DJ_GLOW, alpha: glowAlpha })
+    g.circle(-offsetX * 0.7, -offsetY * 0.5, outerR * 0.8)
+      .fill({ color: COL_DJ_GLOW, alpha: glowAlpha * 0.6 })
+    // Inner core flash — brighter, tighter
+    const coreR = 5 + glowT * 3
+    g.circle(offsetX * 0.3, offsetY * 0.3, coreR)
+      .fill({ color: COL_DJ_CORE, alpha: glowTSq * 0.4 * instabMult })
+    // Fragmenting edges at low glow (dissipating)
+    if (glowT < 0.4) {
+      const fragAlpha = (0.4 - glowT) * 0.5
+      for (let i = 0; i < 4; i++) {
+        const angle = _djGlowPhase * 5 + i * Math.PI / 2
+        const dist = outerR * (1.1 + Math.sin(_djGlowPhase * 11 + i) * 0.3)
+        const fx = Math.cos(angle) * dist
+        const fy = Math.sin(angle) * dist
+        g.circle(fx, fy, 1.5).fill({ color: COL_DJ_GLOW, alpha: fragAlpha })
+      }
+    }
+  }
+
   // ─── normal body draw ──────────────────────────────────────
   drawBody(g, verts, instability, time, state.containing, _decisions.coreSpike)
 
@@ -642,4 +727,6 @@ export function resetPlayerRenderer(): void {
   _wasContaining = false
   _birthJitter = 0
   _frameCount = 0
+  _djAfterimages = []
+  _djGlowPhase = 0
 }
