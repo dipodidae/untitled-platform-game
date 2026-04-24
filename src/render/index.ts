@@ -73,6 +73,13 @@ export interface RenderContext {
   // become redundant. Fade them out over ~2 seconds.
   hintSeen: { moved: boolean, jumped: boolean, contained: boolean }
   hintAlpha: number
+  // Meter reaction state: on a rising instability spike (delta > threshold),
+  // meterShakeTimer + meterFlashTimer pump and decay over ~300ms so the bar
+  // jolts + brightens in response. `lastInstability` is the previous frame's
+  // ratio for delta detection.
+  lastInstability: number
+  meterShakeTimer: number
+  meterFlashTimer: number
 }
 
 export function buildScene(app: Application, level: Level, particles: ParticleSystem): RenderContext {
@@ -258,6 +265,9 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     respawnFrame: -1,
     hintSeen: { moved: false, jumped: false, contained: false },
     hintAlpha: 0.55,
+    lastInstability: 0,
+    meterShakeTimer: 0,
+    meterFlashTimer: 0,
   }
 }
 
@@ -663,10 +673,39 @@ export function render(
   }
 
   // ─── UI: instability bar (1px tall pixel line) ────────────
+  // Spike detection — a large positive delta over a single render frame
+  // triggers a short shake + flash on the meter. Threshold is tuned so
+  // normal momentum-driven ramps don't trip it; only big events (resonant
+  // launches, glass contact at speed) do.
+  const instabilityDelta = ratio - ctx.lastInstability
+  if (instabilityDelta > 0.08) {
+    ctx.meterShakeTimer = 0.28
+    ctx.meterFlashTimer = 0.22
+  }
+  ctx.lastInstability = ratio
+
+  // Decay timers at render cadence.
+  if (ctx.meterShakeTimer > 0)
+    ctx.meterShakeTimer = Math.max(0, ctx.meterShakeTimer - dt)
+  if (ctx.meterFlashTimer > 0)
+    ctx.meterFlashTimer = Math.max(0, ctx.meterFlashTimer - dt)
+
+  // Shake offset — horizontal jitter scaled by remaining timer. Applied
+  // to both meterBg and meterFg so they stay aligned.
+  const shake = ctx.meterShakeTimer > 0
+    ? (Math.random() - 0.5) * (ctx.meterShakeTimer / 0.28) * 4
+    : 0
+  ctx.meterBg.x = shake
+  ctx.meterFg.x = shake
+  // Flash — meterBg briefly brighter on spike.
+  ctx.meterBg.alpha = ctx.meterFlashTimer > 0 ? 1 : 0.7
+
   ctx.meterFg.clear()
   const fillW = CONFIG.METER_W * ratio
   if (fillW > 0.5) {
-    const meterCol = meterColorForRatio(ratio)
+    let meterCol = meterColorForRatio(ratio)
+    // Flash the fg white during the flash window for extra pop.
+    if (ctx.meterFlashTimer > 0.1) meterCol = 0xFFFFFF
     ctx.meterFg
       .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H)
       .fill({ color: meterCol })
