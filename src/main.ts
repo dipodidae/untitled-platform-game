@@ -1,4 +1,5 @@
 import { Application } from 'pixi.js'
+import { gsap } from 'gsap'
 import { CONFIG } from './config'
 import { advanceLevel, createGame, reloadLevel, startLoop } from './game'
 import { initInput } from './input'
@@ -6,6 +7,22 @@ import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
 import { mountResultsScreen } from './ui/resultsScreen'
 import './style.css'
+
+// Fade the Pixi stage out, run `swap` to rebuild the scene, fade back in.
+// 300ms each way per the tier-1 spec. GSAP sequences tweens on the same
+// target cleanly (no overlapping tween bugs) so we don't need a promise.
+function fadeSwap(app: Application, swap: () => void): void {
+  gsap.killTweensOf(app.stage)
+  gsap.to(app.stage, {
+    alpha: 0,
+    duration: 0.3,
+    ease: 'power1.out',
+    onComplete: () => {
+      swap()
+      gsap.to(app.stage, { alpha: 1, duration: 0.3, ease: 'power1.in' })
+    },
+  })
+}
 
 function showLoadingScreen(mountEl: HTMLElement): HTMLElement {
   const el = document.createElement('div')
@@ -73,10 +90,11 @@ async function main(): Promise<void> {
   startLoop(state)
 
   // Results-screen overlay listens for levelComplete and shows itself.
-  // Retry re-enters the current level; Next advances.
+  // Retry re-enters the current level; Next advances. Both fade through
+  // a 300ms out/in tween on the stage so the transition reads.
   mountResultsScreen({
-    onRetry: () => reloadLevel(state),
-    onNext: () => advanceLevel(state),
+    onRetry: () => fadeSwap(app, () => reloadLevel(state)),
+    onNext: () => fadeSwap(app, () => advanceLevel(state)),
   })
 
   // Expose game state for the smoke test. Harmless in prod; lets the
