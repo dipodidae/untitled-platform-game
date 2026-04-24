@@ -20,7 +20,17 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "paths": {
+      "#build/ui": ["./node_modules/.nuxt-ui/ui"],
+      "#build/ui/*": ["./node_modules/.nuxt-ui/ui/*"]
+    }
   },
-  "include": ["src", "vite.config.ts", "src/**/*.vue"]
+  "include": [
+    "src",
+    "vite.config.ts",
+    "src/**/*.vue",
+    "auto-imports.d.ts",
+    "components.d.ts"
+  ]
 }

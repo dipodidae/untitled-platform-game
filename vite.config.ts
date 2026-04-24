@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
+import ui from '@nuxt/ui/vite'
 import { defineConfig } from 'vite'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
@@ -15,6 +16,10 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    // No vue-router — the editor is a single page. `router: false` makes
+    // Nuxt UI render links as plain <a> tags and avoids the vue-router
+    // import inside its internals.
+    ui({ router: false }),
     {
       name: 'editor-save',
       apply: 'serve',

@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* Editor's pre-existing global styles for the legacy panels.
+   Kept while we migrate panels to Nuxt UI components; remove rules as
+   each panel stops needing them. */
+@import "./style.css";

@@ -1,35 +1,43 @@
 <script setup lang="ts">
-import TopBar from './components/TopBar.vue'
-import LeftPanel from './components/LeftPanel.vue'
-import RightPanel from './components/RightPanel.vue'
 import BottomBar from './components/BottomBar.vue'
 import CanvasHost from './components/CanvasHost.vue'
-import './style.css'
+import LeftPanel from './components/LeftPanel.vue'
+import RightPanel from './components/RightPanel.vue'
+import TopBar from './components/TopBar.vue'
 </script>
 
 <template>
-  <div id="vue-top-bar">
-    <TopBar />
-  </div>
+  <UApp>
+    <div class="editor-grid">
+      <div id="vue-top-bar">
+        <TopBar />
+      </div>
 
-  <div id="vue-left-panel">
-    <LeftPanel />
-  </div>
+      <div id="vue-left-panel">
+        <LeftPanel />
+      </div>
 
-  <CanvasHost />
+      <CanvasHost />
 
-  <div id="vue-right-panel">
-    <RightPanel />
-  </div>
+      <div id="vue-right-panel">
+        <RightPanel />
+      </div>
 
-  <div id="vue-bottom-bar">
-    <BottomBar />
-  </div>
+      <div id="vue-bottom-bar">
+        <BottomBar />
+      </div>
+    </div>
+  </UApp>
 </template>
 
 <style>
-/* Grid layout identical to the vanilla editor */
+/* Grid layout identical to the vanilla editor. UApp wraps the whole tree
+   so the grid lives on a child container, not directly on #app. */
 #app {
+  height: 100%;
+}
+
+.editor-grid {
   display: grid;
   grid-template-columns: 220px 1fr 260px;
   grid-template-rows: 32px 1fr 28px;

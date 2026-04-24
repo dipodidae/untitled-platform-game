@@ -10,6 +10,11 @@ dist/
 vite.config.ts.timestamp-*
 vite.config.js.timestamp-*
 
+# Nuxt UI auto-generated declarations
+auto-imports.d.ts
+components.d.ts
+node_modules/.nuxt-ui/
+
 # Logs
 *.log
 npm-debug.log*
