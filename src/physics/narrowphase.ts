@@ -3,7 +3,7 @@
 // collision data; `resolve.ts` applies it to the player.
 
 import type { AABB, SatHit } from '../math/sat'
-import type { Vec2 } from '../math/vec2'
+import type { Vec2 } from '../shared-kernel/vec2'
 import type { Collider } from '../world/level'
 import { satAabbPoly } from '../math/sat'
 

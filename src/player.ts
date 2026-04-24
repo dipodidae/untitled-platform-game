@@ -1,6 +1,6 @@
 import type { FxState } from './fx'
 import type { InstabilityState } from './instability'
-import type { Vec2 } from './math/vec2'
+import type { Vec2 } from './shared-kernel/vec2'
 import type { BroadphaseGrid } from './physics/broadphase'
 import type { ParticleSystem } from './render/particles'
 import type { RuptureResult } from './rupture'

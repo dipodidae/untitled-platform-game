@@ -9,8 +9,8 @@
 // direction to push the AABB to resolve the overlap). `normal.y < 0` ⇒
 // polygon is beneath the AABB ⇒ the AABB is standing on the polygon.
 
-import type { Polygon } from './polygon'
-import type { Vec2 } from './vec2'
+import type { Polygon } from '../shared-kernel/polygon'
+import type { Vec2 } from '../shared-kernel/vec2'
 
 export interface AABB {
   x: number

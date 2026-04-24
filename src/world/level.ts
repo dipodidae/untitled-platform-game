@@ -24,11 +24,11 @@
 
 import type { ItemKind } from '../items/types'
 import type { KineticJson, KineticState } from '../kinetic'
-import type { Polygon } from '../math/polygon'
-import type { Vec2 } from '../math/vec2'
+import type { Polygon } from '../shared-kernel/polygon'
+import type { Vec2 } from '../shared-kernel/vec2'
 import { CONFIG } from '../config'
 import { createKineticState } from '../kinetic'
-import { bounds, decompose } from '../math/polygon'
+import { bounds, decompose } from '../shared-kernel/polygon'
 
 // ─── zone schema (authored in LevelJson, consumed by player.ts at runtime) ─
 //

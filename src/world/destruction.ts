@@ -13,7 +13,7 @@
 import type { RuptureShape } from '../rupture'
 import type { Collider, Level, MaterialName } from './level'
 import { CONFIG } from '../config'
-import { circleToPolygon, polygonDifference } from '../math/polygon'
+import { circleToPolygon, polygonDifference } from '../shared-kernel/polygon'
 import { buildCollider, refreshCollider } from './level'
 
 export interface AffectedCollider {
