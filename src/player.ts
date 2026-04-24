@@ -2,10 +2,12 @@ import type { FxState } from './fx'
 import type { InstabilityState } from './instability'
 import type { Vec2 } from './math/vec2'
 import type { BroadphaseGrid } from './physics/broadphase'
+import type { ParticleSystem } from './render/particles'
 import type { RuptureResult } from './rupture'
 import type { Level, MaterialName } from './world/level'
 import { CONFIG } from './config'
 import { triggerFractureFx } from './fx'
+import { emitFractureBurst } from './render/particles'
 import {
   containHeld,
   downDown,
@@ -328,6 +330,7 @@ export function updatePlayer(
   level: Level,
   fx: FxState,
   broadphase: BroadphaseGrid,
+  particles: ParticleSystem,
   now: number,
   dt: number,
 ): void {
@@ -354,7 +357,13 @@ export function updatePlayer(
     p.grounded = false // launch clears ground contact for the next tick
     p.lastRupture = rupture
     onFractured(p.instability)
-    triggerFractureFx(fx, rupture)
+    triggerFractureFx(fx)
+    // Dominant material of the break drives debris tinting. Fall back to bone
+    // if we carved empty air.
+    const firstDestroyed = rupture.affected.find(a => a.destroyed)
+    const mat = firstDestroyed?.prevMaterial ?? 'bone'
+    const dom = mat === 'glass' || mat === 'soft' || mat === 'resonant' ? mat : 'bone'
+    emitFractureBurst(particles, cx, cy, dom, p.vx, p.vy)
     // Consume the rest of this tick — the rupture IS the tick's action.
     return
   }

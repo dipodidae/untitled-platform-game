@@ -7,6 +7,7 @@ import type { BroadphaseGrid } from './physics'
 import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { ParallaxState } from './render/parallax'
+import type { ParticleSystem } from './render/particles'
 import type { SpineboyBridge } from './render/spineboy'
 import type { WindState } from './render/wind'
 import type { Level } from './world/level'
@@ -47,7 +48,6 @@ export interface RenderContext {
   readonly previewGfx: Graphics
   readonly containArrowGfx: Graphics
   readonly ruptureRingGfx: Graphics
-  readonly particlesGfx: Graphics
   readonly deathPlaneGfx: Graphics
   readonly bulletGfx: Graphics
   readonly crosshairGfx: Graphics
@@ -72,7 +72,7 @@ export interface RenderContext {
   hintAlpha: number
 }
 
-export function buildScene(app: Application, level: Level): RenderContext {
+export function buildScene(app: Application, level: Level, particles: ParticleSystem): RenderContext {
   const bgContainer = new Container()
   const worldContainer = new Container()
   const uiContainer = new Container()
@@ -111,8 +111,10 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const auraGfx = new Graphics()
   worldContainer.addChild(auraGfx)
 
-  const particlesGfx = new Graphics()
-  worldContainer.addChild(particlesGfx)
+  // Particle system root — contains both ParticleContainers (dot + shard).
+  // Layer position: above colliders + aura, below the character so Spineboy
+  // draws on top of debris.
+  worldContainer.addChild(particles.root)
 
   // Death-plane indicator — faint static dots along the bottom of the world
   // so the player can distinguish "lower floor" from "fall-out void."
@@ -228,7 +230,6 @@ export function buildScene(app: Application, level: Level): RenderContext {
     previewGfx,
     containArrowGfx,
     ruptureRingGfx,
-    particlesGfx,
     deathPlaneGfx,
     bulletGfx,
     crosshairGfx,
@@ -627,28 +628,6 @@ export function render(
       ctx.crosshairGfx.circle(pred.impactX, pred.impactY, r + 1)
         .stroke({ width: 1, color: hitColor, alpha: 0.4 })
     }
-  }
-
-  // ─── particles ──────────────────────────────────────────
-  // Each shard is a tiny triangle — rotated by p.angle, scaled by p.size.
-  // Fades to 0 over its lifetime.
-  ctx.particlesGfx.clear()
-  for (const p of fx.particles) {
-    const a = Math.max(0, p.life / p.maxLife)
-    const s = p.size
-    const ca = Math.cos(p.angle)
-    const sa = Math.sin(p.angle)
-    // Asymmetric triangle in local space.
-    const verts: [number, number][] = [
-      [s, 0],
-      [-s * 0.6, s * 0.8],
-      [-s * 0.4, -s * 0.7],
-    ]
-    const world: number[] = []
-    for (const [lx, ly] of verts) {
-      world.push(p.x + lx * ca - ly * sa, p.y + lx * sa + ly * ca)
-    }
-    ctx.particlesGfx.poly(world).fill({ color: p.color, alpha: a })
   }
 
   // ─── UI: instability bar (1px tall pixel line) ────────────

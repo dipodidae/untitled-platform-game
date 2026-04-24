@@ -11,7 +11,9 @@ import { createBulletState, resetBulletState, spawnBullet, updateBullets } from 
 import { addTrauma, createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
 import { createDummy, updateDummy } from './dummy'
-import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics } from './fx'
+import { consumeHitstopTick, createFxState, tickFxRender } from './fx'
+import { createParticleSystem, emitDisintegration, emitLandingDust, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from './render/particles'
+import type { ParticleSystem } from './render/particles'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from './input'
 import { kineticReactToRupture, updateKinetics } from './kinetic'
 import level1Json from './levels/level1.json'
@@ -49,6 +51,7 @@ export interface GameState {
   prowlers: Prowler[]
   readonly bullets: BulletState
   dummies: Dummy[]
+  readonly particles: ParticleSystem
 }
 
 export function createGame(app: Application): GameState {
@@ -60,10 +63,14 @@ export function createGame(app: Application): GameState {
   const prowlers = level.prowlerSpawns.map(s => createProwler(s.x, s.y))
   const bullets = createBulletState()
   const dummies: Dummy[] = level.dummySpawns.map(s => createDummy(s.x, s.y, s.hp))
-  const renderCtx = buildScene(app, level)
+  const particles = createParticleSystem(app.renderer)
+  const renderCtx = buildScene(app, level, particles)
   const crtFilter = new CRTFilter()
   app.stage.filters = [crtFilter]
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies }
+  // Prime the background with ambient motes (replaces the old wind-mote system
+  // for now — far cheaper and reads the same at this scale).
+  scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles }
 }
 
 // Transition to the next level. Wraps back to level 1 after the last.
@@ -83,11 +90,12 @@ function advanceLevel(state: GameState): void {
   state.fx.hitstopTicks = 0
   state.fx.shakeTimer = 0
   state.fx.flashTimer = 0
-  state.fx.particles.length = 0
+  resetParticleSystem(state.particles)
   resetPlayerRenderer()
 
   teardownScene(state.renderCtx)
-  state.renderCtx = buildScene(state.app, state.level)
+  state.renderCtx = buildScene(state.app, state.level, state.particles)
+  scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 }
 
 // Check if the player has reached the right boundary of the level.
@@ -124,7 +132,7 @@ function fixedUpdate(state: GameState): void {
   state.now += CONFIG.FIXED_DT
   tickEphemeral(state.level, state.now)
   updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
-  updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
+  updatePlayer(state.player, state.level, state.fx, state.broadphase, state.particles, state.now, CONFIG.FIXED_DT)
 
   // Fire + advance bullets. spawnBullet reads muzzle position + aim direction
   // from the Spineboy bridge's last-render snapshot, so bullets launch from
@@ -136,9 +144,9 @@ function fixedUpdate(state: GameState): void {
     const muzzleY = b.muzzleReady ? b.muzzleY : state.player.y + state.player.h / 2
     const dirX = b.muzzleReady ? b.muzzleDirX : state.player.facing
     const dirY = b.muzzleReady ? b.muzzleDirY : 0
-    spawnBullet(state.bullets, muzzleX, muzzleY, dirX, dirY)
+    spawnBullet(state.bullets, state.particles, muzzleX, muzzleY, dirX, dirY)
   }
-  updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.fx, state.camera, state.now, CONFIG.FIXED_DT)
+  updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.particles, state.camera, state.now, CONFIG.FIXED_DT)
 
   // Stance cycle (KeyC). Hot-swap the upper-body track-1 animation + aim
   // mitigation/bias. Forward → high → low → hip → forward.
@@ -151,12 +159,41 @@ function fixedUpdate(state: GameState): void {
   for (const d of state.dummies)
     updateDummy(d, CONFIG.FIXED_DT)
 
-  tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
+  tickParticles(state.particles, CONFIG.FIXED_DT)
 
-  // Landing impact → camera trauma (scaled by impact velocity)
+  // Landing impact → camera trauma + dust puff at the feet (scaled by impact vy).
   if (wasAirborne && state.player.grounded && prevVy > CONFIG.INSTABILITY_LAND_MIN_VY) {
     const impactNorm = Math.min(prevVy / CONFIG.MAX_FALL, 1)
-    addTrauma(state.camera, impactNorm * 0.3) // max 0.3 for terminal velocity landing
+    addTrauma(state.camera, impactNorm * 0.3)
+    emitLandingDust(
+      state.particles,
+      state.player.x + state.player.w / 2,
+      state.player.y + state.player.h,
+      impactNorm,
+    )
+  }
+
+  // Wall-slide sparks — 2–3 per tick along the contact side while sliding.
+  if (state.player.wallSliding && state.player.wallSide !== 0) {
+    const px = state.player.wallSide === -1 ? state.player.x : state.player.x + state.player.w
+    emitWallSlideSparks(state.particles, px, state.player.y + state.player.h / 2, state.player.wallSide)
+  }
+
+  // Disintegration shed — at high instability the player visibly sheds
+  // embers/smoke trailing off their motion. Caps naturally via emit's
+  // MAX_ACTIVE. Stops during iframes so the fracture event reads cleanly
+  // without being drowned in its own shed particles.
+  const instabRatio = state.player.instability.value / CONFIG.INSTABILITY_MAX
+  if (instabRatio > 0.55 && state.player.iframeTimer <= 0 && state.player.alive) {
+    const intensity = (instabRatio - 0.55) / 0.45
+    emitDisintegration(
+      state.particles,
+      state.player.x + state.player.w / 2,
+      state.player.y + state.player.h / 2,
+      state.player.vx,
+      state.player.vy,
+      intensity,
+    )
   }
 
   // Update prowlers + check player contact

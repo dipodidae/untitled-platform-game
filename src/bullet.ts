@@ -12,14 +12,14 @@
 
 import type { Camera } from './camera'
 import type { Dummy } from './dummy'
-import type { FxState } from './fx'
 import type { BroadphaseGrid } from './physics/broadphase'
+import type { ParticleSystem } from './render/particles'
 import type { Collider, Level, MaterialName } from './world/level'
 import { addTrauma } from './camera'
 import { CONFIG } from './config'
 import { damageDummy, dummyAabb, overlapsDummy } from './dummy'
-import { spawnImpactBurst } from './fx'
 import { satAabbPoly } from './math/sat'
+import { emitImpactBurst, emitMuzzleFlash } from './render/particles'
 import { applyRupture } from './world/destruction'
 
 // ─── bullet kinds (weapon profiles) ──────────────────────────────────────────
@@ -40,7 +40,7 @@ export const BULLET_KINDS = {
   // Drop over full lifetime ≈ 0.5 * 280 * 1² = 140px against ~360px range.
   slug: {
     speed: 380,
-    gravity: 260,
+    gravity: 180,
     lifeSec: 1.0,
     size: 3,
     ruptureRadius: 12,
@@ -89,6 +89,7 @@ export function resetBulletState(s: BulletState): void {
 // Spineboy's gun is swaying mid-jump, shots sway with it.
 export function spawnBullet(
   s: BulletState,
+  particles: ParticleSystem,
   muzzleX: number,
   muzzleY: number,
   dirX: number,
@@ -109,6 +110,8 @@ export function spawnBullet(
   })
   s.fireCooldown = kind.fireCooldownSec
   s.fireEdge = true
+  // Muzzle flash — quick burst of sparks + embers at the barrel tip.
+  emitMuzzleFlash(particles, muzzleX, muzzleY, dirX, dirY)
 }
 
 // ─── fixed-tick update ───────────────────────────────────────────────────────
@@ -125,7 +128,7 @@ export function updateBullets(
   level: Level,
   dummies: readonly Dummy[],
   broadphase: BroadphaseGrid,
-  fx: FxState,
+  particles: ParticleSystem,
   camera: Camera,
   now: number,
   dt: number,
@@ -171,7 +174,7 @@ export function updateBullets(
     }
     if (hitDummy) {
       damageDummy(hitDummy, kind.damage)
-      spawnImpactBurst(fx, b.x, b.y, 'enemy', b.vx, b.vy)
+      emitImpactBurst(particles, b.x, b.y, 'enemy', b.vx, b.vy)
       addTrauma(camera, IMPACT_TRAUMA.enemy)
       b.alive = false
       continue
@@ -207,7 +210,7 @@ export function updateBullets(
         { rx: kind.ruptureRadius, ry: kind.ruptureRadius, angle: 0 },
         now,
       )
-      spawnImpactBurst(fx, b.x, b.y, hitMaterial ?? 'bone', b.vx, b.vy)
+      emitImpactBurst(particles, b.x, b.y, hitMaterial ?? 'bone', b.vx, b.vy)
       addTrauma(camera, IMPACT_TRAUMA.terrain)
       b.alive = false
     }
