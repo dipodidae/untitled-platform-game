@@ -41,8 +41,6 @@ uniform vec4 uInputSize;
 
 // ─── constants (tuned for 640×360 horror pixel art) ─────────────
 const vec2 SOURCE_SIZE = vec2(640.0, 360.0);
-const float WARP_X     = 0.020;
-const float WARP_Y     = 0.028;
 const float MASK_DARK   = 0.72;
 const float MASK_LIGHT  = 1.18;
 const float HARD_SCAN   = -10.0;
@@ -81,14 +79,6 @@ float bayer4(vec2 pos) {
   return 5.0 / 16.0;
 }
 
-// Lottes barrel distortion (crt-lottes lines 200–204)
-vec2 warp(vec2 pos) {
-  pos = pos * 2.0 - 1.0;
-  pos *= vec2(1.0 + (pos.y * pos.y) * WARP_X,
-              1.0 + (pos.x * pos.x) * WARP_Y);
-  return pos * 0.5 + 0.5;
-}
-
 // Lottes shadow mask type 3 — Stretched VGA (crt-lottes lines 231–239)
 vec3 shadowMask(vec2 pos) {
   vec3 m = vec3(MASK_DARK);
@@ -101,13 +91,8 @@ vec3 shadowMask(vec2 pos) {
 }
 
 void main(void) {
-  // ─── 1. barrel distortion ─────────────────────────────────────
-  vec2 uv = warp(vTextureCoord);
-
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-    finalColor = vec4(0.0);
-    return;
-  }
+  // ─── 1. UV (no barrel distortion) ────────────────────────────
+  vec2 uv = vTextureCoord;
 
   // ─── 2. horizontal band displacement ("tape tear") ────────────
   float bandCA = 1.0;

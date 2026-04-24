@@ -5,6 +5,7 @@ import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { ParallaxState } from './render/parallax'
 import type { PlayerRenderState } from './render/playerRenderer'
+import type { WindState } from './render/wind'
 import type { Level } from './world/level'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { CONFIG } from './config'
@@ -14,7 +15,7 @@ import { createParallax, updateParallax } from './render/parallax'
 import { drawPlayer, drawPlayerGhost, resetPlayerRenderer } from './render/playerRenderer'
 import { drawSky, drawVignette } from './render/post'
 import { drawProwler } from './render/prowlerRenderer'
-import { createWindState, drawWind, tickWind, type WindState as WindS } from './render/wind'
+import { createWindState, drawWind, tickWind } from './render/wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './render/world'
 import { computeRuptureShape } from './rupture'
 
@@ -189,7 +190,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     skyGfx,
     parallax,
     windGfx,
-    wind: createWindState() as WindS,
+    wind: createWindState() as WindState,
     worldGfx,
     auraGfx,
     playerGfx,
