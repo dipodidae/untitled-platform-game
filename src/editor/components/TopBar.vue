@@ -12,8 +12,8 @@ import PresetSelect from './topbar/PresetSelect.vue'
   <div class="flex-1" />
 
   <!-- Playtest link -->
-  <a href="./" class="flex items-center gap-1 text-[var(--dim)] no-underline hover:text-[var(--text)]">
-    <UIcon name="i-mdi-play-circle-outline" />
+  <a href="./" class="flex items-center gap-1 px-2 py-1 rounded text-[var(--text)] no-underline hover:bg-[var(--border)]">
+    <UIcon name="i-mdi-play-circle-outline" class="text-[var(--accent)]" />
     <span>playtest</span>
   </a>
 </template>

@@ -62,7 +62,7 @@ async function doOverwrite() {
         :label="overwriteLabel() ? `Overwrite (${overwriteLabel()})` : 'Overwrite'"
         :disabled="!overwriteLabel()"
         :title="overwriteLabel() ? `Overwrite ${overwriteLabel()}` : 'Load a bundled preset or open a file first.'"
-        size="xs"
+        size="sm"
         class="flex-1"
         @click="doOverwrite"
       />
@@ -75,7 +75,7 @@ async function doOverwrite() {
         :label="`Undo (${store.undoStack.length})`"
         :disabled="store.undoStack.length === 0"
         title="Ctrl+Z"
-        size="xs"
+        size="sm"
         class="flex-1"
         @click="store.undo()"
       />
@@ -86,7 +86,7 @@ async function doOverwrite() {
         :label="`Redo (${store.redoStack.length})`"
         :disabled="store.redoStack.length === 0"
         title="Ctrl+Shift+Z / Ctrl+Y"
-        size="xs"
+        size="sm"
         class="flex-1"
         @click="store.redo()"
       />

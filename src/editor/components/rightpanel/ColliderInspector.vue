@@ -211,5 +211,5 @@ const emit = defineEmits<{ delete: [] }>()
     </LabeledRow>
   </template>
 
-  <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="emit('delete')" />
+  <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="sm" @click="emit('delete')" />
 </template>

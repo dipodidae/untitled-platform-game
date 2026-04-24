@@ -50,7 +50,7 @@ function applyBrush(brush: typeof BRUSHES[number]) {
       <div class="mt-1 font-[inherit] text-[var(--dim)] text-[11px]">
         {{ BRUSH_CATEGORY_LABEL[cat as keyof typeof BRUSH_CATEGORY_LABEL] }}
       </div>
-      <div class="flex gap-1 flex-wrap">
+      <div class="flex flex-col gap-1">
         <BrushButton
           v-for="b in list"
           :key="b.id"

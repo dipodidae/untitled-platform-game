@@ -26,17 +26,17 @@ function setTool(t: Tool) {
     <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       Tools
     </h3>
-    <div class="flex gap-1 flex-wrap">
+    <div class="grid grid-cols-2 gap-1">
       <UButton
         v-for="t in TOOLS"
         :key="t.id"
         :color="store.tool === t.id ? 'primary' : 'neutral'"
         :variant="store.tool === t.id ? 'solid' : 'ghost'"
         :icon="t.icon"
-        :label="t.hint ? `${t.label} (${t.hint})` : t.label"
+        :label="t.label"
         :title="t.hint ? `${t.label} — shortcut ${t.hint}` : t.label"
-        size="xs"
-        class="flex-1 min-w-[72px]"
+        size="sm"
+        class="justify-start !px-2 !gap-1.5"
         @click="setTool(t.id)"
       />
     </div>

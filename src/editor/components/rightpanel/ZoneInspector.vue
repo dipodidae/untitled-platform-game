@@ -51,5 +51,5 @@ const emit = defineEmits<{ delete: [] }>()
       <UInput v-model="zone.triggerId" type="text" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
   </template>
-  <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="emit('delete')" />
+  <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="sm" @click="emit('delete')" />
 </template>

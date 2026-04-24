@@ -107,6 +107,6 @@ const fileMenuItems = [
 
 <template>
   <UDropdownMenu :items="fileMenuItems">
-    <UButton color="neutral" variant="ghost" icon="i-mdi-file-outline" label="File" size="xs" />
+    <UButton color="neutral" variant="soft" icon="i-mdi-file-outline" label="File" size="xs" />
   </UDropdownMenu>
 </template>

@@ -27,6 +27,6 @@ const viewMenuItems = computed(() => LAYER_LABELS.map(([key, label]) => ({
 
 <template>
   <UDropdownMenu :items="[viewMenuItems]">
-    <UButton color="neutral" variant="ghost" icon="i-mdi-eye-outline" label="View" size="xs" />
+    <UButton color="neutral" variant="soft" icon="i-mdi-eye-outline" label="View" size="xs" />
   </UDropdownMenu>
 </template>

@@ -11,10 +11,10 @@ const store = useEditorStore()
     <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       World Size
     </h3>
-    <LabeledRow label="worldWidth">
+    <LabeledRow label="width">
       <UInput v-model.number="store.level.worldWidth" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
-    <LabeledRow label="worldHeight">
+    <LabeledRow label="height">
       <UInput v-model.number="store.level.worldHeight" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
   </div>
@@ -24,7 +24,7 @@ const store = useEditorStore()
     <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       Grid / Snap
     </h3>
-    <LabeledRow label="snap (px)">
+    <LabeledRow label="snap px">
       <UInput v-model.number="store.snapStep" type="number" min="0" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
     <div class="text-[var(--dim)] text-[11px] leading-[1.4]">

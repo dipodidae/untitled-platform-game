@@ -36,7 +36,7 @@ const itemKindItems = ITEM_KINDS.map(k => ({ label: k, value: k }))
     <LabeledRow label="y">
       <UInput v-model.number="store.level.prowlers[props.index]!.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
-    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="emit('delete')" />
+    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="sm" @click="emit('delete')" />
   </template>
 
   <!-- Dummy -->
@@ -63,7 +63,7 @@ const itemKindItems = ITEM_KINDS.map(k => ({ label: k, value: k }))
         }"
       />
     </LabeledRow>
-    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="emit('delete')" />
+    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="sm" @click="emit('delete')" />
   </template>
 
   <!-- Pickup -->
@@ -77,6 +77,6 @@ const itemKindItems = ITEM_KINDS.map(k => ({ label: k, value: k }))
     <LabeledRow label="kind">
       <USelect v-model="store.level.pickups[props.index]!.kind" :items="itemKindItems" size="xs" class="flex-[1.4] min-w-0" />
     </LabeledRow>
-    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="emit('delete')" />
+    <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="sm" @click="emit('delete')" />
   </template>
 </template>
