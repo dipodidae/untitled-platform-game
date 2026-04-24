@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
@@ -13,6 +14,7 @@ export default defineConfig({
     strictPort: false,
   },
   plugins: [
+    vue(),
     {
       name: 'editor-save',
       apply: 'serve',
