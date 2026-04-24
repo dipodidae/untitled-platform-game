@@ -292,6 +292,14 @@ export function takeHit(
   p.hp = Math.max(0, p.hp - damage)
   p.hazardIframe = CONFIG.HAZARD_IFRAMES
 
+  // Damage-number popup + hit-feedback hook for vignette / shake.
+  emit('hitLanded', {
+    x: p.x + p.w / 2,
+    y: p.y,
+    damage,
+    target: 'player',
+  })
+
   // Knockback away from the source: horizontal by sign, small vertical pop.
   const cx = p.x + p.w / 2
   const cy = p.y + p.h / 2

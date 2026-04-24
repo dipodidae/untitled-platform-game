@@ -17,6 +17,9 @@ import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
 import { gameState as gameSession } from './gameState'
 import { createParticleSystem, emitDisintegration, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
 import type { ParticleSystem } from '../render/particles'
+import type { DamageNumbers } from '../render/damageNumbers'
+import { createDamageNumbers, resetDamageNumbers, spawnDamageNumber, tickDamageNumbers } from '../render/damageNumbers'
+import { on } from './eventBus'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
 import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
 import { BroadphaseGrid } from '../physics'
@@ -50,6 +53,7 @@ export interface GameState {
   dummies: Dummy[]
   readonly particles: ParticleSystem
   pickups: Pickup[]
+  readonly damageNumbers: DamageNumbers
 }
 
 export function createGame(app: Application): GameState {
@@ -71,9 +75,17 @@ export function createGame(app: Application): GameState {
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
   const pickups = createPickupsFromSpawns(level.pickupSpawns)
+  const damageNumbers = createDamageNumbers()
+  renderCtx.worldContainer.addChild(damageNumbers.root)
+  // Hit feedback: pop a damage number at the hit site. Subscribed once
+  // per game; never detached because the game bundle lives for the full
+  // session.
+  on('hitLanded', (e) => {
+    spawnDamageNumber(damageNumbers, e.x, e.y, e.damage, e.target)
+  })
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
   markLevelLoaded(id)
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers }
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
@@ -103,6 +115,8 @@ function loadLevelAtIndex(state: GameState, index: number): void {
 
   teardownScene(state.renderCtx)
   state.renderCtx = buildScene(state.app, state.level, state.particles)
+  state.renderCtx.worldContainer.addChild(state.damageNumbers.root)
+  resetDamageNumbers(state.damageNumbers)
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 
   markLevelLoaded(id)
@@ -290,6 +304,7 @@ export function startLoop(state: GameState): void {
       state.accumulator -= CONFIG.FIXED_DT
     }
     tickFxRender(state.fx, frameDt)
+    tickDamageNumbers(state.damageNumbers, frameDt)
 
     // Camera smoothing runs once per rendered frame (not per physics tick)
     // so its lerp rate stays tied to display refresh, same as the original.

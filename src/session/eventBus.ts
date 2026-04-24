@@ -14,6 +14,11 @@ export interface EngineEvents {
   menuShown: null
   menuPlayPressed: null
   dropInComplete: null
+  // Visual-feedback hook: emitted every time damage lands, so damage-number
+  // popups / screen-shake / vignette tints can react without each source
+  // having to know about each other. Damage is positive; `target` lets
+  // consumers tint differently for hits TO the player vs hits FROM the player.
+  hitLanded: { x: number, y: number, damage: number, target: 'player' | 'enemy' }
 }
 
 type Handler<E> = (payload: E) => void

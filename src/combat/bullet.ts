@@ -19,6 +19,7 @@ import { addTrauma } from '../render/camera'
 import { CONFIG } from '../config'
 import { damageDummy, dummyAabb, overlapsDummy } from '../enemies/dummy'
 import { satAabbPoly } from '../physics/sat'
+import { emit } from '../session/eventBus'
 import { emitImpactBurst, emitMuzzleFlash } from '../render/particles'
 import { applyRupture } from '../world/destruction'
 
@@ -155,6 +156,7 @@ export function updateBullets(
       damageDummy(hitDummy, kind.damage)
       emitImpactBurst(particles, b.x, b.y, 'enemy', b.vx, b.vy)
       addTrauma(camera, IMPACT_TRAUMA.enemy)
+      emit('hitLanded', { x: b.x, y: b.y, damage: kind.damage, target: 'enemy' })
       b.alive = false
       continue
     }
