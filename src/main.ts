@@ -95,22 +95,20 @@ async function main(): Promise<void> {
   startLoop(state)
 
   // Boot into the main menu. The loop is already running; fixedUpdate
-  // bails out while phase is 'menu'. The stage stays visible so the
-  // game world plays its ambient loop (wind, parallax) behind the menu.
+  // bails out while phase is 'menu'. The menu lives inside the stage
+  // (screenOverlay container) so the CRT filter applies to it; its own
+  // backing rect provides the darken-the-world effect — no stage.alpha
+  // dim needed (that would dim the menu too).
   gameSession.phase = 'menu'
-  // Dim the canvas a touch so the menu reads cleanly on top of whatever
-  // the stage happens to be showing. Restored when Play commits.
-  app.stage.alpha = 0.4
 
-  const dismissMenu = mountMainMenu({
+  const dismissMenu = mountMainMenu(state.screenOverlay, {
     onPlay: () => {
       dismissMenu()
       // Hand off to the cinematic drop-in. Physics stay paused (fixedUpdate
       // gates on phase='dropIn'); the cinematic emits 'dropInComplete' when
       // the title card + letterbox have finished animating.
       gameSession.phase = 'dropIn'
-      gsap.to(app.stage, { alpha: 1, duration: 0.5, ease: 'power2.out' })
-      playDropIn(app, { levelId: gameSession.currentLevelId || 'level1' })
+      playDropIn(app, state.screenOverlay, { levelId: gameSession.currentLevelId || 'level1' })
     },
     onQuit: () => {
       // Browsers can't really "quit" a tab — close what we can, blank out
@@ -125,7 +123,7 @@ async function main(): Promise<void> {
   })
 
   // Damage vignette — red-edge pulse on player hits, baseline follows HP.
-  mountDamageVignette(() => state.player.hp / state.player.maxHp)
+  mountDamageVignette(state.screenOverlay, () => state.player.hp / state.player.maxHp)
 
   // Chromatic-aberration pulse via the CRT shader. The filter multiplies
   // its base CA offset by (1 + uInstability * 3); we briefly pump the
@@ -162,13 +160,13 @@ async function main(): Promise<void> {
       return
     }
     gameSession.phase = 'dropIn'
-    playDropIn(app, { levelId: e.levelId })
+    playDropIn(app, state.screenOverlay, { levelId: e.levelId })
   })
 
   // Results-screen overlay listens for levelComplete and shows itself.
   // Retry re-enters the current level; Next advances. Both fade through
   // a 300ms out/in tween on the stage so the transition reads.
-  mountResultsScreen({
+  mountResultsScreen(state.screenOverlay, {
     onRetry: () => fadeSwap(app, () => reloadLevel(state)),
     onNext: () => fadeSwap(app, () => advanceLevel(state)),
   })
