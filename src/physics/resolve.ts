@@ -7,7 +7,7 @@
 //   - grounded / touchingWall / groundNormal flags
 
 import type { AABB } from './sat'
-import type { Player } from '../player'
+import type { Player } from '../player/player'
 import type { Collider, Level } from '../world/level'
 import type { BroadphaseGrid } from './broadphase'
 import { CONFIG } from '../config'

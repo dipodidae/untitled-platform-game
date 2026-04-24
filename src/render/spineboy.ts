@@ -22,7 +22,7 @@
 // no low-res pixel-snap or overlay-camera-mirror tricks needed.
 
 import type { Container } from 'pixi.js'
-import type { Player } from '../player'
+import type { Player } from '../player/player'
 import { Spine } from '@esotericsoftware/spine-pixi-v8'
 import { Assets } from 'pixi.js'
 

@@ -1,4 +1,4 @@
-import { CONFIG } from './config'
+import { CONFIG } from '../config'
 
 // Instability: the thing failing inside you. 0..INSTABILITY_MAX. At max,
 // cohesion is lost — you fracture.

@@ -6,7 +6,7 @@
 //
 // The camera never directly tracks the player — it anticipates the action.
 
-import type { Player } from './player'
+import type { Player } from './player/player'
 import type { Level } from './world/level'
 import { CONFIG } from './config'
 

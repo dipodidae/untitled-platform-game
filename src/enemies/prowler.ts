@@ -14,7 +14,7 @@
 
 import type { AABB } from '../physics/sat'
 import type { BroadphaseGrid } from '../physics/broadphase'
-import type { Player } from '../player'
+import type { Player } from '../player/player'
 import type { Collider, Level, MaterialName } from '../world/level'
 import { CONFIG } from '../config'
 import { satAabbPoly } from '../physics/sat'
