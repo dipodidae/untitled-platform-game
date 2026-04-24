@@ -82,6 +82,14 @@ Low-res logical buffer (`LOGICAL_WIDTH × LOGICAL_HEIGHT`, 480×270) is integer-
 
 This working tree frequently carries **substantial uncommitted work** — new directories, partial renames, schema extensions in flight. Before running any git command that touches state, pause and confirm.
 
+### Branching model: main-only
+
+- **All work happens on `main`.** Do NOT create feature branches (`feat/*`, `fix/*`, `editor-overhaul`, etc.) unless the user explicitly asks. The subagent-driven-development skill suggests worktrees/branches by default — ignore that default for this project.
+- **Commit to main and push as you go.** Small, frequent commits beat batched ones — they're the only safety net when a destructive command goes wrong (see below).
+- If an agent accidentally works on a branch, merge (`git checkout main && git merge --ff-only <branch>`) or squash back to main before finishing the session.
+
+### Destructive commands
+
 - **Never `git reset --hard` without explicit consent.** It permanently wipes working-tree edits on tracked files. `git reflog` cannot recover them. Use `git revert <sha>` instead — it undoes a commit by creating a new one and leaves the working tree alone.
 - **Never `git checkout -- <path>`, `git restore <path>`, or `git clean -f`** without confirming the file has no uncommitted work. These are equally destructive for working-tree edits.
 - **Prefer path-scoped staging and committing.** `git commit -- docs/file.md` commits only that path; a bare `git commit` takes everything in the index, which may include work you didn't mean to publish.
