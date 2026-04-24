@@ -22,7 +22,6 @@
 // `tilemapToPolygons` converts legacy tile-string levels into a collider
 // list via greedy rectangle meshing; kept so old test layouts still load.
 
-import type { ItemKind } from '../items/types'
 import type { KineticJson, KineticState } from './kinetic'
 import type { Polygon } from '../shared-kernel/polygon'
 import type { Vec2 } from '../shared-kernel/vec2'
@@ -30,57 +29,8 @@ import { CONFIG } from '../config'
 import { createKineticState } from './kinetic'
 import { bounds, decompose } from '../shared-kernel/polygon'
 
-// ─── zone schema (authored in LevelJson, consumed by player.ts at runtime) ─
-//
-// Zone types:
-//   gravity    — multiplies player gravity + air control inside the volume
-//   wind       — per-axis nudge + optional turbulence jitter
-//   hazard     — damage-per-tick; 0 = instant kill
-//   trigger    — opaque id forwarded to subscribers (dispatch is TBD)
-//   goal       — player overlap emits levelComplete on the EventBus
-//   spawnPoint — player overlap updates GameState.lastSpawnPoint (checkpoint)
-export type ZoneType = 'gravity' | 'wind' | 'hazard' | 'trigger' | 'goal' | 'spawnPoint'
-
-export interface ZoneJson {
-  id: number
-  type: ZoneType
-  x: number
-  y: number
-  w: number
-  h: number
-  // gravity: gravityScale multiplies base gravity, airControlScale scales input.
-  gravityScale?: number
-  airControlScale?: number
-  // wind: per-axis velocity nudge + turbulence jitter.
-  windVx?: number
-  windVy?: number
-  windTurbulence?: number
-  // hazard: 0 = instant kill on overlap, >0 = damage per physics tick.
-  hazardDamage?: number
-  // trigger: opaque id forwarded to a subscriber — runtime dispatch is TBD.
-  triggerId?: string
-}
-
-// ─── materials ───────────────────────────────────────────────────────────
-// Four authored materials, each producing its own kind of story:
-//
-//   glass        — breaks on a single rupture. Leaves SHARDS behind that kill
-//                  on contact. Overzealous destruction becomes its own trap.
-//   bone         — old, structural. Damage accumulates across ruptures
-//                  (BONE_HITS before it fully collapses). The thing you
-//                  primed earlier and forgot about.
-//   bone_fragile — aging bone. Collapses after BONE_FRAGILE_COLLAPSE_TIME
-//                  seconds of cumulative player contact. Timer persists
-//                  across touches — once primed, it's counting down.
-//   resonant     — indestructible. Rupture impulse compounds when you touch
-//                  a chain of it — launches you farther than you meant.
-//   soft         — solid but yielding. Dampens motion on contact; ruptures
-//                  carve it at a reduced radius. Safe, but costly: you
-//                  cannot keep your momentum here.
-//
-// `shard` is a runtime-only material spawned from broken glass. Never
-// authored in a level file.
-export type MaterialName = 'glass' | 'bone' | 'bone_fragile' | 'resonant' | 'soft' | 'shard'
+export type { LevelJson, MaterialName, ZoneJson, ZoneType } from '../shared-kernel/types'
+import type { ItemKind, LevelJson, MaterialName, ZoneJson } from '../shared-kernel/types'
 
 export interface Collider {
   id: number
@@ -123,27 +73,6 @@ interface PristineCollider {
   material: MaterialName
   vertices: readonly Vec2[]
   oneWay: boolean
-}
-
-export interface LevelJson {
-  spawn: { x: number, y: number }
-  worldWidth: number
-  worldHeight: number
-  colliders: {
-    id: number
-    material: MaterialName
-    vertices: [number, number][]
-    oneWay?: boolean
-    kinetic?: KineticJson
-    // Conveyor-like surface: grounded player gets nudged by vx px/s.
-    surfaceMotion?: { vx: number }
-    // Launch pad: on contact, overwrites player vy with force along angle.
-    launchPad?: { force: number, angle?: number }
-  }[]
-  prowlers?: { x: number, y: number }[]
-  dummies?: { x: number, y: number, hp?: number }[]
-  pickups?: { x: number, y: number, kind: ItemKind }[]
-  zones?: ZoneJson[]
 }
 
 // ─── collider helpers ────────────────────────────────────────────────────

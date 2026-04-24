@@ -7,10 +7,8 @@
 
 import type { BulletKindName } from '../combat/bullet'
 
-// String keys that levels use to refer to a pickup definition. Add the
-// literal here and the matching file name (no hyphen/case) when you add
-// a new item.
-export type ItemKind = 'bigShot'
+export type { ItemKind } from '../shared-kernel/types'
+import type { ItemKind } from '../shared-kernel/types'
 
 export interface ItemDef {
   readonly id: ItemKind

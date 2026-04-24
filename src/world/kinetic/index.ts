@@ -30,7 +30,8 @@ export type {
   SpringState,
 }
 
-export type KineticJson = RotorJson | BreatherJson | SpringJson | LinearJson
+export type { KineticJson } from '../../shared-kernel/types'
+import type { KineticJson } from '../../shared-kernel/types'
 export type KineticState = RotorState | BreatherState | SpringState | LinearState
 
 export function createKineticState(baseVertices: Polygon, json: KineticJson): KineticState {
