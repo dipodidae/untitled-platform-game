@@ -6,11 +6,11 @@
 // Easing smooths progress on the current segment; pauseAtEnds dwells at
 // endpoints so the motion reads as a rhythm rather than a treadmill.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Collider } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Collider } from '../level'
 import type { KineticBase, PlayerLike } from './shared'
-import { centroid } from '../shared-kernel/polygon'
-import { refreshCollider } from '../world/level'
+import { centroid } from '../../shared-kernel/polygon'
+import { refreshCollider } from '../level'
 import { translateVertices } from './shared'
 
 export interface LinearJson {

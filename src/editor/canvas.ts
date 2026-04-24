@@ -13,7 +13,7 @@
 //   - Spawn/prowler/dummy/pickup tools: click to place.
 
 import type { EditorCollider, EditorState, Tool } from './state'
-import type { KineticJson } from '../kinetic'
+import type { KineticJson } from '../world/kinetic'
 import type { ZoneType } from '../world/level'
 import { Application, Container, Graphics, Text } from 'pixi.js'
 import { allocId, markDirty, polygonBounds, polygonCenter, pushUndo, redo, rotatePolygon, scalePolygon, snap, undo } from './state'

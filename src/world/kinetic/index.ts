@@ -6,8 +6,8 @@
 // create + update + (optional) reactToRupture, then registered below in
 // the unions + dispatchers.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Level } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Level } from '../level'
 import type { PlayerLike } from './shared'
 import type { BreatherJson, BreatherState } from './breather'
 import type { LinearJson, LinearState } from './linear'

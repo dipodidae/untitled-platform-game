@@ -2,11 +2,11 @@
 // driven character: bone flexes, soft ripples with a third harmonic,
 // resonant pulses sharply.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Collider, MaterialName } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Collider, MaterialName } from '../level'
 import type { KineticBase, PlayerLike } from './shared'
-import { centroid } from '../shared-kernel/polygon'
-import { refreshCollider } from '../world/level'
+import { centroid } from '../../shared-kernel/polygon'
+import { refreshCollider } from '../level'
 import { breatheVertices, playerOnCollider, vertexNormals } from './shared'
 
 export interface BreatherJson {

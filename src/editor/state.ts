@@ -4,7 +4,7 @@
 // the level or selection mutates so the UI re-renders on the next frame.
 
 import type { ItemKind } from '../items/types'
-import type { KineticJson } from '../kinetic'
+import type { KineticJson } from '../world/kinetic'
 import type { LevelJson, MaterialName, ZoneJson, ZoneType } from '../world/level'
 
 export type ShapeIndex = number

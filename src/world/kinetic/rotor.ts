@@ -1,10 +1,10 @@
 // Rotor — slow inertia-based rotation, torqued by player weight / momentum.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Collider } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Collider } from '../level'
 import type { KineticBase, PlayerLike } from './shared'
-import { centroid } from '../shared-kernel/polygon'
-import { refreshCollider } from '../world/level'
+import { centroid } from '../../shared-kernel/polygon'
+import { refreshCollider } from '../level'
 import { playerOnCollider, rotateVertices } from './shared'
 
 export interface RotorJson {

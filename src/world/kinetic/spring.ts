@@ -2,11 +2,11 @@
 // steady down-force; landing adds an impulse proportional to vy. Standard
 // F = -kx - bv + external integrated each tick.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Collider } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Collider } from '../level'
 import type { KineticBase, PlayerLike } from './shared'
-import { centroid } from '../shared-kernel/polygon'
-import { refreshCollider } from '../world/level'
+import { centroid } from '../../shared-kernel/polygon'
+import { refreshCollider } from '../level'
 import { playerOnCollider, translateVertices } from './shared'
 
 export interface SpringJson {
@@ -81,4 +81,4 @@ export function springReactToRupture(k: SpringState, falloff: number): void {
 
 // Exported so the destruction pass can remap carved vertices back to base.
 export { translateVertices } from './shared'
-export type { Polygon } from '../shared-kernel/polygon'
+export type { Polygon } from '../../shared-kernel/polygon'

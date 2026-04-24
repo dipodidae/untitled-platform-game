@@ -2,9 +2,9 @@
 // player overlap test. Anything that's common to more than one kinetic
 // behaviour lives here; per-type logic lives in the neighbouring files.
 
-import type { Polygon } from '../shared-kernel/polygon'
-import type { Vec2 } from '../shared-kernel/vec2'
-import type { Collider } from '../world/level'
+import type { Polygon } from '../../shared-kernel/polygon'
+import type { Vec2 } from '../../shared-kernel/vec2'
+import type { Collider } from '../level'
 
 export interface KineticBase {
   baseVertices: Polygon
