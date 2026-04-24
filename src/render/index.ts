@@ -160,7 +160,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   worldContainer.addChild(playerGhostGfx) // below player
 
   // Spineboy replaces the old procedural pixel mass + custom skeletal rig.
-  const charBridge = createSpineboyBridge('cat-warrior-skel', 'cat-warrior-atlas')
+  const charBridge = createSpineboyBridge()
   worldContainer.addChild(charBridge.container)
 
   const playerGfx = new Graphics() // kept for legacy compat / overlay effects

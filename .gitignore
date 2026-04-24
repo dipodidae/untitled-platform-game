@@ -36,6 +36,7 @@ screenshots/
 # OS cruft
 .DS_Store
 Thumbs.db
+*:Zone.Identifier
 
 # Claude Code — installed skills are reproduced from skills-lock.json
 .claude/skills/

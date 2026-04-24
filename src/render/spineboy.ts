@@ -30,6 +30,9 @@ import { Assets } from 'pixi.js'
 const SKEL_ALIAS = 'spineboy-skel'
 const ATLAS_ALIAS = 'spineboy-atlas'
 
+// Character skin aliases follow the pattern '{name}-skel' / '{name}-atlas'.
+// loadCharacterAssets() registers them; createSpineboyBridge() can target any pair.
+
 // ─── tunables ─────────────────────────────────────────────────────────────────
 export const SPINE_CONFIG = {
   // Skeleton origin is at the feet. Visual height ≈ 0.22 × native (~400px) ≈ 88px.
@@ -59,15 +62,27 @@ export const SPINE_CONFIG = {
 } as const
 
 // ─── asset loading ────────────────────────────────────────────────────────────
-let _assetsLoaded = false
+const _loadedAssets = new Set<string>()
 
 export async function loadSpineboyAssets(): Promise<void> {
-  if (_assetsLoaded)
+  if (_loadedAssets.has('spineboy'))
     return
   Assets.add({ alias: SKEL_ALIAS, src: '/assets/spineboy/spineboy-pro.skel' })
   Assets.add({ alias: ATLAS_ALIAS, src: '/assets/spineboy/spineboy-pma.atlas' })
   await Assets.load([SKEL_ALIAS, ATLAS_ALIAS])
-  _assetsLoaded = true
+  _loadedAssets.add('spineboy')
+}
+
+export async function loadCharacterAssets(name: string): Promise<{ skelAlias: string, atlasAlias: string }> {
+  const skelAlias = `${name}-skel`
+  const atlasAlias = `${name}-atlas`
+  if (!_loadedAssets.has(name)) {
+    Assets.add({ alias: skelAlias, src: `/assets/characters/${name}/${name}.skel` })
+    Assets.add({ alias: atlasAlias, src: `/assets/characters/${name}/${name}.atlas` })
+    await Assets.load([skelAlias, atlasAlias])
+    _loadedAssets.add(name)
+  }
+  return { skelAlias, atlasAlias }
 }
 
 // ─── gun stances ──────────────────────────────────────────────────────────────
@@ -197,10 +212,14 @@ function resolvedAnim(spine: Spine, v: VisualState): { name: string, loop: boole
   return { name: 'idle', loop: true }
 }
 
-export function createSpineboyBridge(): SpineboyBridge {
+export function createSpineboyBridge(
+  skelAlias: string = SKEL_ALIAS,
+  atlasAlias: string = ATLAS_ALIAS,
+): SpineboyBridge {
+  const isCustomChar = skelAlias !== SKEL_ALIAS
   const spine = Spine.from({
-    skeleton: SKEL_ALIAS,
-    atlas: ATLAS_ALIAS,
+    skeleton: skelAlias,
+    atlas: atlasAlias,
     scale: SPINE_CONFIG.scale,
     autoUpdate: false, // we drive update() with wall-clock dt
   })
@@ -212,6 +231,20 @@ export function createSpineboyBridge(): SpineboyBridge {
   const boneNames = spine.skeleton.data.bones.map(b => b.name)
   console.warn('[spineboy] animations:', animNames.join(', '))
   console.warn('[spineboy] bones:', boneNames.join(', '))
+
+  // For custom characters: log slot colours for diagnostics.
+  // Body-part slots (19-36) are all #ffffffff — no tinting needed.
+  // Tinted slots are effects (portals, muzzle flashes, glow) — keep as-is.
+  if (isCustomChar) {
+    const tinted: string[] = []
+    for (const sd of spine.skeleton.data.slots) {
+      const c = sd.color
+      if (c.r !== 1 || c.g !== 1 || c.b !== 1 || c.a !== 1)
+        tinted.push(`${sd.name}=(${c.r.toFixed(2)},${c.g.toFixed(2)},${c.b.toFixed(2)},${c.a.toFixed(2)})`)
+    }
+    if (tinted.length)
+      console.warn(`[spineboy] tinted effect slots (kept): ${tinted.join(', ')}`)
+  }
 
   // Mix table — crossfades between common transitions. Only reference names
   // that exist in the skeleton: aim, death, hoverboard, idle, idle-turn, jump,

@@ -26,6 +26,16 @@
       "sourceType": "github",
       "computedHash": "9edba9a38684c060fdc38290f640e1dc0c37de286723ac9be73bacacf7cd6f3d"
     },
+    "nano-banana-pro": {
+      "source": "intellectronica/agent-skills",
+      "sourceType": "github",
+      "computedHash": "eacaa3b7f0512e9c4793b38be0e2242dc81071e61d51e333ac114148d1a9422b"
+    },
+    "python-executor": {
+      "source": "inference-sh/skills",
+      "sourceType": "github",
+      "computedHash": "52cf09c9aeb3016ef6b0e67d49f920b9bd566a87e51a3b1f611d49b2aa814e4e"
+    },
     "receiving-code-review": {
       "source": "obra/superpowers",
       "sourceType": "github",

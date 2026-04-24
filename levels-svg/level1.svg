@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd"
+     width="2800" height="560" viewBox="0 0 2800 560">
+  <sodipodi:namedview id="nv" pagecolor="#202028" bordercolor="#000" inkscape:pageopacity="1" inkscape:document-units="px"/>
+  <rect x="0" y="0" width="2800" height="560" fill="#161820" stroke="none" inkscape:label="background" sodipodi:insensitive="true"/>
+  <g inkscape:groupmode="layer" inkscape:label="material:bone">
+    <polygon points="0,400 520,400 520,500 0,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:1"/>
+    <polygon points="0,200 20,200 20,400 0,400" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:2"/>
+    <polygon points="380,350 440,350 440,370 380,370" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:3;kinetic=breather,frequency=0.4,amplitude=2.5"/>
+    <polygon points="600,360 660,360 660,380 600,380" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:10"/>
+    <polygon points="820,400 1120,400 1120,500 820,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:12"/>
+    <polygon points="1160,400 1400,400 1400,500 1160,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:21"/>
+    <polygon points="1400,200 1420,200 1420,400 1400,400" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:30"/>
+    <polygon points="1600,260 1620,260 1620,400 1600,400" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:31"/>
+    <polygon points="1420,460 1600,460 1600,500 1420,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:32"/>
+    <polygon points="1620,220 1800,220 1800,240 1620,240" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:33"/>
+    <polygon points="1800,240 2050,380 2050,500 1800,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:40"/>
+    <polygon points="2050,380 2160,380 2160,500 2050,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:41"/>
+    <polygon points="2160,400 2300,400 2300,500 2160,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:50"/>
+    <polygon points="2500,200 2560,200 2560,215 2500,215" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:54;kinetic=rotor,speed=0.35"/>
+    <polygon points="2640,240 2800,240 2800,500 2640,500" fill="#c8b080" stroke="#5a4228" stroke-width="1" inkscape:label="id:55"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="material:bone_fragile">
+    <polygon points="690,330 760,330 760,345 690,345" fill="#a08050" stroke="#4a3218" stroke-width="1" inkscape:label="id:11"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="material:soft">
+    <polygon points="1900,310 1960,310 1960,320 1900,320" fill="#8a6ec0" stroke="#3a2a60" stroke-width="1" inkscape:label="id:42;oneWay"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="material:glass">
+    <polygon points="1120,260 1160,260 1160,400 1120,400" fill="#7ac5d8" stroke="#2a4a58" stroke-width="1" inkscape:label="id:20"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="material:resonant">
+    <polygon points="2340,360 2400,360 2400,370 2340,370" fill="#c070c0" stroke="#603060" stroke-width="1" inkscape:label="id:51"/>
+    <polygon points="2460,320 2520,320 2520,330 2460,330" fill="#c070c0" stroke="#603060" stroke-width="1" inkscape:label="id:52"/>
+    <polygon points="2580,280 2640,280 2640,290 2580,290" fill="#c070c0" stroke="#603060" stroke-width="1" inkscape:label="id:53"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="spawn">
+    <circle cx="80" cy="300" r="6" fill="#40ff60" stroke="#205030" stroke-width="1" inkscape:label="spawn"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="prowlers">
+    <circle cx="2080" cy="364" r="8" fill="#c040ff" stroke="#602080" stroke-width="1"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="dummies">
+    <circle cx="240" cy="368" r="6" fill="#ffa040" stroke="#a04020" stroke-width="1" inkscape:label=""/>
+    <circle cx="1700" cy="188" r="6" fill="#ffa040" stroke="#a04020" stroke-width="1" inkscape:label=""/>
+    <circle cx="1280" cy="368" r="6" fill="#ffa040" stroke="#a04020" stroke-width="1" inkscape:label="hp:3"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="pickups">
+    <circle cx="140" cy="394" r="7" fill="#ff6040" stroke="#a02020" stroke-width="1" inkscape:label="kind:bigShot"/>
+  </g>
+</svg>
