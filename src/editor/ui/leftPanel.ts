@@ -9,15 +9,15 @@ import { BRUSH_CATEGORY_LABEL, BRUSHES } from '../brushes'
 import { markDirty } from '../state'
 import { showToast } from './toast'
 
-const TOOLS: { id: Tool, label: string, hint: string }[] = [
-  { id: 'select', label: 'Select', hint: 'V' },
-  { id: 'polygon', label: 'Polygon', hint: 'P' },
-  { id: 'rect', label: 'Rect', hint: 'R' },
-  { id: 'zone', label: 'Zone', hint: '' },
-  { id: 'spawn', label: 'Spawn', hint: '' },
-  { id: 'prowler', label: 'Prowler', hint: '' },
-  { id: 'dummy', label: 'Dummy', hint: '' },
-  { id: 'pickup', label: 'Pickup', hint: '' },
+const TOOLS: { id: Tool, label: string, hint: string, icon: string }[] = [
+  { id: 'select', label: 'Select', hint: 'V', icon: 'mdi:cursor-default' },
+  { id: 'polygon', label: 'Polygon', hint: 'P', icon: 'mdi:vector-polygon' },
+  { id: 'rect', label: 'Rect', hint: 'R', icon: 'mdi:rectangle-outline' },
+  { id: 'zone', label: 'Zone', hint: '', icon: 'mdi:shape-rectangle-plus' },
+  { id: 'spawn', label: 'Spawn', hint: '', icon: 'mdi:flag' },
+  { id: 'prowler', label: 'Prowler', hint: '', icon: 'mdi:spider' },
+  { id: 'dummy', label: 'Dummy', hint: '', icon: 'mdi:target' },
+  { id: 'pickup', label: 'Pickup', hint: '', icon: 'mdi:diamond-stone' },
 ]
 
 const MATERIALS: MaterialName[] = ['bone', 'bone_fragile', 'glass', 'resonant', 'soft']
@@ -58,7 +58,8 @@ function toolSection(state: EditorState): HTMLElement {
   grid.className = 'button-row'
   for (const t of TOOLS) {
     const b = document.createElement('button')
-    b.textContent = t.hint ? `${t.label} (${t.hint})` : t.label
+    b.innerHTML = `<iconify-icon icon="${t.icon}"></iconify-icon><span>${t.hint ? `${t.label} (${t.hint})` : t.label}</span>`
+    b.title = t.hint ? `${t.label} — shortcut ${t.hint}` : t.label
     if (state.tool === t.id)
       b.classList.add('active')
     b.onclick = () => {

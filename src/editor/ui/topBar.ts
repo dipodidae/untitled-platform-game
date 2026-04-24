@@ -33,8 +33,12 @@ export function mountTopBar(
 
   const playtest = document.createElement('a')
   playtest.href = './'
-  playtest.textContent = '← playtest'
+  playtest.innerHTML = `<iconify-icon icon="mdi:play-circle-outline"></iconify-icon><span>playtest</span>`
   playtest.style.color = 'var(--dim)'
+  playtest.style.display = 'inline-flex'
+  playtest.style.alignItems = 'center'
+  playtest.style.gap = '4px'
+  playtest.style.textDecoration = 'none'
   host.appendChild(playtest)
 }
 
@@ -43,7 +47,7 @@ function buildFileMenu(state: EditorState): HTMLElement {
   wrap.className = 'topbar-menu'
 
   const btn = document.createElement('button')
-  btn.textContent = 'File'
+  btn.innerHTML = `<iconify-icon icon="mdi:file-outline"></iconify-icon><span>File</span>`
   wrap.appendChild(btn)
 
   const pop = document.createElement('div')
@@ -53,7 +57,7 @@ function buildFileMenu(state: EditorState): HTMLElement {
 
   btn.onclick = () => { pop.hidden = !pop.hidden }
 
-  const newBlank = menuItem('New blank', () => {
+  const newBlank = menuItem('mdi:file-plus-outline', 'New blank', () => {
     if (!confirm('Clear the current level and start blank?')) return
     state.level = fromLevelJson({
       spawn: { x: 80, y: 300 },
@@ -72,7 +76,7 @@ function buildFileMenu(state: EditorState): HTMLElement {
   })
   pop.appendChild(newBlank)
 
-  const open = menuItem('Open File…', async () => {
+  const open = menuItem('mdi:folder-open-outline', 'Open File…', async () => {
     pop.hidden = true
     const w = window as unknown as {
       showOpenFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle[]>
@@ -104,7 +108,7 @@ function buildFileMenu(state: EditorState): HTMLElement {
   })
   pop.appendChild(open)
 
-  const download = menuItem('Download JSON', () => {
+  const download = menuItem('mdi:download', 'Download JSON', () => {
     const blob = new Blob([`${JSON.stringify(toLevelJson(state.level), null, 2)}\n`], {
       type: 'application/json',
     })
@@ -118,7 +122,7 @@ function buildFileMenu(state: EditorState): HTMLElement {
   })
   pop.appendChild(download)
 
-  const copy = menuItem('Copy JSON', async () => {
+  const copy = menuItem('mdi:content-copy', 'Copy JSON', async () => {
     await navigator.clipboard.writeText(JSON.stringify(toLevelJson(state.level), null, 2))
     showToast('Copied to clipboard')
     pop.hidden = true
@@ -138,7 +142,7 @@ function buildViewMenu(state: EditorState): HTMLElement {
   wrap.className = 'topbar-menu'
 
   const btn = document.createElement('button')
-  btn.textContent = 'View'
+  btn.innerHTML = `<iconify-icon icon="mdi:eye-outline"></iconify-icon><span>View</span>`
   wrap.appendChild(btn)
 
   const pop = document.createElement('div')
@@ -215,9 +219,9 @@ function buildPresetSelect(state: EditorState, bundled: BundledLevel[]): HTMLEle
   return sel
 }
 
-function menuItem(label: string, onClick: () => void | Promise<void>): HTMLElement {
+function menuItem(icon: string, label: string, onClick: () => void | Promise<void>): HTMLElement {
   const b = document.createElement('button')
-  b.textContent = label
+  b.innerHTML = `<iconify-icon icon="${icon}"></iconify-icon><span>${label}</span>`
   b.className = 'topbar-menu-item'
   b.onclick = () => { void onClick() }
   return b

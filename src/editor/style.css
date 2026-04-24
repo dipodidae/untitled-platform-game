@@ -144,6 +144,17 @@ button {
   border-radius: 3px;
   cursor: pointer;
   font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+button iconify-icon {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 button:hover { background: var(--border); }
@@ -159,7 +170,8 @@ button.active { background: var(--accent); color: #161820; border-color: var(--a
 }
 
 .button-row button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 72px;
   padding: 4px 6px;
   font-size: 11px;
 }

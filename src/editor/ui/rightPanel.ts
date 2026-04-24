@@ -349,7 +349,7 @@ function ioSection(state: EditorState): HTMLElement {
   const row1 = document.createElement('div'); row1.className = 'button-row'
   const label = overwriteLabel(state)
   const overwrite = document.createElement('button')
-  overwrite.textContent = label ? `Overwrite (${label})` : 'Overwrite'
+  overwrite.innerHTML = `<iconify-icon icon="mdi:content-save-outline"></iconify-icon><span>${label ? `Overwrite (${label})` : 'Overwrite'}</span>`
   overwrite.disabled = label == null
   overwrite.title = label
     ? `Overwrite ${label}`
@@ -384,13 +384,13 @@ function ioSection(state: EditorState): HTMLElement {
   // Undo / redo row.
   const row2 = document.createElement('div'); row2.className = 'button-row'
   const undoBtn = document.createElement('button')
-  undoBtn.textContent = `Undo (${state.undoStack.length})`
+  undoBtn.innerHTML = `<iconify-icon icon="mdi:undo"></iconify-icon><span>Undo (${state.undoStack.length})</span>`
   undoBtn.disabled = state.undoStack.length === 0
   undoBtn.title = 'Ctrl+Z'
   undoBtn.onclick = () => undo(state)
   row2.appendChild(undoBtn)
   const redoBtn = document.createElement('button')
-  redoBtn.textContent = `Redo (${state.redoStack.length})`
+  redoBtn.innerHTML = `<iconify-icon icon="mdi:redo"></iconify-icon><span>Redo (${state.redoStack.length})</span>`
   redoBtn.disabled = state.redoStack.length === 0
   redoBtn.title = 'Ctrl+Shift+Z / Ctrl+Y'
   redoBtn.onclick = () => redo(state)
