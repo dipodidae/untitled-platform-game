@@ -2,7 +2,7 @@
 // Diamond-ish silhouette with instability-driven jitter and stun flash.
 
 import type { Graphics } from 'pixi.js'
-import type { Prowler } from '../prowler'
+import type { Prowler } from '../enemies/prowler'
 
 // Cold palette — desaturated blue-violet
 const COL_OUTER = 0x1A1030

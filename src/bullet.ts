@@ -11,13 +11,13 @@
 // On any impact we spawn a material-tinted debris burst and despawn the bullet.
 
 import type { Camera } from './camera'
-import type { Dummy } from './dummy'
+import type { Dummy } from './enemies/dummy'
 import type { BroadphaseGrid } from './physics/broadphase'
 import type { ParticleSystem } from './render/particles'
 import type { Collider, Level, MaterialName } from './world/level'
 import { addTrauma } from './camera'
 import { CONFIG } from './config'
-import { damageDummy, dummyAabb, overlapsDummy } from './dummy'
+import { damageDummy, dummyAabb, overlapsDummy } from './enemies/dummy'
 import { satAabbPoly } from './math/sat'
 import { emitImpactBurst, emitMuzzleFlash } from './render/particles'
 import { applyRupture } from './world/destruction'
@@ -48,6 +48,19 @@ export const BULLET_KINDS = {
     coreColor: 0xFFD48C,
     haloColor: 0x8A2A1C,
     fireCooldownSec: 0.14,
+  },
+  // Big-shot — boss-key weapon granted by the bigShot pickup. 10× damage,
+  // 12-second cooldown, larger bullet and bigger rupture.
+  bigShot: {
+    speed: 340,
+    gravity: 140,
+    lifeSec: 1.2,
+    size: 6,
+    ruptureRadius: 24,
+    damage: 10,
+    coreColor: 0xFFD48C,
+    haloColor: 0xC04020,
+    fireCooldownSec: 12,
   },
 } as const satisfies Record<string, BulletKind>
 

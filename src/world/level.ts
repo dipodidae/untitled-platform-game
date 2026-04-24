@@ -22,12 +22,36 @@
 // `tilemapToPolygons` converts legacy tile-string levels into a collider
 // list via greedy rectangle meshing; kept so old test layouts still load.
 
+import type { ItemKind } from '../items/types'
 import type { KineticJson, KineticState } from '../kinetic'
 import type { Polygon } from '../math/polygon'
 import type { Vec2 } from '../math/vec2'
 import { CONFIG } from '../config'
 import { createKineticState } from '../kinetic'
 import { bounds, decompose } from '../math/polygon'
+
+// ─── zone schema (authored in LevelJson, consumed by player.ts at runtime) ─
+export type ZoneType = 'gravity' | 'wind' | 'hazard' | 'trigger'
+
+export interface ZoneJson {
+  id: number
+  type: ZoneType
+  x: number
+  y: number
+  w: number
+  h: number
+  // gravity: gravityScale multiplies base gravity, airControlScale scales input.
+  gravityScale?: number
+  airControlScale?: number
+  // wind: per-axis velocity nudge + turbulence jitter.
+  windVx?: number
+  windVy?: number
+  windTurbulence?: number
+  // hazard: 0 = instant kill on overlap, >0 = damage per physics tick.
+  hazardDamage?: number
+  // trigger: opaque id forwarded to a subscriber — runtime dispatch is TBD.
+  triggerId?: string
+}
 
 // ─── materials ───────────────────────────────────────────────────────────
 // Four authored materials, each producing its own kind of story:
@@ -99,9 +123,15 @@ export interface LevelJson {
     vertices: [number, number][]
     oneWay?: boolean
     kinetic?: KineticJson
+    // Conveyor-like surface: grounded player gets nudged by vx px/s.
+    surfaceMotion?: { vx: number }
+    // Launch pad: on contact, overwrites player vy with force along angle.
+    launchPad?: { force: number, angle?: number }
   }[]
   prowlers?: { x: number, y: number }[]
   dummies?: { x: number, y: number, hp?: number }[]
+  pickups?: { x: number, y: number, kind: ItemKind }[]
+  zones?: ZoneJson[]
 }
 
 // ─── collider helpers ────────────────────────────────────────────────────

@@ -12,12 +12,12 @@
 // Rupture within radius = massive knockback + instability spike.
 // Max instability = shatter (removed temporarily, respawns after cooldown).
 
-import type { AABB } from './math/sat'
-import type { BroadphaseGrid } from './physics/broadphase'
-import type { Player } from './player'
-import type { Collider, Level, MaterialName } from './world/level'
-import { CONFIG } from './config'
-import { satAabbPoly } from './math/sat'
+import type { AABB } from '../math/sat'
+import type { BroadphaseGrid } from '../physics/broadphase'
+import type { Player } from '../player'
+import type { Collider, Level, MaterialName } from '../world/level'
+import { CONFIG } from '../config'
+import { satAabbPoly } from '../math/sat'
 
 // ─── confidence table ─────────────────────────────────────────────────
 const GROUND_CONFIDENCE: Partial<Record<MaterialName, number>> = {
