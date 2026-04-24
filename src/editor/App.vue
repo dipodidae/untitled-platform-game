@@ -3,6 +3,7 @@ import TopBar from './components/TopBar.vue'
 import LeftPanel from './components/LeftPanel.vue'
 import RightPanel from './components/RightPanel.vue'
 import BottomBar from './components/BottomBar.vue'
+import CanvasHost from './components/CanvasHost.vue'
 import './style.css'
 </script>
 
@@ -15,11 +16,7 @@ import './style.css'
     <LeftPanel />
   </div>
 
-  <div id="vue-canvas-host">
-    <div id="vue-canvas-placeholder">
-      Canvas: migrated in Phase 4
-    </div>
-  </div>
+  <CanvasHost />
 
   <div id="vue-right-panel">
     <RightPanel />
@@ -58,24 +55,6 @@ import './style.css'
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-#vue-canvas-host {
-  position: relative;
-  overflow: hidden;
-  background: #0a0b0f;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#vue-canvas-placeholder {
-  color: var(--dim);
-  font-size: 13px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  opacity: 0.6;
-  pointer-events: none;
-  user-select: none;
 }
 
 #vue-right-panel {
