@@ -77,3 +77,13 @@ Every gameplay number lives in `src/config.ts` with `as const` so literal types 
 ### Render pipeline notes
 
 Low-res logical buffer (`LOGICAL_WIDTH × LOGICAL_HEIGHT`, 480×270) is integer-scaled via CSS (`main.ts#resize`) with `image-rendering: pixelated` to keep the pixel grid crisp — **don't set `autoDensity` or change `resolution`**. Pixi's `roundPixels: true` is on. The scene is two containers: `worldContainer` (camera-panned + shake-offset) and `uiContainer` (screen-fixed, holds meter/hints/flash overlay).
+
+## Working with this repo safely
+
+This working tree frequently carries **substantial uncommitted work** — new directories, partial renames, schema extensions in flight. Before running any git command that touches state, pause and confirm.
+
+- **Never `git reset --hard` without explicit consent.** It permanently wipes working-tree edits on tracked files. `git reflog` cannot recover them. Use `git revert <sha>` instead — it undoes a commit by creating a new one and leaves the working tree alone.
+- **Never `git checkout -- <path>`, `git restore <path>`, or `git clean -f`** without confirming the file has no uncommitted work. These are equally destructive for working-tree edits.
+- **Prefer path-scoped staging and committing.** `git commit -- docs/file.md` commits only that path; a bare `git commit` takes everything in the index, which may include work you didn't mean to publish.
+- **When executing plans with subagents, commit after every implementer step.** A stray later mistake can wipe uncommitted progress; committed progress is recoverable.
+- **If confused about state, `git status` and `git diff HEAD`** before acting. If something looks unfamiliar (stale files, unexpected deletions), investigate before deleting.
