@@ -56,6 +56,9 @@ interface MotionPreviewEntry {
   t: number // seconds elapsed in preview
 }
 
+// NOTE: these are module-level (singleton) vars. That is intentional and fine
+// as long as only one editor canvas instance is mounted at a time. If useCanvas
+// is ever invoked twice concurrently they would conflict.
 let motionPreviewActive = false
 let motionPreviewLastTime = 0
 let motionPreviewScratch: MotionPreviewEntry[] = []
@@ -157,6 +160,8 @@ export interface CanvasCtx {
   spaceHeld: boolean
   dragging: { kind: 'pan' | 'collider' | 'rect' | 'vertex' | 'scale' | 'zone-rect' | 'zone-move' | 'rotate-gizmo', startX: number, startY: number, state0: unknown } | null
   frameWorldViewport: () => void
+  /** Remove the global window keydown/keyup listeners wired by wireInput. */
+  dispose: () => void
 }
 
 export async function useCanvas(
@@ -213,13 +218,14 @@ export async function useCanvas(
     spaceHeld: false,
     dragging: null,
     frameWorldViewport: () => frameWorld(ctx),
+    dispose: () => {}, // filled in by wireInput below
   }
 
   // Replace state.listeners.add(() => redraw(ctx)) with Vue watchEffect.
   // watchEffect auto-tracks any .value reads inside redraw.
   watchEffect(() => redraw(ctx))
 
-  wireInput(ctx)
+  ctx.dispose = wireInput(ctx)
   app.ticker.add(() => {
     applyCamera(ctx)
     tickMotionPreview(cs)
@@ -559,7 +565,7 @@ function findEdgeHit(
   return null
 }
 
-function wireInput(ctx: CanvasCtx): void {
+function wireInput(ctx: CanvasCtx): () => void {
   const canvas = ctx.app.canvas
   canvas.tabIndex = 0
   const { refs, store } = ctx.cs
@@ -742,7 +748,7 @@ function wireInput(ctx: CanvasCtx): void {
     refs.camera.value.y += before.y - after.y
   }, { passive: false })
 
-  window.addEventListener('keydown', (e) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     if (isTypingInInput(e.target))
       return
     const mod = e.ctrlKey || e.metaKey
@@ -783,8 +789,8 @@ function wireInput(ctx: CanvasCtx): void {
       }
       redraw(ctx)
     }
-  })
-  window.addEventListener('keyup', (e) => {
+  }
+  const onKeyUp = (e: KeyboardEvent) => {
     if (e.code === 'Space') { ctx.spaceHeld = false; canvas.style.cursor = '' }
     if ((e.key === 'g' || e.key === 'G') && motionPreviewActive) {
       motionPreviewActive = false
@@ -794,7 +800,14 @@ function wireInput(ctx: CanvasCtx): void {
       }
       motionPreviewScratch = []
     }
-  })
+  }
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+
+  return () => {
+    window.removeEventListener('keydown', onKeyDown)
+    window.removeEventListener('keyup', onKeyUp)
+  }
 }
 
 function isTypingInInput(t: EventTarget | null): boolean {

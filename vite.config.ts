@@ -65,7 +65,6 @@ export default defineConfig({
       input: {
         main: 'index.html',
         editor: 'editor.html',
-        editorVue: 'editor-vue.html',
       },
     },
   },

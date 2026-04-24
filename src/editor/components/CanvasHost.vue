@@ -16,6 +16,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  canvas?.dispose()
   canvas?.app.destroy(true, { children: true, texture: true })
 })
 </script>
