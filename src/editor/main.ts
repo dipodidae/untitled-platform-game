@@ -5,7 +5,7 @@ import level1 from '../levels/level1.json'
 import level2 from '../levels/level2.json'
 import { createCanvas, frameWorldViewport } from './canvas'
 import { mountMinimap } from './minimap'
-import { mountSidebar } from './sidebar'
+import { mountRightPanel } from './ui/rightPanel'
 import { createEditorState, fromLevelJson, markDirty } from './state'
 import { mountLeftPanel } from './ui/leftPanel'
 import './style.css'
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   })
 
   mountLeftPanel(leftPanelHost, state)
-  mountSidebar(rightPanelHost, state, {
+  mountRightPanel(rightPanelHost, state, {
     onFrame: () => frameWorldViewport(canvas),
   })
 
