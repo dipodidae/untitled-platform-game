@@ -10,8 +10,25 @@
 // Adding a brush: append to BRUSHES, give it a category, apply semantics
 // in `applyBrushTo` if it touches existing state.
 
-import type { EditorState } from './state'
-import type { Tool } from './state'
+import type { KineticJson } from '../world/kinetic'
+import type { MaterialName, ZoneJson, ZoneType } from '../world/level'
+
+export type Tool = 'select' | 'polygon' | 'rect' | 'spawn' | 'prowler' | 'dummy' | 'pickup' | 'zone'
+
+interface PendingColliderPreset {
+  oneWay?: boolean
+  kinetic?: KineticJson
+  surfaceMotion?: { vx: number }
+  launchPad?: { force: number, angle?: number }
+  note?: string
+}
+
+interface BrushTarget {
+  tool: Tool
+  createMaterial: MaterialName
+  pendingPreset: PendingColliderPreset | null
+  pendingZone: (Partial<ZoneJson> & { type: ZoneType }) | null
+}
 
 export type BrushCategory = 'movement' | 'hazard' | 'timing' | 'guidance' | 'meta'
 
@@ -27,10 +44,10 @@ export interface Brush {
   // runtime-live? — rendered as a subtle badge in the sidebar.
   live: boolean
   // Default payload applied when the brush creates a shape or zone.
-  apply: (state: EditorState) => void
+  apply: (target: BrushTarget) => void
 }
 
-const setTool = (state: EditorState, tool: Tool) => { state.tool = tool }
+const setTool = (target: BrushTarget, tool: Tool) => { target.tool = tool }
 
 export const BRUSHES: Brush[] = [
   // ─── Core movement ───────────────────────────────────────────────────

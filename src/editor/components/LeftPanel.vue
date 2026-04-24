@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { BRUSH_CATEGORY_LABEL, BRUSHES } from '../brushes'
-import type { Tool } from '../stores/editor'
+import type { Tool } from '../brushes'
 import type { MaterialName } from '../../world/level'
 
 const store = useEditorStore()
@@ -55,7 +55,7 @@ function applyBrush(brush: typeof BRUSHES[number]) {
   if (!brush.live)
     showToast(`${brush.label}: no runtime effect yet`, 'err')
 
-  // Build an adapter that the brush.apply function can mutate
+  // Build a slim BrushTarget adapter — only the four fields brushes ever touch.
   const adapter = {
     get tool() { return store.tool.value },
     set tool(t: Tool) { store.tool.value = t },
@@ -65,19 +65,6 @@ function applyBrush(brush: typeof BRUSHES[number]) {
     set pendingPreset(p) { store.pendingPreset.value = p },
     get pendingZone() { return store.pendingZone.value },
     set pendingZone(z) { store.pendingZone.value = z },
-    // Unused fields from EditorState but needed for type compatibility
-    selection: null as never,
-    camera: null as never,
-    snap: 0,
-    polyBuffer: null as never,
-    undoStack: [] as never,
-    redoStack: [] as never,
-    activeFileHandle: null as never,
-    activeFileName: null as never,
-    activePresetName: null as never,
-    layers: null as never,
-    listeners: null as never,
-    level: null as never,
   }
 
   brush.apply(adapter)
