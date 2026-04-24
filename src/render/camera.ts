@@ -6,9 +6,9 @@
 //
 // The camera never directly tracks the player — it anticipates the action.
 
-import type { Player } from './player/player'
-import type { Level } from './world/level'
-import { CONFIG } from './config'
+import type { Player } from '../player/player'
+import type { Level } from '../world/level'
+import { CONFIG } from '../config'
 
 // ─── CAMERA_CONFIG — single source of truth ─────────────────────────
 export const CAMERA_CONFIG = {

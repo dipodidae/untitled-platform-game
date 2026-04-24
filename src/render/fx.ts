@@ -1,4 +1,4 @@
-import { CONFIG } from './config'
+import { CONFIG } from '../config'
 
 // Central effects state — hitstop + shake + flash. Particles used to live
 // here too but moved to src/render/particles.ts in the ParticleContainer

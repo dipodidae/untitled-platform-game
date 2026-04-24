@@ -6,7 +6,7 @@
 // anything but the eye.
 
 import type { Graphics } from 'pixi.js'
-import type { Camera } from '../camera'
+import type { Camera } from './camera'
 import { CONFIG } from '../config'
 import { PALETTE } from './palette'
 
