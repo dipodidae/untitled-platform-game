@@ -5,6 +5,7 @@ import type { BroadphaseGrid } from '../physics/broadphase'
 import type { ParticleSystem } from '../render/particles'
 import type { RuptureResult } from '../combat/rupture'
 import type { Level, MaterialName } from '../world/level'
+import type { BulletKindName } from '../combat/bullet'
 import { CONFIG } from '../config'
 import { emit } from '../session/eventBus'
 import { triggerFractureFx } from '../render/fx'
@@ -70,6 +71,10 @@ export interface Player {
 
   // Renderer handle for the last rupture — cleared once iframes close.
   lastRupture: RuptureResult | null
+
+  // Currently equipped weapon. Set to 'slug' on spawn/respawn; overwritten
+  // when the player collects a weapon pickup.
+  currentWeapon: BulletKindName
 }
 
 export function createPlayer(level: Level): Player {
@@ -105,6 +110,7 @@ export function createPlayer(level: Level): Player {
     doubleJumpAvailable: false,
     djGlowTimer: 0,
     djFiredThisTick: false,
+    currentWeapon: 'slug',
   }
 }
 
@@ -334,6 +340,7 @@ export function respawn(p: Player, level: Level): void {
   p.doubleJumpAvailable = false
   p.djGlowTimer = 0
   p.djFiredThisTick = false
+  p.currentWeapon = 'slug'
   resetInstability(p.instability)
   resetLevel(level)
 }

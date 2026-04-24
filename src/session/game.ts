@@ -7,6 +7,7 @@ import type { Player } from '../player/player'
 import type { Prowler } from '../enemies/prowler'
 import type { RenderContext } from '../render'
 import type { Level } from '../world/level'
+import type { Pickup } from '../items'
 import { createBulletState, resetBulletState, spawnBullet, updateBullets } from '../combat/bullet'
 import { addTrauma, createCamera, updateCamera } from '../render/camera'
 import { CONFIG } from '../config'
@@ -14,7 +15,7 @@ import { createDummy, updateDummy } from '../enemies/dummy'
 import { emit } from './eventBus'
 import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
 import { gameState as gameSession } from './gameState'
-import { createParticleSystem, emitDisintegration, emitLandingDust, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
+import { createParticleSystem, emitDisintegration, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
 import type { ParticleSystem } from '../render/particles'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
 import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
@@ -25,6 +26,7 @@ import { buildScene, render, teardownScene } from '../render'
 import { CRTFilter } from '../render/CRTFilter'
 import { resetPlayerRenderer } from '../render/playerRenderer'
 import { levelIdAt, listLevels, loadLevel, markLevelLoaded } from './levelManager'
+import { createPickupsFromSpawns, getItemDef, pickupOverlapsPlayer, tickPickups } from '../items'
 
 import { cycleStance } from '../render/spineboy'
 import { fromJson, tickEphemeral } from '../world/level'
@@ -47,6 +49,7 @@ export interface GameState {
   readonly bullets: BulletState
   dummies: Dummy[]
   readonly particles: ParticleSystem
+  pickups: Pickup[]
 }
 
 export function createGame(app: Application): GameState {
@@ -67,9 +70,10 @@ export function createGame(app: Application): GameState {
   app.stage.filters = [crtFilter]
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
+  const pickups = createPickupsFromSpawns(level.pickupSpawns)
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
   markLevelLoaded(id)
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups }
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
@@ -88,6 +92,7 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   state.prowlers = state.level.prowlerSpawns.map(s => createProwler(s.x, s.y))
   resetBulletState(state.bullets)
   state.dummies = state.level.dummySpawns.map(s => createDummy(s.x, s.y, s.hp))
+  state.pickups = createPickupsFromSpawns(state.level.pickupSpawns)
 
   // Clean up visual state from the previous level.
   state.fx.hitstopTicks = 0
@@ -164,6 +169,19 @@ function fixedUpdate(state: GameState): void {
   updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.particles, state.now, CONFIG.FIXED_DT)
 
+  // Pickup bob + collection. Runs after player update so position is current.
+  tickPickups(state.pickups, CONFIG.FIXED_DT)
+  for (const pk of state.pickups) {
+    if (!pk.alive)
+      continue
+    if (pickupOverlapsPlayer(pk, state.player)) {
+      pk.alive = false
+      const def = getItemDef(pk.kind)
+      state.player.currentWeapon = def.grantsWeapon
+      emitPickupClaim(state.particles, pk.x + pk.w / 2, pk.y + pk.h / 2)
+    }
+  }
+
   // Fire + advance bullets. spawnBullet reads muzzle position + aim direction
   // from the Spineboy bridge's last-render snapshot, so bullets launch from
   // the visible gun tip along the visible aim. If the bridge hasn't snapshotted
@@ -174,7 +192,7 @@ function fixedUpdate(state: GameState): void {
     const muzzleY = b.muzzleReady ? b.muzzleY : state.player.y + state.player.h / 2
     const dirX = b.muzzleReady ? b.muzzleDirX : state.player.facing
     const dirY = b.muzzleReady ? b.muzzleDirY : 0
-    spawnBullet(state.bullets, state.particles, muzzleX, muzzleY, dirX, dirY)
+    spawnBullet(state.bullets, state.particles, muzzleX, muzzleY, dirX, dirY, state.player.currentWeapon)
   }
   updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.particles, state.camera, state.now, CONFIG.FIXED_DT)
 
@@ -268,7 +286,7 @@ export function startLoop(state: GameState): void {
     // Camera smoothing runs once per rendered frame (not per physics tick)
     // so its lerp rate stays tied to display refresh, same as the original.
     updateCamera(state.camera, state.player, state.level)
-    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase)
+    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase, state.pickups)
 
     // Update CRT shader uniforms
     const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX

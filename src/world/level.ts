@@ -112,6 +112,7 @@ export interface Level {
   readonly spawn: { readonly x: number, readonly y: number }
   readonly prowlerSpawns: readonly { readonly x: number, readonly y: number }[]
   readonly dummySpawns: readonly { readonly x: number, readonly y: number, readonly hp?: number }[]
+  readonly pickupSpawns: readonly { readonly x: number, readonly y: number, readonly kind: ItemKind }[]
   // Authored zones, consumed by player.ts each tick for goal/checkpoint
   // detection + per-type modifiers. See ZoneType above for semantics.
   readonly zones: readonly ZoneJson[]
@@ -314,6 +315,7 @@ export function fromJson(data: LevelJson): Level {
     spawn: { x: data.spawn.x, y: data.spawn.y },
     prowlerSpawns: (data.prowlers ?? []).map(p => ({ x: p.x, y: p.y })),
     dummySpawns: (data.dummies ?? []).map(d => ({ x: d.x, y: d.y, hp: d.hp })),
+    pickupSpawns: (data.pickups ?? []).map(p => ({ x: p.x, y: p.y, kind: p.kind })),
     zones: (data.zones ?? []).map(z => ({ ...z })),
   }
 }
@@ -330,6 +332,7 @@ export function fromTilemap(rows: readonly string[]): Level {
     spawn: { x: CONFIG.SPAWN_X, y: CONFIG.SPAWN_Y },
     prowlerSpawns: [],
     dummySpawns: [],
+    pickupSpawns: [],
     zones: [],
   }
 }

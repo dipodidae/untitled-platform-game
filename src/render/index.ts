@@ -11,6 +11,7 @@ import type { ParticleSystem } from './particles'
 import type { SpineboyBridge } from './spineboy'
 import type { WindState } from './wind'
 import type { Level } from '../world/level'
+import type { Pickup } from '../items'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { predictBulletImpact } from '../combat/bullet'
 import { CONFIG } from '../config'
@@ -24,6 +25,7 @@ import { createSpineboyBridge, resetSpineboyBridge, triggerShootOverlay, updateS
 import { createWindState, drawWind, tickWind } from './wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './world'
 import { computeRuptureShape } from '../combat/rupture'
+import { getItemDef } from '../items'
 
 // Scene graph:
 //   bgContainer      (screen-fixed): sky gradient + parallax layers
@@ -50,6 +52,7 @@ export interface RenderContext {
   readonly ruptureRingGfx: Graphics
   readonly deathPlaneGfx: Graphics
   readonly bulletGfx: Graphics
+  readonly pickupGfx: Graphics
   readonly crosshairGfx: Graphics
   readonly dummyGfx: Graphics
   readonly prowlerGfxList: Graphics[]
@@ -125,6 +128,11 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   const bulletGfx = new Graphics()
   worldContainer.addChild(bulletGfx)
 
+  // Pickups — rendered above terrain and bullets so they're easy to spot,
+  // but below the player character so they don't overlap the sprite.
+  const pickupGfx = new Graphics()
+  worldContainer.addChild(pickupGfx)
+
   // Crosshair + predicted-trajectory dots. Drawn on top of terrain so aim is
   // always readable, but below the player.
   const crosshairGfx = new Graphics()
@@ -152,7 +160,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   worldContainer.addChild(playerGhostGfx) // below player
 
   // Spineboy replaces the old procedural pixel mass + custom skeletal rig.
-  const charBridge = createSpineboyBridge()
+  const charBridge = createSpineboyBridge('cat-warrior-skel', 'cat-warrior-atlas')
   worldContainer.addChild(charBridge.container)
 
   const playerGfx = new Graphics() // kept for legacy compat / overlay effects
@@ -232,6 +240,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     ruptureRingGfx,
     deathPlaneGfx,
     bulletGfx,
+    pickupGfx,
     crosshairGfx,
     dummyGfx,
     prowlerGfxList,
@@ -335,6 +344,7 @@ export function render(
   bullets?: BulletState,
   dummies?: readonly Dummy[],
   broadphase?: BroadphaseGrid,
+  pickups?: readonly Pickup[],
 ): void {
   ctx.time += dt
 
@@ -581,6 +591,28 @@ export function render(
       ctx.bulletGfx.moveTo(tx, ty).lineTo(b.x, b.y).stroke({ width: 5, color: 0x8A2A1C, alpha: 0.45 })
       ctx.bulletGfx.moveTo(tx, ty).lineTo(b.x, b.y).stroke({ width: 2, color: 0xFFD48C, alpha: 1 })
       ctx.bulletGfx.circle(b.x, b.y, 2.2).fill({ color: 0xFFF6D8, alpha: 1 })
+    }
+  }
+
+  // ─── pickups ────────────────────────────────────────────
+  // Simple pixel-rendered collectibles: glowing halo + solid body + accent.
+  // Bob vertically on their sinusoidal phase so they read as interactive
+  // without a sprite asset.
+  ctx.pickupGfx.clear()
+  if (pickups) {
+    for (const pk of pickups) {
+      if (!pk.alive)
+        continue
+      const def = getItemDef(pk.kind)
+      const cx = pk.x + pk.w / 2
+      const cy = pk.y + pk.h / 2 + Math.sin(pk.bobPhase) * 2
+      const r = pk.w / 2 - 2
+      // Glow halo — translucent, larger than body.
+      ctx.pickupGfx.circle(cx, cy, pk.w / 2).fill({ color: def.glowColor, alpha: 0.35 })
+      // Body — solid fill.
+      ctx.pickupGfx.circle(cx, cy, r).fill({ color: def.bodyColor })
+      // Accent — small inner circle in accent color.
+      ctx.pickupGfx.circle(cx, cy, Math.max(1, r * 0.4)).fill({ color: def.accentColor })
     }
   }
 
