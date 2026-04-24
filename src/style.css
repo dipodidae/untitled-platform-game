@@ -140,3 +140,141 @@ canvas {
 .results-btn.primary:hover {
   filter: brightness(1.08);
 }
+
+/* ─── Main menu overlay ─────────────────────────────────────────────────── */
+
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #d8dae0;
+  background: #0a0b12;
+}
+
+/* Parallax-ish ambient background — three slow-drifting radial gradients.
+   Cheap, Pixi-free; gives motion before the game scene becomes visible. */
+.menu-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.menu-bg-layer {
+  position: absolute;
+  inset: -10% -10%;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: menu-bg-drift 60s linear infinite;
+}
+
+.menu-bg-far {
+  background: radial-gradient(ellipse at 20% 80%, rgba(140, 95, 40, 0.25) 0%, transparent 45%),
+              radial-gradient(ellipse at 80% 30%, rgba(60, 30, 80, 0.22) 0%, transparent 50%);
+  animation-duration: 90s;
+}
+
+.menu-bg-mid {
+  background: radial-gradient(ellipse at 60% 70%, rgba(200, 160, 50, 0.12) 0%, transparent 35%),
+              radial-gradient(ellipse at 30% 20%, rgba(80, 50, 30, 0.18) 0%, transparent 40%);
+  animation-duration: 70s;
+  animation-direction: reverse;
+}
+
+.menu-bg-near {
+  background: radial-gradient(ellipse at 50% 50%, rgba(160, 120, 60, 0.08) 0%, transparent 30%);
+  animation-duration: 45s;
+}
+
+.menu-bg-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.75) 100%);
+  pointer-events: none;
+}
+
+@keyframes menu-bg-drift {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  50%  { transform: translate(-3%, 2%) rotate(180deg); }
+  100% { transform: translate(0, 0) rotate(360deg); }
+}
+
+.menu-panel {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 28px 40px;
+  min-width: 320px;
+  max-width: 90vw;
+}
+
+.menu-logo {
+  margin: 0 0 10px;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: #d4a574;
+  text-shadow: 0 0 12px rgba(205, 127, 50, 0.5),
+               0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.menu-subtitle {
+  margin: 0 0 40px;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: #8a8e96;
+  text-transform: lowercase;
+}
+
+.menu-presskey {
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: #c8a020;
+  margin-top: 16px;
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.menu-items[aria-hidden="true"] {
+  pointer-events: none;
+}
+
+.menu-item {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #8a8e96;
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 10px 36px;
+  cursor: pointer;
+  min-width: 220px;
+  transition: color 120ms ease, border-color 120ms ease,
+              background 120ms ease, letter-spacing 200ms ease;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus:not(:disabled) {
+  color: #d4a574;
+  border-color: #6b4a2b;
+  background: rgba(42, 31, 22, 0.45);
+  letter-spacing: 0.28em;
+  outline: none;
+}
+
+.menu-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

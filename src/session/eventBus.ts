@@ -11,6 +11,9 @@ export interface EngineEvents {
   checkpointReached: { x: number, y: number }
   levelLoaded: { levelId: string }
   retryPressed: null
+  menuShown: null
+  menuPlayPressed: null
+  dropInComplete: null
 }
 
 type Handler<E> = (payload: E) => void

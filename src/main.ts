@@ -2,9 +2,11 @@ import { Application } from 'pixi.js'
 import { gsap } from 'gsap'
 import { CONFIG } from './config'
 import { advanceLevel, createGame, reloadLevel, startLoop } from './session/game'
+import { gameState as gameSession } from './session/gameState'
 import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
+import { mountMainMenu } from './ui/mainMenu'
 import { mountResultsScreen } from './ui/resultsScreen'
 import './style.css'
 
@@ -88,6 +90,28 @@ async function main(): Promise<void> {
   initInput()
   const state = createGame(app)
   startLoop(state)
+
+  // Boot into the main menu. The loop is already running; fixedUpdate
+  // bails out while phase is 'menu'. The stage stays visible so the
+  // game world plays its ambient loop (wind, parallax) behind the menu.
+  gameSession.phase = 'menu'
+  // Dim the canvas a touch so the menu reads cleanly on top of whatever
+  // the stage happens to be showing. Restored when Play commits.
+  app.stage.alpha = 0.4
+
+  const dismissMenu = mountMainMenu({
+    onPlay: () => {
+      dismissMenu()
+      gameSession.phase = 'gameplay'
+      // Fade the world back in as control hands off.
+      gsap.to(app.stage, { alpha: 1, duration: 0.5, ease: 'power2.out' })
+    },
+    onQuit: () => {
+      // Browsers can't really "quit" a tab — close what we can, blank out
+      // otherwise. Harmless stub for now.
+      window.close()
+    },
+  })
 
   // Results-screen overlay listens for levelComplete and shows itself.
   // Retry re-enters the current level; Next advances. Both fade through
