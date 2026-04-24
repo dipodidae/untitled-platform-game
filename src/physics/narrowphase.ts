@@ -1,9 +1,7 @@
-// Narrowphase collision: AABB vs. convex polygon via SAT, plus swept-AABB
-// CCD for high-speed tunneling prevention. Narrowphase only computes the
-// collision data; `resolve.ts` applies it to the player.
+// Narrowphase collision: AABB vs. convex polygon via SAT. Narrowphase only
+// computes the collision data; `resolve.ts` applies it to the player.
 
 import type { AABB, SatHit } from './sat'
-import type { Vec2 } from '../shared-kernel/vec2'
 import type { Collider } from '../world/level'
 import { satAabbPoly } from './sat'
 
@@ -35,47 +33,3 @@ export function deepestContact(box: AABB, candidates: readonly Collider[]): Cont
   return best
 }
 
-// Swept-AABB against the swept path (prev center → next center). Returns
-// the time of impact in [0, 1] where 1 = no collision along the sweep.
-// Implementation: binary-search along the path for the first substep where
-// SAT reports a hit. Coarse but robust for our small dt + low candidate
-// counts; good enough for CCD of a 12x14 AABB at player speeds.
-export function sweptToi(
-  prev: Vec2,
-  next: Vec2,
-  halfW: number,
-  halfH: number,
-  candidates: readonly Collider[],
-): number {
-  const dx = next.x - prev.x
-  const dy = next.y - prev.y
-  if (dx === 0 && dy === 0)
-    return 1
-
-  // Fast path: are we clear at `next`? If so, no collision along the sweep.
-  // (True only when the path is "short enough" that starting-clear + ending-clear
-  //  implies a clear interior. For player-speed sweeps at substep dt this holds.)
-  const endBox: AABB = { x: next.x - halfW, y: next.y - halfH, w: halfW * 2, h: halfH * 2 }
-  if (deepestContact(endBox, candidates) === null)
-    return 1
-
-  // Bisect [0, 1] to find the TOI. 10 iterations = 1/1024 of the path — ~0.1px
-  // precision at typical substep distances. We conservatively back off a bit
-  // so the resolver still has a non-zero gap to push against.
-  let lo = 0
-  let hi = 1
-  for (let i = 0; i < 10; i++) {
-    const mid = (lo + hi) * 0.5
-    const box: AABB = {
-      x: prev.x + dx * mid - halfW,
-      y: prev.y + dy * mid - halfH,
-      w: halfW * 2,
-      h: halfH * 2,
-    }
-    if (deepestContact(box, candidates))
-      hi = mid
-    else
-      lo = mid
-  }
-  return lo
-}
