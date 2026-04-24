@@ -589,6 +589,19 @@ export function emitGlassBreak(
   emit(system, 'spark', x, y, 10, 0, -1)
 }
 
+// Pickup claim — ring of embers + sparks when the player collects an item.
+// Omnidirectional (dir zero) so it reads as a burst outward from the pickup
+// position, not a directional spray.
+export function emitPickupClaim(
+  system: ParticleSystem,
+  x: number,
+  y: number,
+): void {
+  emit(system, 'ember', x, y, 16, 0, -1, { speedMul: 0.9 })
+  emit(system, 'spark', x, y, 10, 0, 0)
+  emit(system, 'dust', x, y, 6, 0, -0.4, { speedMul: 0.6 })
+}
+
 // ─── ambient motes ──────────────────────────────────────────────────────────
 // Scatter N motes across a world region. Called once on level load; motes
 // tick for their full lifetime and get replenished by the game loop.
