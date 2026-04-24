@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { listLevels, loadLevel } from '../../session/levelManager'
 import type { LevelJson } from '../../world/level'
@@ -17,9 +17,9 @@ function newBlank() {
     worldHeight: 720,
     colliders: [{ id: 1, material: 'bone', vertices: [[0, 500], [3200, 500], [3200, 600], [0, 600]] }],
   })
-  store.activeFileHandle.value = null
-  store.activeFileName.value = null
-  store.activePresetName.value = null
+  store.activeFileHandle = null
+  store.activeFileName = null
+  store.activePresetName = null
 }
 
 async function openFile() {
@@ -35,9 +35,9 @@ async function openFile() {
     })
     if (!handle)
       return
-    store.activeFileHandle.value = handle
-    store.activeFileName.value = handle.name
-    store.activePresetName.value = null
+    store.activeFileHandle = handle
+    store.activeFileName = handle.name
+    store.activePresetName = null
     const file = await handle.getFile()
     store.loadFromJson(JSON.parse(await file.text()) as LevelJson)
   }
@@ -108,8 +108,10 @@ const fileMenuItems = [
   ],
 ]
 
-// View layers
-const LAYER_LABELS: [keyof typeof store.layers.value, string][] = [
+// View layers — Pinia setup-store fields are auto-unwrapped, so `store.layers`
+// is the layers record (not a Ref). Items are wrapped in a computed so the
+// `checked` flag stays reactive after toggles.
+const LAYER_LABELS: [keyof typeof store.layers, string][] = [
   ['colliders', 'Colliders'],
   ['zones', 'Zones'],
   ['wind', 'Wind arrows'],
@@ -119,12 +121,12 @@ const LAYER_LABELS: [keyof typeof store.layers.value, string][] = [
   ['grid', 'Grid'],
 ]
 
-const viewMenuItems = LAYER_LABELS.map(([key, label]) => ({
+const viewMenuItems = computed(() => LAYER_LABELS.map(([key, label]) => ({
   label,
   type: 'checkbox' as const,
-  checked: store.layers.value[key],
-  onUpdateChecked: (v: boolean) => { store.layers.value[key] = v },
-}))
+  checked: store.layers[key],
+  onUpdateChecked: (v: boolean) => { store.layers[key] = v },
+})))
 
 // Preset dropdown
 const levels = listLevels()
@@ -141,9 +143,9 @@ function onPresetChange(val: string) {
   const data = loadLevel(val)
   if (data) {
     store.loadFromJson(data)
-    store.activeFileHandle.value = null
-    store.activeFileName.value = null
-    store.activePresetName.value = val
+    store.activeFileHandle = null
+    store.activeFileName = null
+    store.activePresetName = val
     toast.add({ title: `Loaded ${val}`, icon: 'i-mdi-check', color: 'success' })
   }
   selectedPreset.value = ''

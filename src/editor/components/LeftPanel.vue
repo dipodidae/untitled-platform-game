@@ -33,8 +33,8 @@ const brushesByCategory = (() => {
 })()
 
 function setTool(t: Tool) {
-  store.tool.value = t
-  store.polyBuffer.value = null
+  store.tool = t
+  store.polyBuffer = null
 }
 
 function applyBrush(brush: typeof BRUSHES[number]) {
@@ -42,15 +42,17 @@ function applyBrush(brush: typeof BRUSHES[number]) {
     toast.add({ title: `${brush.label}: no runtime effect yet`, icon: 'i-mdi-alert', color: 'warning' })
 
   // Build a slim BrushTarget adapter — only the four fields brushes ever touch.
+  // Pinia setup-store fields are auto-unwrapped at the store boundary, so we
+  // read/write `store.x` directly (no `.value`).
   const adapter = {
-    get tool() { return store.tool.value },
-    set tool(t: Tool) { store.tool.value = t },
-    get createMaterial() { return store.createMaterial.value },
-    set createMaterial(m: MaterialName) { store.createMaterial.value = m },
-    get pendingPreset() { return store.pendingPreset.value },
-    set pendingPreset(p) { store.pendingPreset.value = p },
-    get pendingZone() { return store.pendingZone.value },
-    set pendingZone(z) { store.pendingZone.value = z },
+    get tool() { return store.tool },
+    set tool(t: Tool) { store.tool = t },
+    get createMaterial() { return store.createMaterial },
+    set createMaterial(m: MaterialName) { store.createMaterial = m },
+    get pendingPreset() { return store.pendingPreset },
+    set pendingPreset(p) { store.pendingPreset = p },
+    get pendingZone() { return store.pendingZone },
+    set pendingZone(z) { store.pendingZone = z },
   }
 
   brush.apply(adapter)
@@ -65,8 +67,8 @@ function applyBrush(brush: typeof BRUSHES[number]) {
       <UButton
         v-for="t in TOOLS"
         :key="t.id"
-        :color="store.tool.value === t.id ? 'primary' : 'neutral'"
-        :variant="store.tool.value === t.id ? 'solid' : 'ghost'"
+        :color="store.tool === t.id ? 'primary' : 'neutral'"
+        :variant="store.tool === t.id ? 'solid' : 'ghost'"
         :icon="t.icon"
         :label="t.hint ? `${t.label} (${t.hint})` : t.label"
         :title="t.hint ? `${t.label} — shortcut ${t.hint}` : t.label"
@@ -110,7 +112,7 @@ function applyBrush(brush: typeof BRUSHES[number]) {
     <div class="row">
       <label>material</label>
       <USelect
-        v-model="store.createMaterial.value"
+        v-model="store.createMaterial"
         :items="materialItems"
         size="xs"
         class="flex-[1.4] min-w-0"

@@ -5,7 +5,7 @@ import { useEditorStore } from '../stores/editor'
 const store = useEditorStore()
 
 const stats = computed(() => {
-  const lv = store.level.value
+  const lv = store.level
   return [
     `colliders: ${lv.colliders.length}`,
     `zones: ${lv.zones.length}`,
@@ -17,11 +17,11 @@ const stats = computed(() => {
 })
 
 // Redo stack displayed in chronological order (most-recently-undone last)
-const redoCells = computed(() => store.redoStack.value.slice().reverse())
+const redoCells = computed(() => store.redoStack.slice().reverse())
 
 function jumpUndo(targetIndex: number) {
   // targetIndex is 0-based into undoStack; we need to undo (undoStack.length - targetIndex) steps
-  const steps = store.undoStack.value.length - targetIndex
+  const steps = store.undoStack.length - targetIndex
   for (let k = 0; k < steps; k++) store.undo()
 }
 
@@ -36,7 +36,7 @@ function jumpRedo(targetIndex: number) {
   <div class="undo-strip">
     <!-- Past cells (oldest → newest) -->
     <UTooltip
-      v-for="(entry, i) in store.undoStack.value"
+      v-for="(entry, i) in store.undoStack"
       :key="`past-${i}`"
       :text="entry.label"
     >

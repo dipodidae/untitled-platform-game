@@ -20,36 +20,36 @@ const kineticTypeItems = [
 ]
 
 // Computed helpers
-const sel = computed(() => store.selection.value)
+const sel = computed(() => store.selection)
 
 const selectedCollider = computed(() => {
   if (sel.value?.kind !== 'collider')
     return null
-  return store.level.value.colliders[sel.value.index] ?? null
+  return store.level.colliders[sel.value.index] ?? null
 })
 
 const selectedZone = computed(() => {
   if (sel.value?.kind !== 'zone')
     return null
-  return store.level.value.zones[sel.value.index] ?? null
+  return store.level.zones[sel.value.index] ?? null
 })
 
 const selectedProwler = computed(() => {
   if (sel.value?.kind !== 'prowler')
     return null
-  return store.level.value.prowlers[sel.value.index] ?? null
+  return store.level.prowlers[sel.value.index] ?? null
 })
 
 const selectedDummy = computed(() => {
   if (sel.value?.kind !== 'dummy')
     return null
-  return store.level.value.dummies[sel.value.index] ?? null
+  return store.level.dummies[sel.value.index] ?? null
 })
 
 const selectedPickup = computed(() => {
   if (sel.value?.kind !== 'pickup')
     return null
-  return store.level.value.pickups[sel.value.index] ?? null
+  return store.level.pickups[sel.value.index] ?? null
 })
 
 // Collider kinetic type
@@ -118,10 +118,10 @@ function setLaunchPad(on: boolean) {
 
 // Overwrite
 function overwriteLabel(): string | null {
-  if (store.activeFileName.value)
-    return store.activeFileName.value
-  if (store.activePresetName.value)
-    return `${store.activePresetName.value}.json`
+  if (store.activeFileName)
+    return store.activeFileName
+  if (store.activePresetName)
+    return `${store.activePresetName}.json`
   return null
 }
 
@@ -145,13 +145,13 @@ async function doOverwrite() {
   if (!confirm(`Overwrite ${target}? This cannot be undone.`))
     return
   try {
-    if (store.activeFileHandle.value) {
-      const writable = await store.activeFileHandle.value.createWritable()
+    if (store.activeFileHandle) {
+      const writable = await store.activeFileHandle.createWritable()
       await writable.write(`${JSON.stringify(store.toJson(), null, 2)}\n`)
       await writable.close()
     }
-    else if (store.activePresetName.value) {
-      await overwritePreset(store.activePresetName.value)
+    else if (store.activePresetName) {
+      await overwritePreset(store.activePresetName)
     }
     toast.add({ title: `Saved ${target}`, icon: 'i-mdi-check', color: 'success' })
   }
@@ -166,17 +166,17 @@ function deleteSelection() {
   if (!s)
     return
   if (s.kind === 'collider')
-    store.level.value.colliders.splice(s.index, 1)
+    store.level.colliders.splice(s.index, 1)
   else if (s.kind === 'prowler')
-    store.level.value.prowlers.splice(s.index, 1)
+    store.level.prowlers.splice(s.index, 1)
   else if (s.kind === 'dummy')
-    store.level.value.dummies.splice(s.index, 1)
+    store.level.dummies.splice(s.index, 1)
   else if (s.kind === 'pickup')
-    store.level.value.pickups.splice(s.index, 1)
+    store.level.pickups.splice(s.index, 1)
   else if (s.kind === 'zone')
-    store.level.value.zones.splice(s.index, 1)
+    store.level.zones.splice(s.index, 1)
   if (s.kind !== 'spawn')
-    store.selection.value = null
+    store.selection = null
 }
 
 function parsePathJson(val: string): [number, number][] | null {
@@ -195,11 +195,11 @@ function parsePathJson(val: string): [number, number][] | null {
     <h3>World Size</h3>
     <div class="row">
       <label>worldWidth</label>
-      <UInput v-model.number="store.level.value.worldWidth" type="number" size="xs" class="flex-[1.4] min-w-0" />
+      <UInput v-model.number="store.level.worldWidth" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </div>
     <div class="row">
       <label>worldHeight</label>
-      <UInput v-model.number="store.level.value.worldHeight" type="number" size="xs" class="flex-[1.4] min-w-0" />
+      <UInput v-model.number="store.level.worldHeight" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </div>
   </div>
 
@@ -208,7 +208,7 @@ function parsePathJson(val: string): [number, number][] | null {
     <h3>Grid / Snap</h3>
     <div class="row">
       <label>snap (px)</label>
-      <UInput v-model.number="store.snapStep.value" type="number" min="0" size="xs" class="flex-[1.4] min-w-0" />
+      <UInput v-model.number="store.snapStep" type="number" min="0" size="xs" class="flex-[1.4] min-w-0" />
     </div>
     <div class="hint">
       0 = off
@@ -425,11 +425,11 @@ function parsePathJson(val: string): [number, number][] | null {
     <template v-else-if="sel.kind === 'spawn'">
       <div class="row">
         <label>spawn x</label>
-        <UInput v-model.number="store.level.value.spawn.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
+        <UInput v-model.number="store.level.spawn.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>spawn y</label>
-        <UInput v-model.number="store.level.value.spawn.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
+        <UInput v-model.number="store.level.spawn.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
     </template>
 
@@ -519,8 +519,8 @@ function parsePathJson(val: string): [number, number][] | null {
         color="neutral"
         variant="ghost"
         icon="i-mdi-undo"
-        :label="`Undo (${store.undoStack.value.length})`"
-        :disabled="store.undoStack.value.length === 0"
+        :label="`Undo (${store.undoStack.length})`"
+        :disabled="store.undoStack.length === 0"
         title="Ctrl+Z"
         size="xs"
         class="flex-1"
@@ -530,8 +530,8 @@ function parsePathJson(val: string): [number, number][] | null {
         color="neutral"
         variant="ghost"
         icon="i-mdi-redo"
-        :label="`Redo (${store.redoStack.value.length})`"
-        :disabled="store.redoStack.value.length === 0"
+        :label="`Redo (${store.redoStack.length})`"
+        :disabled="store.redoStack.length === 0"
         title="Ctrl+Shift+Z / Ctrl+Y"
         size="xs"
         class="flex-1"
