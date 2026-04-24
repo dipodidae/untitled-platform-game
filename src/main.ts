@@ -7,6 +7,7 @@ import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
 import { on } from './session/eventBus'
+import { mountDamageVignette } from './ui/damageVignette'
 import { playDropIn } from './ui/dropIn'
 import { mountMainMenu } from './ui/mainMenu'
 import { mountResultsScreen } from './ui/resultsScreen'
@@ -121,6 +122,33 @@ async function main(): Promise<void> {
   // When the drop-in cinematic finishes, control hands off to the player.
   on('dropInComplete', () => {
     gameSession.phase = 'gameplay'
+  })
+
+  // Damage vignette — red-edge pulse on player hits, baseline follows HP.
+  mountDamageVignette(() => state.player.hp / state.player.maxHp)
+
+  // Chromatic-aberration pulse via the CRT shader. The filter multiplies
+  // its base CA offset by (1 + uInstability * 3); we briefly pump the
+  // uniform past the normal gameplay range on big events and ease it
+  // back. Doesn't interfere with the gameplay-driven instability update
+  // because that update runs every frame and overwrites us — so we pump
+  // via a `_pulse` additive handled where the uniform is assigned.
+  on('playerDied', () => {
+    gsap.killTweensOf(state.crtFilter)
+    gsap.fromTo(
+      state.crtFilter,
+      { instability: 0.95 },
+      { instability: 0, duration: 0.8, ease: 'power2.out' },
+    )
+  })
+  on('hitLanded', (e) => {
+    if (e.target !== 'player') return
+    gsap.killTweensOf(state.crtFilter)
+    gsap.fromTo(
+      state.crtFilter,
+      { instability: 0.55 },
+      { instability: 0, duration: 0.4, ease: 'power2.out' },
+    )
   })
 
   // Also play the drop-in on every subsequent level load (after Retry /

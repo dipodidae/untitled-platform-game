@@ -192,6 +192,23 @@ canvas {
 .results-grade[data-grade="B"] .results-grade-letter { color: #8AC58A; }
 .results-grade[data-grade="C"] .results-grade-letter { color: #8A8E96; }
 
+/* ─── Damage vignette ──────────────────────────────────────────────────── */
+
+.damage-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 45%,
+    rgba(180, 30, 20, 0.28) 78%,
+    rgba(220, 30, 20, 0.55) 100%
+  );
+  mix-blend-mode: screen;
+  transition: none; /* GSAP drives this, not CSS */
+}
+
 /* ─── Main menu overlay ─────────────────────────────────────────────────── */
 
 .menu-overlay {
