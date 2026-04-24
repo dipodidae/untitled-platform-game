@@ -5,6 +5,7 @@ import level1 from '../levels/level1.json'
 import level2 from '../levels/level2.json'
 import { createCanvas, frameWorldViewport } from './canvas'
 import { mountMinimap } from './minimap'
+import { mountBottomBar } from './ui/bottomBar'
 import { mountRightPanel } from './ui/rightPanel'
 import { mountTopBar } from './ui/topBar'
 import { createEditorState, fromLevelJson, markDirty } from './state'
@@ -22,6 +23,7 @@ async function main(): Promise<void> {
   const canvasHost = document.getElementById('canvas-host')!
   const minimapHost = document.getElementById('minimap-host')!
   const topBarHost = document.getElementById('top-bar')!
+  const bottomBarHost = document.getElementById('bottom-bar')!
 
   const state = createEditorState()
   // Start with level1 so there's something to play with. Tagging the preset
@@ -48,6 +50,7 @@ async function main(): Promise<void> {
   }))
 
   mountTopBar(topBarHost, state, BUNDLED)
+  mountBottomBar(bottomBarHost, state)
 
   // Make ResizeObserver re-frame if the layout changes significantly at startup.
   const ro = new ResizeObserver(() => markDirty(state))
