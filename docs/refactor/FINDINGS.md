@@ -132,3 +132,54 @@ shape significantly.
 Findings 1, 7 (BULLET_KINDS), 8 (levelManager wiring), and 9 (pickups)
 are functional gaps — players will notice. The rest are dead-code
 cleanups.
+
+## 13. No audio system at all
+
+Deliberately skipped during the AAA-polish pass. Intended features that
+would need audio as a prerequisite:
+
+- Menu music bed, selection click/whoosh SFX
+- "Rising music cue, low rumble, then bass hit" on drop-in
+- Triumphant stinger + tick-per-digit on finish
+- Footsteps, jump SFX, impact sounds, pickup sounds
+- Sound variation (±5% pitch randomization)
+- Dynamic music that shifts on combat state / objective proximity
+
+**Recommend:** introduce a thin audio context in a new `src/audio/`
+bounded context. Web Audio API is fine for this scale. Single
+`AudioEngine` with play(clip, { pitch, volume }) + a tiny bus for music
+vs sfx. Mount lazily on first user interaction (browser autoplay rules).
+
+## 14. No gamepad / rumble
+
+Input module is keyboard-only. Controller rumble was in the AAA spec but
+not implemented. Future: extend `input/input.ts` to poll `navigator
+.getGamepads()` and expose a `rumble(intensity, duration)` helper via
+the Gamepad Haptic API.
+
+## 15. No XP / achievements / persistent progression
+
+AAA spec asked for XP bar fills, level-up flourishes, achievement
+popups. None exist because there's no progression system. The results
+screen's Grade stamp is the closest equivalent (S/A/B/C computed from
+time + deaths). A real progression system would need:
+
+- Persistent player record in `localStorage` (totalXp, unlocks, best
+  grades per level)
+- A new `progression` bounded context
+- XP-per-action rules (time bonus, collectible bonus, no-death bonus)
+- Achievement triggers listening on EventBus events
+
+## 16. No camera fly-in on drop-in
+
+The AAA spec asked for "Cinematic camera fly-in across the level (3–5
+seconds), showing scale and atmosphere" before control hands off.
+Skipped because the existing camera is tightly coupled to the player's
+position via `updateCamera(camera, player, level)`; overriding it for a
+cinematic would mean either pausing the player-follow or driving the
+camera from a separate cinematic-camera state.
+
+Recommend: add a `CameraDirector` that can temporarily override camera
+position from a keyframed path, then release control back to
+`updateCamera` when the cinematic finishes. Gate on
+`gameSession.phase === 'dropIn'`.
