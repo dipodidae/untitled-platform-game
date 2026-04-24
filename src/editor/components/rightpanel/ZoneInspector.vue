@@ -7,7 +7,7 @@ const emit = defineEmits<{ delete: [] }>()
 </script>
 
 <template>
-  <div class="hint">
+  <div class="text-[var(--dim)] text-[11px] leading-[1.4]">
     zone #{{ zone.id }} · {{ zone.type }}
   </div>
   <LabeledRow label="x">

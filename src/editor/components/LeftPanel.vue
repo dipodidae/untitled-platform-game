@@ -15,10 +15,12 @@ const materialItems = MATERIALS.map(m => ({ label: m, value: m }))
   <BrushLibrary />
 
   <!-- New Shape Material section -->
-  <div class="section">
-    <h3>New Shape Material</h3>
-    <div class="row">
-      <label>material</label>
+  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+      New Shape Material
+    </h3>
+    <div class="flex gap-[6px] items-center">
+      <label class="flex-1 text-[var(--dim)]">material</label>
       <USelect
         v-model="store.createMaterial"
         :items="materialItems"

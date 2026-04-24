@@ -3,8 +3,8 @@ defineProps<{ label: string }>()
 </script>
 
 <template>
-  <div class="row">
-    <label>{{ label }}</label>
+  <div class="flex gap-[6px] items-center">
+    <label class="flex-1 text-[var(--dim)]">{{ label }}</label>
     <slot />
   </div>
 </template>

@@ -22,9 +22,11 @@ function setTool(t: Tool) {
 </script>
 
 <template>
-  <div class="section">
-    <h3>Tools</h3>
-    <div class="button-row">
+  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+      Tools
+    </h3>
+    <div class="flex gap-1 flex-wrap">
       <UButton
         v-for="t in TOOLS"
         :key="t.id"

@@ -33,7 +33,8 @@ function jumpRedo(targetIndex: number) {
 
 <template>
   <span>{{ stats }}</span>
-  <div class="undo-strip">
+  <!-- Undo strip: a row of 8×14 px cells representing the undo/redo history -->
+  <div class="flex gap-[2px] ml-4 flex-1 max-w-[50%] overflow-hidden">
     <!-- Past cells (oldest → newest) -->
     <UTooltip
       v-for="(entry, i) in store.undoStack"
@@ -41,12 +42,12 @@ function jumpRedo(targetIndex: number) {
       :text="entry.label"
     >
       <div
-        class="undo-cell past"
+        class="w-2 h-[14px] rounded-sm cursor-pointer shrink-0 bg-[var(--border)] hover:bg-[var(--dim)]"
         @click="jumpUndo(i)"
       />
     </UTooltip>
     <!-- Pivot -->
-    <div class="undo-cell pivot" title="current state" />
+    <div class="w-2 h-[14px] rounded-sm shrink-0 bg-[var(--accent)]" title="current state" />
     <!-- Future cells (chronological, i.e. next redo first) -->
     <UTooltip
       v-for="(entry, i) in redoCells"
@@ -54,7 +55,7 @@ function jumpRedo(targetIndex: number) {
       :text="entry.label"
     >
       <div
-        class="undo-cell future"
+        class="w-2 h-[14px] rounded-sm cursor-pointer shrink-0 bg-[var(--panel-2)] border border-[var(--border)] hover:bg-[var(--border)]"
         @click="jumpRedo(i)"
       />
     </UTooltip>

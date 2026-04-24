@@ -87,7 +87,7 @@ const emit = defineEmits<{ delete: [] }>()
 </script>
 
 <template>
-  <div class="hint">
+  <div class="text-[var(--dim)] text-[11px] leading-[1.4]">
     collider #{{ collider.id }} · {{ collider.vertices.length }} verts
   </div>
 
@@ -118,8 +118,8 @@ const emit = defineEmits<{ delete: [] }>()
 
   <!-- Kinetic fields -->
   <template v-for="[key, val] in getKineticEntries()" :key="key">
-    <div v-if="Array.isArray(val)" class="row">
-      <label>{{ key }}</label>
+    <div v-if="Array.isArray(val)" class="flex gap-[6px] items-center">
+      <label class="flex-1 text-[var(--dim)]">{{ key }}</label>
       <textarea
         :value="JSON.stringify(val)"
         rows="2"
@@ -130,8 +130,8 @@ const emit = defineEmits<{ delete: [] }>()
         }"
       />
     </div>
-    <div v-else-if="typeof val === 'string'" class="row">
-      <label>{{ key }}</label>
+    <div v-else-if="typeof val === 'string'" class="flex gap-[6px] items-center">
+      <label class="flex-1 text-[var(--dim)]">{{ key }}</label>
       <UInput
         type="text"
         :model-value="val"
@@ -140,8 +140,8 @@ const emit = defineEmits<{ delete: [] }>()
         @change="(e) => setKineticField(key, (e.target as HTMLInputElement).value)"
       />
     </div>
-    <div v-else class="row">
-      <label>{{ key }}</label>
+    <div v-else class="flex gap-[6px] items-center">
+      <label class="flex-1 text-[var(--dim)]">{{ key }}</label>
       <UInput
         type="number"
         :model-value="val as number"

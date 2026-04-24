@@ -7,14 +7,13 @@ const store = useEditorStore()
 const toast = useToast()
 
 const levels = listLevels()
-const selectedPreset = ref<string>('')
+// Use undefined (no selection) rather than '' so Nuxt UI's <SelectItem>
+// never receives an empty-string value (which it rejects with a console error).
+const selectedPreset = ref<string | undefined>(undefined)
 
-const presetItems = [
-  { label: '— load bundled —', value: '', disabled: true },
-  ...levels.map(lv => ({ label: lv.name, value: lv.id })),
-]
+const presetItems = levels.map(lv => ({ label: lv.name, value: lv.id }))
 
-function onPresetChange(val: string) {
+function onPresetChange(val: string | undefined) {
   if (!val)
     return
   const data = loadLevel(val)
@@ -25,7 +24,8 @@ function onPresetChange(val: string) {
     store.activePresetName = val
     toast.add({ title: `Loaded ${val}`, icon: 'i-mdi-check', color: 'success' })
   }
-  selectedPreset.value = ''
+  // Reset to undefined so the placeholder text shows again
+  selectedPreset.value = undefined
 }
 </script>
 
@@ -36,6 +36,6 @@ function onPresetChange(val: string) {
     placeholder="— load bundled —"
     size="xs"
     class="w-40"
-    @update:model-value="onPresetChange"
+    @update:model-value="(val: string | undefined) => onPresetChange(val)"
   />
 </template>

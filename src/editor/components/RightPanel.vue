@@ -47,11 +47,13 @@ function deleteSelection() {
   <WorldSettings />
 
   <!-- Selection inspector -->
-  <div class="section">
-    <h3>Selection</h3>
+  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+      Selection
+    </h3>
 
     <!-- Nothing selected -->
-    <div v-if="!sel" class="hint">
+    <div v-if="!sel" class="text-[var(--dim)] text-[11px] leading-[1.4]">
       nothing selected
     </div>
 
@@ -71,7 +73,7 @@ function deleteSelection() {
     </template>
 
     <!-- Fallback -->
-    <div v-else class="hint">
+    <div v-else class="text-[var(--dim)] text-[11px] leading-[1.4]">
       nothing selected
     </div>
   </div>

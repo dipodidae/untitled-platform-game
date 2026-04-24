@@ -42,13 +42,15 @@ function applyBrush(brush: typeof BRUSHES[number]) {
 </script>
 
 <template>
-  <div class="section">
-    <h3>Brushes</h3>
+  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+      Brushes
+    </h3>
     <template v-for="[cat, list] in brushesByCategory" :key="cat">
-      <div class="mono mt-1">
+      <div class="mt-1 font-[inherit] text-[var(--dim)] text-[11px]">
         {{ BRUSH_CATEGORY_LABEL[cat as keyof typeof BRUSH_CATEGORY_LABEL] }}
       </div>
-      <div class="button-row">
+      <div class="flex gap-1 flex-wrap">
         <BrushButton
           v-for="b in list"
           :key="b.id"
@@ -57,7 +59,7 @@ function applyBrush(brush: typeof BRUSHES[number]) {
         />
       </div>
     </template>
-    <div class="hint">
+    <div class="text-[var(--dim)] text-[11px] leading-[1.4]">
       * = editor-only (no runtime yet)
     </div>
   </div>

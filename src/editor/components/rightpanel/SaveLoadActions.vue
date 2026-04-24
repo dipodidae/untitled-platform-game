@@ -50,9 +50,11 @@ async function doOverwrite() {
 </script>
 
 <template>
-  <div class="section">
-    <h3>Save / Load</h3>
-    <div class="button-row">
+  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+      Save / Load
+    </h3>
+    <div class="flex gap-1 flex-wrap">
       <UButton
         color="primary"
         variant="solid"
@@ -65,7 +67,7 @@ async function doOverwrite() {
         @click="doOverwrite"
       />
     </div>
-    <div class="button-row">
+    <div class="flex gap-1 flex-wrap">
       <UButton
         color="neutral"
         variant="ghost"
