@@ -274,6 +274,29 @@ export function allocId(state: EditorState): number {
   return state.level.nextId++
 }
 
+// Rotate a polygon's vertices around an anchor by `angle` radians.
+// Used by the transform gizmo's rotation handle. Returns a new array.
+export function rotatePolygon(
+  verts: [number, number][],
+  anchorX: number,
+  anchorY: number,
+  angle: number,
+): [number, number][] {
+  const c = Math.cos(angle)
+  const s = Math.sin(angle)
+  return verts.map(([x, y]) => {
+    const dx = x - anchorX
+    const dy = y - anchorY
+    return [anchorX + dx * c - dy * s, anchorY + dx * s + dy * c] as [number, number]
+  })
+}
+
+// Center of a polygon's bounding box. Used as the rotation anchor.
+export function polygonCenter(verts: [number, number][]): { cx: number, cy: number } {
+  const b = polygonBounds(verts)
+  return { cx: (b.minX + b.maxX) / 2, cy: (b.minY + b.maxY) / 2 }
+}
+
 // Scale a polygon's vertices around an anchor point. Used by the
 // drag-to-scale transform handles in the canvas.
 export function scalePolygon(

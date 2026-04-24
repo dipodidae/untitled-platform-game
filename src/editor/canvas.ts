@@ -15,7 +15,7 @@
 import type { EditorState, Tool } from './state'
 import type { ZoneType } from '../world/level'
 import { Application, Container, Graphics, Text } from 'pixi.js'
-import { allocId, markDirty, polygonBounds, pushUndo, redo, scalePolygon, snap, undo } from './state'
+import { allocId, markDirty, polygonBounds, polygonCenter, pushUndo, redo, rotatePolygon, scalePolygon, snap, undo } from './state'
 
 const ZONE_COLORS: Record<ZoneType, number> = {
   gravity: 0x5080FF,
@@ -57,7 +57,7 @@ interface CanvasCtx {
   cursorText: Text
   mouseWorld: { x: number, y: number }
   spaceHeld: boolean
-  dragging: { kind: 'pan' | 'collider' | 'rect' | 'vertex' | 'scale' | 'zone-rect' | 'zone-move', startX: number, startY: number, state0: unknown } | null
+  dragging: { kind: 'pan' | 'collider' | 'rect' | 'vertex' | 'scale' | 'zone-rect' | 'zone-move' | 'rotate-gizmo', startX: number, startY: number, state0: unknown } | null
 }
 
 export async function createCanvas(
@@ -225,6 +225,17 @@ function redraw(ctx: CanvasCtx): void {
             .fill({ color: 0x161820 })
             .stroke({ width: 1.5 / state.camera.zoom, color: 0xFFFF80 })
         }
+        // Rotation handle — circle above top-center of the bbox.
+        const rotHandleOffset = 14 / state.camera.zoom
+        const rotHandleRadius = 5 / state.camera.zoom
+        const rotMidX = (b.minX + b.maxX) / 2
+        const rotMidY = b.minY
+        const rotHandleY = rotMidY - rotHandleOffset
+        vertexGfx.moveTo(rotMidX, rotMidY).lineTo(rotMidX, rotHandleY)
+          .stroke({ width: 1 / state.camera.zoom, color: 0xFFFF80, alpha: 0.6 })
+        vertexGfx.circle(rotMidX, rotHandleY, rotHandleRadius)
+          .fill({ color: 0xFFFF80 })
+          .stroke({ width: 1 / state.camera.zoom, color: 0x161820 })
       }
     }
     else if (sel.kind === 'zone') {
@@ -471,6 +482,16 @@ function wireInput(ctx: CanvasCtx): void {
           }
         }
       }
+      else if (d.kind === 'rotate-gizmo') {
+        const s0 = d.state0 as { collIdx: number, cx: number, cy: number, originalVerts: [number, number][], startAngle: number }
+        const c = state.level.colliders[s0.collIdx]
+        if (c) {
+          const currentAngle = Math.atan2(w.y - s0.cy, w.x - s0.cx)
+          const delta = currentAngle - s0.startAngle
+          c.vertices = rotatePolygon(s0.originalVerts, s0.cx, s0.cy, delta)
+          markDirty(state)
+        }
+      }
       else if (d.kind === 'zone-move') {
         const s0 = d.state0 as { zoneIdx: number, startX: number, startY: number }
         const z = state.level.zones[s0.zoneIdx]
@@ -587,6 +608,35 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
   const state = ctx.state
 
   if (state.tool === 'select') {
+    // Rotation handle on the selected collider — checked before scale handles.
+    if (state.selection?.kind === 'collider') {
+      const c = state.level.colliders[state.selection.index]
+      if (c) {
+        const b = polygonBounds(c.vertices)
+        const rotHandleOffset = 14 / state.camera.zoom
+        const rotHandleRadius = 8 / state.camera.zoom // slightly larger hit area
+        const rotMidX = (b.minX + b.maxX) / 2
+        const rotHandleY = b.minY - rotHandleOffset
+        if (Math.hypot(w.x - rotMidX, w.y - rotHandleY) <= rotHandleRadius) {
+          pushUndo(state, 'rotate selection')
+          const { cx, cy } = polygonCenter(c.vertices)
+          ctx.dragging = {
+            kind: 'rotate-gizmo',
+            startX: sx,
+            startY: sy,
+            state0: {
+              collIdx: state.selection.index,
+              cx,
+              cy,
+              originalVerts: c.vertices.map(v => [...v] as [number, number]),
+              startAngle: Math.atan2(w.y - cy, w.x - cx),
+            },
+          }
+          return
+        }
+      }
+    }
+
     // Scale handle on the selected collider or zone takes priority — its
     // box is bigger than a vertex handle so the vertex shouldn't eat it.
     if (state.selection?.kind === 'collider') {
