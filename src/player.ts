@@ -6,7 +6,9 @@ import type { ParticleSystem } from './render/particles'
 import type { RuptureResult } from './rupture'
 import type { Level, MaterialName } from './world/level'
 import { CONFIG } from './config'
+import { emit } from './eventBus'
 import { triggerFractureFx } from './fx'
+import { gameState } from './gameState'
 import { emitFractureBurst } from './render/particles'
 import {
   containHeld,
@@ -256,11 +258,17 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
 }
 
 // Kill + reset. The world does not forgive — destruction is wiped on death.
-function die(p: Player, level: Level): void {
+// `cause` distinguishes hazard-kill from fall-out for results reporting
+// and for the death-feedback freeze applied by game.ts.
+function die(p: Player, level: Level, cause: 'hazard' | 'fallout'): void {
   p.alive = false
   p.vx = 0
   p.vy = 0
   resetLevel(level)
+  gameState.deaths += 1
+  gameState.phase = 'dead'
+  gameState.deathFreezeEndsAt = performance.now() + CONFIG.DEATH_FREEZE_MS
+  emit('playerDied', { x: p.x + p.w / 2, y: p.y + p.h / 2, cause })
 }
 
 // Apply a damaging hit at (sourceX, sourceY). Gated by hazard-iframe window.
@@ -287,14 +295,19 @@ export function takeHit(
   p.grounded = false
 
   if (p.hp <= 0)
-    die(p, level)
+    die(p, level, 'hazard')
 }
 
 // Put the player back at the spawn with a fresh state. Called by game.ts
 // after a death (on the next frame) so the death visuals can land first.
+// Uses GameState.lastSpawnPoint if the player has touched a checkpoint;
+// otherwise falls back to the level's authored spawn.
 export function respawn(p: Player, level: Level): void {
-  p.x = level.spawn.x
-  p.y = level.spawn.y
+  const sp = gameState.lastSpawnPoint
+  // Checkpoints are centered on the zone; subtract half-extent so the
+  // player AABB lands at the zone center instead of overshooting.
+  p.x = sp ? sp.x - p.w / 2 : level.spawn.x
+  p.y = sp ? sp.y - p.h / 2 : level.spawn.y
   p.vx = 0
   p.vy = 0
   p.grounded = false
@@ -309,7 +322,7 @@ export function respawn(p: Player, level: Level): void {
   p.airSnapTimer = 0
   p.jumpedThisTick = false
   p.iframeTimer = 0
-  p.hazardIframe = 0
+  p.hazardIframe = CONFIG.RESPAWN_IFRAMES
   p.hp = CONFIG.PLAYER_MAX_HP
   p.maxHp = CONFIG.PLAYER_MAX_HP
   p.alive = true
@@ -464,8 +477,35 @@ export function updatePlayer(
 
   // Fall-out safety net — HP does not save you from falling off the map.
   if (p.y > level.worldHeight + 100) {
-    die(p, level)
+    die(p, level, 'fallout')
     return
+  }
+
+  // Zone overlap — goal + spawn point. Checked after movement so the player
+  // can't tunnel past a thin goal rectangle on a fast frame.
+  for (const z of level.zones) {
+    if (p.x + p.w <= z.x || p.x >= z.x + z.w)
+      continue
+    if (p.y + p.h <= z.y || p.y >= z.y + z.h)
+      continue
+    if (z.type === 'goal' && gameState.phase === 'gameplay') {
+      gameState.phase = 'results'
+      emit('levelComplete', {
+        levelId: gameState.currentLevelId,
+        deaths: gameState.deaths,
+        timeMs: performance.now() - gameState.startTime,
+      })
+      break
+    }
+    if (z.type === 'spawnPoint') {
+      const cx = z.x + z.w / 2
+      const cy = z.y + z.h / 2
+      const prev = gameState.lastSpawnPoint
+      if (!prev || prev.x !== cx || prev.y !== cy) {
+        gameState.lastSpawnPoint = { x: cx, y: cy }
+        emit('checkpointReached', { x: cx, y: cy })
+      }
+    }
   }
 
   // "Pressed into a wall while moving" — input direction must match the

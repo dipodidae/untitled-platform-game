@@ -31,7 +31,15 @@ import { createKineticState } from '../kinetic'
 import { bounds, decompose } from '../math/polygon'
 
 // ─── zone schema (authored in LevelJson, consumed by player.ts at runtime) ─
-export type ZoneType = 'gravity' | 'wind' | 'hazard' | 'trigger'
+//
+// Zone types:
+//   gravity    — multiplies player gravity + air control inside the volume
+//   wind       — per-axis nudge + optional turbulence jitter
+//   hazard     — damage-per-tick; 0 = instant kill
+//   trigger    — opaque id forwarded to subscribers (dispatch is TBD)
+//   goal       — player overlap emits levelComplete on the EventBus
+//   spawnPoint — player overlap updates GameState.lastSpawnPoint (checkpoint)
+export type ZoneType = 'gravity' | 'wind' | 'hazard' | 'trigger' | 'goal' | 'spawnPoint'
 
 export interface ZoneJson {
   id: number
@@ -104,6 +112,9 @@ export interface Level {
   readonly spawn: { readonly x: number, readonly y: number }
   readonly prowlerSpawns: readonly { readonly x: number, readonly y: number }[]
   readonly dummySpawns: readonly { readonly x: number, readonly y: number, readonly hp?: number }[]
+  // Authored zones, consumed by player.ts each tick for goal/checkpoint
+  // detection + per-type modifiers. See ZoneType above for semantics.
+  readonly zones: readonly ZoneJson[]
 }
 
 interface PristineCollider {
@@ -303,6 +314,7 @@ export function fromJson(data: LevelJson): Level {
     spawn: { x: data.spawn.x, y: data.spawn.y },
     prowlerSpawns: (data.prowlers ?? []).map(p => ({ x: p.x, y: p.y })),
     dummySpawns: (data.dummies ?? []).map(d => ({ x: d.x, y: d.y, hp: d.hp })),
+    zones: (data.zones ?? []).map(z => ({ ...z })),
   }
 }
 
@@ -318,6 +330,7 @@ export function fromTilemap(rows: readonly string[]): Level {
     spawn: { x: CONFIG.SPAWN_X, y: CONFIG.SPAWN_Y },
     prowlerSpawns: [],
     dummySpawns: [],
+    zones: [],
   }
 }
 

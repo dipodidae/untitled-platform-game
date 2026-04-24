@@ -11,7 +11,9 @@ import { createBulletState, resetBulletState, spawnBullet, updateBullets } from 
 import { addTrauma, createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
 import { createDummy, updateDummy } from './enemies/dummy'
+import { emit } from './eventBus'
 import { consumeHitstopTick, createFxState, tickFxRender } from './fx'
+import { gameState as gameSession, resetForLevel } from './gameState'
 import { createParticleSystem, emitDisintegration, emitLandingDust, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from './render/particles'
 import type { ParticleSystem } from './render/particles'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from './input'
@@ -70,6 +72,8 @@ export function createGame(app: Application): GameState {
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
+  resetForLevel(gameSession, 'level1')
+  emit('levelLoaded', { levelId: 'level1' })
   return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles }
 }
 
@@ -96,6 +100,10 @@ function advanceLevel(state: GameState): void {
   teardownScene(state.renderCtx)
   state.renderCtx = buildScene(state.app, state.level, state.particles)
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
+
+  const levelId = `level${state.levelIndex + 1}`
+  resetForLevel(gameSession, levelId)
+  emit('levelLoaded', { levelId })
 }
 
 // Check if the player has reached the right boundary of the level.
@@ -115,14 +123,29 @@ function fixedUpdate(state: GameState): void {
     return
   }
 
+  // R key at any time = instant retry (bypasses the death-feedback freeze).
+  const retryPressed = respawnPressed()
+  if (retryPressed)
+    emit('retryPressed', null)
+
   if (!state.player.alive) {
-    // Automatic respawn on the tick after death — the death tick's visuals
-    // (shake if hazard-killed mid-rupture, etc.) already rendered.
-    respawn(state.player, state.level)
+    // Death-feedback window: wait until DEATH_FREEZE_MS after die() before
+    // the automatic respawn so shake/flash/particles land. R bypasses.
+    const freezeOver = performance.now() >= gameSession.deathFreezeEndsAt
+    if (retryPressed || freezeOver) {
+      respawn(state.player, state.level)
+      gameSession.phase = 'gameplay'
+      gameSession.deathFreezeEndsAt = 0
+    }
+    else {
+      // Still frozen — skip physics + input this tick.
+      return
+    }
   }
-  else if (respawnPressed()) {
-    // Manual reset — useful while iterating on the map.
+  else if (retryPressed) {
+    // Manual reset mid-attempt — snaps to the last checkpoint.
     respawn(state.player, state.level)
+    gameSession.phase = 'gameplay'
   }
 
   // Track pre-tick state for landing detection

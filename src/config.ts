@@ -67,6 +67,13 @@ export const CONFIG = {
   HAZARD_IFRAMES: 0.7, // seconds of immunity after a hazard hit
   HAZARD_KNOCKBACK_VX: 180,
   HAZARD_KNOCKBACK_VY: 220,
+  // Death-feedback window: how long input is frozen between die() and
+  // respawn, in milliseconds. Feedback (shake/flash/particles) plays during
+  // this window; pressing R bypasses it for instant retry.
+  DEATH_FREEZE_MS: 400,
+  // Brief invincibility on respawn so consecutive hazards don't chain-kill
+  // the player before they've even regained control.
+  RESPAWN_IFRAMES: 0.5,
 
   // Fixed-timestep main loop
   FIXED_DT: 1 / 60, // physics step

@@ -23,6 +23,8 @@ const ZONE_COLORS: Record<ZoneType, number> = {
   wind: 0x60E0C0,
   hazard: 0xE04040,
   trigger: 0xE0C040,
+  goal: 0xFFD040,
+  spawnPoint: 0x40C0FF,
 }
 
 // Scale handle layout — 8 screen-space boxes at the bbox corners + edge
