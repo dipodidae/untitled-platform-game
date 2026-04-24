@@ -7,6 +7,7 @@ import type { MaterialName } from '../../world/level'
 import type { EditorState, Tool } from '../state'
 import { BRUSH_CATEGORY_LABEL, BRUSHES } from '../brushes'
 import { markDirty } from '../state'
+import { showToast } from './toast'
 
 const TOOLS: { id: Tool, label: string, hint: string }[] = [
   { id: 'select', label: 'Select', hint: 'V' },
@@ -91,7 +92,11 @@ function brushSection(state: EditorState): HTMLElement {
       const btn = document.createElement('button')
       btn.textContent = b.label + (b.live ? '' : ' *')
       btn.title = b.summary + (b.live ? '' : ' (editor-only, runtime TODO)')
+      if (!b.live)
+        btn.style.opacity = '0.55'
       btn.onclick = () => {
+        if (!b.live)
+          showToast(`${b.label}: no runtime effect yet`, 'err')
         b.apply(state)
         markDirty(state)
       }
