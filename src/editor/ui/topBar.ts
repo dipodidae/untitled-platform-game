@@ -21,6 +21,9 @@ export function mountTopBar(
   const fileMenu = buildFileMenu(state)
   host.appendChild(fileMenu)
 
+  const viewMenu = buildViewMenu(state)
+  host.appendChild(viewMenu)
+
   const presetSel = buildPresetSelect(state, bundled)
   host.appendChild(presetSel)
 
@@ -123,6 +126,56 @@ function buildFileMenu(state: EditorState): HTMLElement {
   pop.appendChild(copy)
 
   // Close the popover when clicking outside it.
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target as Node)) pop.hidden = true
+  })
+
+  return wrap
+}
+
+function buildViewMenu(state: EditorState): HTMLElement {
+  const wrap = document.createElement('div')
+  wrap.className = 'topbar-menu'
+
+  const btn = document.createElement('button')
+  btn.textContent = 'View'
+  wrap.appendChild(btn)
+
+  const pop = document.createElement('div')
+  pop.className = 'topbar-popover'
+  pop.hidden = true
+  wrap.appendChild(pop)
+
+  btn.onclick = () => { pop.hidden = !pop.hidden }
+
+  const layers: [keyof EditorState['layers'], string][] = [
+    ['colliders', 'Colliders'],
+    ['zones', 'Zones'],
+    ['wind', 'Wind arrows'],
+    ['paths', 'Kinetic paths'],
+    ['enemyRanges', 'Enemy ranges'],
+    ['entityLabels', 'Entity labels'],
+    ['grid', 'Grid'],
+  ]
+
+  for (const [key, label] of layers) {
+    const row = document.createElement('label')
+    row.className = 'topbar-menu-item'
+    row.style.display = 'flex'
+    row.style.alignItems = 'center'
+    row.style.gap = '6px'
+    const cb = document.createElement('input')
+    cb.type = 'checkbox'
+    cb.checked = state.layers[key]
+    cb.onchange = () => {
+      state.layers[key] = cb.checked
+      markDirty(state)
+    }
+    row.appendChild(cb)
+    row.appendChild(document.createTextNode(label))
+    pop.appendChild(row)
+  }
+
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target as Node)) pop.hidden = true
   })
