@@ -17,7 +17,7 @@ import {
   jumpReleased,
   leftDown,
   rightDown,
-} from '../input'
+} from '../input/input'
 import {
   addInstability,
   createInstabilityState,
