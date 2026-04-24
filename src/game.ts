@@ -1,14 +1,18 @@
 import type { Application } from 'pixi.js'
+import type { BulletState } from './bullet'
 import type { Camera } from './camera'
+import type { Dummy } from './dummy'
 import type { FxState } from './fx'
 import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { RenderContext } from './render'
 import type { Level, LevelJson } from './world/level'
+import { createBulletState, resetBulletState, spawnBullet, updateBullets } from './bullet'
 import { addTrauma, createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
+import { createDummy, updateDummy } from './dummy'
 import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics } from './fx'
-import { endFrame, respawnPressed } from './input'
+import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from './input'
 import { kineticReactToRupture, updateKinetics } from './kinetic'
 import level1Json from './levels/level1.json'
 import level2Json from './levels/level2.json'
@@ -17,8 +21,9 @@ import { createPlayer, respawn, updatePlayer } from './player'
 import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from './prowler'
 import { buildScene, render, teardownScene } from './render'
 import { CRTFilter } from './render/CRTFilter'
-
 import { resetPlayerRenderer } from './render/playerRenderer'
+
+import { cycleStance } from './render/spineboy'
 import { fromJson, tickEphemeral } from './world/level'
 
 // Ordered level list — progression advances through this array.
@@ -42,6 +47,8 @@ export interface GameState {
   now: number
   levelIndex: number
   prowlers: Prowler[]
+  readonly bullets: BulletState
+  dummies: Dummy[]
 }
 
 export function createGame(app: Application): GameState {
@@ -51,10 +58,12 @@ export function createGame(app: Application): GameState {
   const fx = createFxState()
   const broadphase = new BroadphaseGrid()
   const prowlers = level.prowlerSpawns.map(s => createProwler(s.x, s.y))
+  const bullets = createBulletState()
+  const dummies: Dummy[] = level.dummySpawns.map(s => createDummy(s.x, s.y, s.hp))
   const renderCtx = buildScene(app, level)
   const crtFilter = new CRTFilter()
   app.stage.filters = [crtFilter]
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies }
 }
 
 // Transition to the next level. Wraps back to level 1 after the last.
@@ -67,6 +76,8 @@ function advanceLevel(state: GameState): void {
   state.accumulator = 0
 
   state.prowlers = state.level.prowlerSpawns.map(s => createProwler(s.x, s.y))
+  resetBulletState(state.bullets)
+  state.dummies = state.level.dummySpawns.map(s => createDummy(s.x, s.y, s.hp))
 
   // Clean up visual state from the previous level.
   state.fx.hitstopTicks = 0
@@ -114,6 +125,32 @@ function fixedUpdate(state: GameState): void {
   tickEphemeral(state.level, state.now)
   updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
+
+  // Fire + advance bullets. spawnBullet reads muzzle position + aim direction
+  // from the Spineboy bridge's last-render snapshot, so bullets launch from
+  // the visible gun tip along the visible aim. If the bridge hasn't snapshotted
+  // yet (first-frame), fall back to AABB center + facing vector.
+  if (shootPressed() && state.player.alive) {
+    const b = state.renderCtx.charBridge
+    const muzzleX = b.muzzleReady ? b.muzzleX : state.player.x + state.player.w / 2
+    const muzzleY = b.muzzleReady ? b.muzzleY : state.player.y + state.player.h / 2
+    const dirX = b.muzzleReady ? b.muzzleDirX : state.player.facing
+    const dirY = b.muzzleReady ? b.muzzleDirY : 0
+    spawnBullet(state.bullets, muzzleX, muzzleY, dirX, dirY)
+  }
+  updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.fx, state.camera, state.now, CONFIG.FIXED_DT)
+
+  // Stance cycle (KeyC). Hot-swap the upper-body track-1 animation + aim
+  // mitigation/bias. Forward → high → low → hip → forward.
+  if (stanceCyclePressed()) {
+    const stance = cycleStance(state.renderCtx.charBridge)
+    console.warn(`[stance] ${stance}`)
+  }
+
+  // Tick dummies (just drains their hit-flash timer — no AI).
+  for (const d of state.dummies)
+    updateDummy(d, CONFIG.FIXED_DT)
+
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
 
   // Landing impact → camera trauma (scaled by impact velocity)
@@ -164,7 +201,7 @@ export function startLoop(state: GameState): void {
     // Camera smoothing runs once per rendered frame (not per physics tick)
     // so its lerp rate stays tied to display refresh, same as the original.
     updateCamera(state.camera, state.player, state.level)
-    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers)
+    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase)
 
     // Update CRT shader uniforms
     const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX

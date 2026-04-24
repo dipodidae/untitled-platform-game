@@ -46,6 +46,9 @@ export interface Player {
   airSnapTimer: number // seconds remaining in post-jump amplified air control window
   jumpedThisTick: boolean // set only on ticks where a jump actually fired
   iframeTimer: number // post-fracture invulnerability window
+  hazardIframe: number // post-hit invulnerability window (hazards only — separate from iframeTimer)
+  hp: number // current hit points
+  maxHp: number // max hit points (refilled on respawn)
   alive: boolean // false ⇒ game.ts triggers a respawn at frame end
 
   // Polygon-world bookkeeping. groundNormal is the last frame's grounded
@@ -86,6 +89,9 @@ export function createPlayer(level: Level): Player {
     airSnapTimer: 0,
     jumpedThisTick: false,
     iframeTimer: 0,
+    hazardIframe: 0,
+    hp: CONFIG.PLAYER_MAX_HP,
+    maxHp: CONFIG.PLAYER_MAX_HP,
     alive: true,
     lastRupture: null,
     groundNormal: null,
@@ -255,6 +261,33 @@ function die(p: Player, level: Level): void {
   resetLevel(level)
 }
 
+// Apply a damaging hit at (sourceX, sourceY). Gated by hazard-iframe window.
+// On HP depletion, dies (which also resets the level). Fall-out death skips
+// this path — HP doesn't save you from the void.
+export function takeHit(
+  p: Player,
+  level: Level,
+  sourceX: number,
+  sourceY: number,
+  damage: number,
+): void {
+  if (!p.alive || p.hazardIframe > 0)
+    return
+  p.hp = Math.max(0, p.hp - damage)
+  p.hazardIframe = CONFIG.HAZARD_IFRAMES
+
+  // Knockback away from the source: horizontal by sign, small vertical pop.
+  const cx = p.x + p.w / 2
+  const cy = p.y + p.h / 2
+  const dir = cx >= sourceX ? 1 : -1
+  p.vx = dir * CONFIG.HAZARD_KNOCKBACK_VX
+  p.vy = cy > sourceY ? -CONFIG.HAZARD_KNOCKBACK_VY : CONFIG.HAZARD_KNOCKBACK_VY * 0.5
+  p.grounded = false
+
+  if (p.hp <= 0)
+    die(p, level)
+}
+
 // Put the player back at the spawn with a fresh state. Called by game.ts
 // after a death (on the next frame) so the death visuals can land first.
 export function respawn(p: Player, level: Level): void {
@@ -274,6 +307,9 @@ export function respawn(p: Player, level: Level): void {
   p.airSnapTimer = 0
   p.jumpedThisTick = false
   p.iframeTimer = 0
+  p.hazardIframe = 0
+  p.hp = CONFIG.PLAYER_MAX_HP
+  p.maxHp = CONFIG.PLAYER_MAX_HP
   p.alive = true
   p.lastRupture = null
   p.groundNormal = null
@@ -330,6 +366,8 @@ export function updatePlayer(
     p.bufferTimer -= dt
   if (p.iframeTimer > 0)
     p.iframeTimer -= dt
+  if (p.hazardIframe > 0)
+    p.hazardIframe -= dt
   if (p.dropThroughTimer > 0)
     p.dropThroughTimer -= dt
   if (p.djGlowTimer > 0)
@@ -406,15 +444,16 @@ export function updatePlayer(
     p.doubleJumpAvailable = true
   }
 
-  // Lethal overlap AFTER movement. Shards (left by broken glass) kill on
-  // AABB overlap. In FAULTLINE the only thing that can hurt you is what
-  // you broke — "you don't die, you break."
-  if (overlapsLethal(level, p.x, p.y, p.w, p.h)) {
-    die(p, level)
-    return
+  // Lethal overlap AFTER movement. Shards (left by broken glass) hit on
+  // AABB overlap — now costs HP instead of instant-killing. In FAULTLINE the
+  // only thing that can hurt you is what you broke.
+  if (overlapsLethal(level, p.x, p.y, p.w, p.h) && p.hazardIframe <= 0) {
+    takeHit(p, level, p.x + p.w / 2, p.y + p.h / 2, 1)
+    if (!p.alive)
+      return
   }
 
-  // Fall-out safety net — if you carve too greedily you just die.
+  // Fall-out safety net — HP does not save you from falling off the map.
   if (p.y > level.worldHeight + 100) {
     die(p, level)
     return

@@ -79,6 +79,7 @@ export interface Level {
   readonly worldHeight: number
   readonly spawn: { readonly x: number, readonly y: number }
   readonly prowlerSpawns: readonly { readonly x: number, readonly y: number }[]
+  readonly dummySpawns: readonly { readonly x: number, readonly y: number, readonly hp?: number }[]
 }
 
 interface PristineCollider {
@@ -100,6 +101,7 @@ export interface LevelJson {
     kinetic?: KineticJson
   }[]
   prowlers?: { x: number, y: number }[]
+  dummies?: { x: number, y: number, hp?: number }[]
 }
 
 // ─── collider helpers ────────────────────────────────────────────────────
@@ -270,6 +272,7 @@ export function fromJson(data: LevelJson): Level {
     worldHeight: data.worldHeight,
     spawn: { x: data.spawn.x, y: data.spawn.y },
     prowlerSpawns: (data.prowlers ?? []).map(p => ({ x: p.x, y: p.y })),
+    dummySpawns: (data.dummies ?? []).map(d => ({ x: d.x, y: d.y, hp: d.hp })),
   }
 }
 
@@ -284,6 +287,7 @@ export function fromTilemap(rows: readonly string[]): Level {
     worldHeight: height,
     spawn: { x: CONFIG.SPAWN_X, y: CONFIG.SPAWN_Y },
     prowlerSpawns: [],
+    dummySpawns: [],
   }
 }
 

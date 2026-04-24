@@ -40,11 +40,15 @@ uniform float uDread;
 uniform vec4 uInputSize;
 
 // ─── constants (tuned for 640×360 horror pixel art) ─────────────
+// Previous values (MASK_DARK=0.72, HARD_SCAN=-10) produced muddy output:
+// shadow-mask ate ~28% of luminance and scanline troughs fell to ~18%.
+// Softened so the base image reads crisp; CRT look is still present.
 const vec2 SOURCE_SIZE = vec2(640.0, 360.0);
-const float MASK_DARK   = 0.72;
-const float MASK_LIGHT  = 1.18;
-const float HARD_SCAN   = -10.0;
+const float MASK_DARK   = 0.88;
+const float MASK_LIGHT  = 1.10;
+const float HARD_SCAN   = -6.0;
 const float SCAN_SHAPE  = 2.0;
+const float CONTRAST    = 1.18;  // final-stage contrast boost around 0.5
 
 // ─── helpers ─────────────────────────────────────────────────────
 float hash(vec2 p) {
@@ -143,12 +147,21 @@ void main(void) {
   }
 
   // ─── 6. per-pixel hash corruption ────────────────────────────
+  // Decaying-phosphor stains rather than flat ERROR-red blocks. Two oxblood
+  // tones varied per-block, blended OVER the underlying pixel so the world
+  // still reads through them. Intensity ramps with how far the hash exceeds
+  // the threshold, so rare strong stains sit beside faint ones.
   if (uInstability > 0.5) {
     vec2 blockCoord = floor(uv * vec2(160.0, 90.0));
     float corruptHash = fract(sin(dot(blockCoord, vec2(127.1, 311.7))) * 43758.5);
-    float corruptThreshold = 1.0 - (uInstability - 0.5) * 0.015;
+    float corruptThreshold = 1.0 - (uInstability - 0.5) * 0.012;
     if (corruptHash > corruptThreshold) {
-      color = vec3(0.8, 0.1, 0.05);
+      float intensity = (corruptHash - corruptThreshold) / max(1.0 - corruptThreshold, 0.0001);
+      vec3 oxblood = vec3(0.42, 0.05, 0.03);
+      vec3 wine    = vec3(0.60, 0.12, 0.06);
+      vec3 stain   = mix(oxblood, wine, fract(corruptHash * 7.3));
+      float strength = 0.45 + 0.35 * intensity;
+      color = mix(color, stain, strength);
     }
   }
 
@@ -173,8 +186,10 @@ void main(void) {
   color *= finalMask;
 
   // ─── 9. vignette ─────────────────────────────────────────────
+  // Pushed darkening outward so the play area stays bright; only the very
+  // edges carry vignette.
   vec2 vigUV = (vTextureCoord - 0.5) * vec2(1.6, 1.0);
-  float vig = 1.0 - smoothstep(0.4, 1.2, length(vigUV));
+  float vig = 1.0 - smoothstep(0.6, 1.25, length(vigUV));
   color *= vig;
 
   // ─── 10. dread red pulse ─────────────────────────────────────
@@ -186,10 +201,13 @@ void main(void) {
   }
 
   // ─── 11. film grain ──────────────────────────────────────────
-  float grain = (hash(vTextureCoord + fract(uTime)) - 0.5) * 0.04;
+  float grain = (hash(vTextureCoord + fract(uTime)) - 0.5) * 0.035;
   color += grain;
 
-  // ─── 12. output ──────────────────────────────────────────────
+  // ─── 12. contrast pass — pivot on 0.5 for sharpness ──────────
+  color = (color - 0.5) * CONTRAST + 0.5;
+
+  // ─── 13. output ──────────────────────────────────────────────
   finalColor = vec4(color, a);
 }
 `

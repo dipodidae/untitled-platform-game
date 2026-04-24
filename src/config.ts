@@ -60,6 +60,14 @@ export const CONFIG = {
   JUMP_BUFFER: 0.15, // generous buffer
   CORNER_NUDGE: 5, // max px of head-corner clip to auto-nudge sideways while jumping
 
+  // ───────────────────────── HP / HAZARD HITS ──────────────────────
+  // Hazards (glass shards) cost HP now instead of instant-killing. Fall-out
+  // still bypasses HP. Prowler contact is a knockback-only bump (no HP cost).
+  PLAYER_MAX_HP: 3,
+  HAZARD_IFRAMES: 0.7, // seconds of immunity after a hazard hit
+  HAZARD_KNOCKBACK_VX: 180,
+  HAZARD_KNOCKBACK_VY: 220,
+
   // Fixed-timestep main loop
   FIXED_DT: 1 / 60, // physics step
   MAX_FRAME_DT: 0.25, // guard against tab-stall spiral of death

@@ -17,8 +17,8 @@ export const CAMERA_CONFIG = {
   dampY: 0.06,
 
   // Lookahead
-  lookaheadDistance: 70,    // px ahead of player in facing direction
-  lookaheadSpeed: 0.06,     // how fast the lookahead point slides across
+  lookaheadDistance: 70, // px ahead of player in facing direction
+  lookaheadSpeed: 0.06, // how fast the lookahead point slides across
 
   // Deadzone (player can move freely inside without camera moving)
   deadzoneW: 50,
@@ -28,24 +28,25 @@ export const CAMERA_CONFIG = {
   verticalOffset: -30,
 
   // Vertical asymmetry
-  fallDampY: 0.03,          // loose when falling
-  riseDampY: 0.10,          // eager when rising
+  fallDampY: 0.03, // loose when falling
+  riseDampY: 0.10, // eager when rising
 
-  // Speed zoom
-  zoomBase: 1.0,
-  zoomMin: 0.92,
+  // Speed zoom. Tightened to 2.4 so Spineboy + weapon feel dominates the
+  // frame; zoomMin preserves the ~8% zoom-out-at-speed effect (2.4 × 0.92).
+  zoomBase: 2.4,
+  zoomMin: 2.2,
   zoomLerpSpeed: 0.04,
 
   // Trauma shake
   maxShakeX: 14,
   maxShakeY: 10,
-  traumaDecay: 0.92,        // multiplied per frame
+  traumaDecay: 0.92, // multiplied per frame
 
   // Soft bound resistance — camera eases into walls
   boundSoftness: 0.15,
 
   // Facing direction flip hysteresis — require consistent input before switching
-  facingFlipDelay: 0.08,    // seconds of movement in new dir before facing switches
+  facingFlipDelay: 0.08, // seconds of movement in new dir before facing switches
 }
 
 // ─── Camera state ────────────────────────────────────────────────────
@@ -116,7 +117,8 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
       camera.facingDir = moveDir as 1 | -1
       camera.facingTimer = 0
     }
-  } else {
+  }
+  else {
     camera.facingTimer = 0
   }
 
@@ -131,7 +133,8 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
   const relX = px - camera.focusX
   if (relX < -dzHalfW) {
     camera.focusX += (px + dzHalfW - camera.focusX) * C.dampX
-  } else if (relX > dzHalfW) {
+  }
+  else if (relX > dzHalfW) {
     camera.focusX += (px - dzHalfW - camera.focusX) * C.dampX
   }
   // Blend lookahead into focus
@@ -145,7 +148,8 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
   const relY = py - camera.focusY
   if (relY < -dzHalfH) {
     camera.focusY += (py + dzHalfH - camera.focusY) * yDamp
-  } else if (relY > dzHalfH) {
+  }
+  else if (relY > dzHalfH) {
     camera.focusY += (py - dzHalfH - camera.focusY) * yDamp
   }
   // Blend vertical offset
@@ -158,14 +162,29 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
   camera.y += (camTargetY - camera.y) * C.dampY
 
   // ─── Soft world bounds ────────────────────────────────────────
-  const minX = 0
-  const maxX = Math.max(0, level.worldWidth - CONFIG.LOGICAL_WIDTH)
-  const minY = 0
-  const maxY = Math.max(0, level.worldHeight - CONFIG.LOGICAL_HEIGHT)
-  if (camera.x < minX) camera.x += (minX - camera.x) * (1 - C.boundSoftness)
-  if (camera.x > maxX) camera.x += (maxX - camera.x) * (1 - C.boundSoftness)
-  if (camera.y < minY) camera.y += (minY - camera.y) * (1 - C.boundSoftness)
-  if (camera.y > maxY) camera.y += (maxY - camera.y) * (1 - C.boundSoftness)
+  // Render.ts applies zoom pivoted on screen center, so `camera.x` is
+  // focusX - halfW, not the top-left of the visible area. At zoom > 1 the
+  // visible area is narrower than LOGICAL_WIDTH, so the correct bounds
+  // (so focusX stays inside [visHalfW, worldWidth - visHalfW]) translate to:
+  //   camera.x ∈ [visHalfW - halfW, worldWidth - visHalfW - halfW]
+  // At zoom=1 this collapses to [0, worldWidth - LOGICAL_WIDTH]. At zoom=1.5
+  // minX becomes negative — needed so the camera can show the left world
+  // edge while keeping the player at screen center on spawn. Without this,
+  // the player spawns off-screen until they walk into view.
+  const visHalfW = halfW / camera.zoom
+  const visHalfH = halfH / camera.zoom
+  const minX = visHalfW - halfW
+  const maxX = Math.max(minX, level.worldWidth - visHalfW - halfW)
+  const minY = visHalfH - halfH
+  const maxY = Math.max(minY, level.worldHeight - visHalfH - halfH)
+  if (camera.x < minX)
+    camera.x += (minX - camera.x) * (1 - C.boundSoftness)
+  if (camera.x > maxX)
+    camera.x += (maxX - camera.x) * (1 - C.boundSoftness)
+  if (camera.y < minY)
+    camera.y += (minY - camera.y) * (1 - C.boundSoftness)
+  if (camera.y > maxY)
+    camera.y += (maxY - camera.y) * (1 - C.boundSoftness)
 
   // ─── Speed zoom ───────────────────────────────────────────────
   const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy)
@@ -178,5 +197,6 @@ export function updateCamera(camera: Camera, player: Player, level: Level): void
   camera.shakeX = C.maxShakeX * shake * (Math.random() * 2 - 1)
   camera.shakeY = C.maxShakeY * shake * (Math.random() * 2 - 1)
   camera.trauma *= C.traumaDecay
-  if (camera.trauma < 0.001) camera.trauma = 0
+  if (camera.trauma < 0.001)
+    camera.trauma = 0
 }

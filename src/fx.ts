@@ -141,6 +141,156 @@ export function triggerFractureFx(fx: FxState, rupture: RuptureResult): void {
   }
 }
 
+// ─── impact burst ────────────────────────────────────────────────────────────
+// Spawned at the point a bullet hits terrain or a dummy. Small, short-lived;
+// shape is the same as fracture debris (rotated triangle shards) so we reuse
+// the existing particle renderer. Color + count + speed vary per kind:
+//   enemy     — 10 blood-red, fast, steep-up bias (spray)
+//   glass     — 8 cold-white, fast, jagged
+//   bone      — 7 cream/beige, medium
+//   bone_fragile — same palette as bone, slightly darker
+//   soft      — 5 muddy brown, slow (absorbed feel)
+//   resonant  — 6 steel-blue, medium (sparks off indestructible surface)
+//   shard     — never fires (shards are lethal passthrough, not shot targets)
+export type ImpactKind = 'enemy' | 'glass' | 'bone' | 'bone_fragile' | 'soft' | 'resonant' | 'shard'
+
+interface ImpactProfile {
+  count: number
+  colors: readonly number[] // randomly picked per particle
+  minSpeed: number
+  maxSpeed: number
+  lifeMin: number
+  lifeMax: number
+  upBias: number // extra negative vy so bursts arc upward
+  sizeMin: number
+  sizeMax: number
+}
+
+const IMPACT_PROFILES: Record<ImpactKind, ImpactProfile> = {
+  enemy: {
+    count: 12,
+    colors: [0xC01020, 0x8A0814, 0xE23040],
+    minSpeed: 80,
+    maxSpeed: 200,
+    lifeMin: 0.35,
+    lifeMax: 0.7,
+    upBias: 60,
+    sizeMin: 1,
+    sizeMax: 2.5,
+  },
+  glass: {
+    count: 8,
+    colors: [0xE8F0FF, 0xB8D4F0, 0xFFFFFF],
+    minSpeed: 100,
+    maxSpeed: 240,
+    lifeMin: 0.25,
+    lifeMax: 0.55,
+    upBias: 30,
+    sizeMin: 1,
+    sizeMax: 2,
+  },
+  bone: {
+    count: 7,
+    colors: [0xD4B896, 0xA88860, 0xE8D4B0],
+    minSpeed: 60,
+    maxSpeed: 160,
+    lifeMin: 0.3,
+    lifeMax: 0.55,
+    upBias: 20,
+    sizeMin: 1,
+    sizeMax: 2.5,
+  },
+  bone_fragile: {
+    count: 6,
+    colors: [0xB89870, 0x8C6848, 0xC8A880],
+    minSpeed: 50,
+    maxSpeed: 140,
+    lifeMin: 0.25,
+    lifeMax: 0.5,
+    upBias: 15,
+    sizeMin: 1,
+    sizeMax: 2,
+  },
+  soft: {
+    count: 5,
+    colors: [0x8A6040, 0x604028, 0xA07850],
+    minSpeed: 30,
+    maxSpeed: 80,
+    lifeMin: 0.25,
+    lifeMax: 0.45,
+    upBias: 5,
+    sizeMin: 1,
+    sizeMax: 2,
+  },
+  resonant: {
+    count: 6,
+    colors: [0xB8CCDC, 0x7090A8, 0xE0F0FF],
+    minSpeed: 120,
+    maxSpeed: 260,
+    lifeMin: 0.15,
+    lifeMax: 0.35,
+    upBias: 20,
+    sizeMin: 1,
+    sizeMax: 1.8,
+  },
+  shard: {
+    count: 0,
+    colors: [0xFFFFFF],
+    minSpeed: 0,
+    maxSpeed: 0,
+    lifeMin: 0,
+    lifeMax: 0,
+    upBias: 0,
+    sizeMin: 1,
+    sizeMax: 1,
+  },
+}
+
+// `vx`/`vy` are the incoming bullet velocity — we bias the spray opposite-
+// direction so debris reads as "ejected from impact" rather than floating.
+export function spawnImpactBurst(
+  fx: FxState,
+  x: number,
+  y: number,
+  kind: ImpactKind,
+  vx: number,
+  vy: number,
+): void {
+  const profile = IMPACT_PROFILES[kind]
+  if (profile.count === 0)
+    return
+
+  const inv = 1 / Math.max(1, Math.hypot(vx, vy))
+  // Ejection axis = reverse of bullet travel.
+  const ejectX = -vx * inv
+  const ejectY = -vy * inv
+
+  for (let i = 0; i < profile.count; i++) {
+    // Cone around eject axis, ±70°.
+    const spread = (Math.random() - 0.5) * (Math.PI * 0.78)
+    const c = Math.cos(spread)
+    const s = Math.sin(spread)
+    const dirX = ejectX * c - ejectY * s
+    const dirY = ejectX * s + ejectY * c
+    const speed = profile.minSpeed + Math.random() * (profile.maxSpeed - profile.minSpeed)
+    const life = profile.lifeMin + Math.random() * (profile.lifeMax - profile.lifeMin)
+    const size = profile.sizeMin + Math.random() * (profile.sizeMax - profile.sizeMin)
+    const colorIdx = Math.floor(Math.random() * profile.colors.length)
+    fx.particles.push({
+      x,
+      y,
+      vx: dirX * speed,
+      vy: dirY * speed - profile.upBias,
+      life,
+      maxLife: life,
+      color: profile.colors[colorIdx]!,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() * 2 - 1) * 10,
+      size,
+    })
+  }
+}
+
 // Shake offset to apply at a given render frame. Uses remaining/duration as
 // a decay so shake fades out smoothly instead of popping off.
 export function shakeOffset(fx: FxState): { x: number, y: number } {

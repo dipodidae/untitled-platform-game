@@ -1,21 +1,25 @@
 import type { Application } from 'pixi.js'
+import type { BulletState } from './bullet'
 import type { Camera } from './camera'
+import type { Dummy } from './dummy'
 import type { FxState } from './fx'
+import type { BroadphaseGrid } from './physics'
 import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { ParallaxState } from './render/parallax'
-import type { CharacterBridge } from './render/characterBridge'
+import type { SpineboyBridge } from './render/spineboy'
 import type { WindState } from './render/wind'
 import type { Level } from './world/level'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
+import { predictBulletImpact } from './bullet'
 import { CONFIG } from './config'
 import { flashAlpha } from './fx'
 import { PALETTE } from './render/palette'
 import { createParallax, updateParallax } from './render/parallax'
-import { createCharacterBridge, resetCharacterBridge, syncCharacter } from './render/characterBridge'
 import { drawPlayerGhost, resetPlayerRenderer } from './render/playerRenderer'
 import { drawSky, drawVignette } from './render/post'
 import { drawProwler } from './render/prowlerRenderer'
+import { createSpineboyBridge, resetSpineboyBridge, triggerShootOverlay, updateSpineboyVisual } from './render/spineboy'
 import { createWindState, drawWind, tickWind } from './render/wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './render/world'
 import { computeRuptureShape } from './rupture'
@@ -35,7 +39,7 @@ export interface RenderContext {
   readonly wind: WindState
   readonly worldGfx: Graphics
   readonly auraGfx: Graphics
-  readonly charBridge: CharacterBridge
+  readonly charBridge: SpineboyBridge
   readonly playerGfx: Graphics // kept for iframe blink / jitter overlay
   readonly eyeGfx: Graphics
   readonly ghostGfx: Graphics
@@ -45,6 +49,9 @@ export interface RenderContext {
   readonly ruptureRingGfx: Graphics
   readonly particlesGfx: Graphics
   readonly deathPlaneGfx: Graphics
+  readonly bulletGfx: Graphics
+  readonly crosshairGfx: Graphics
+  readonly dummyGfx: Graphics
   readonly prowlerGfxList: Graphics[]
   readonly flashGfx: Graphics
   readonly dreadGfx: Graphics
@@ -112,6 +119,19 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const deathPlaneGfx = new Graphics()
   worldContainer.addChild(deathPlaneGfx)
 
+  // Bullet tracers — drawn above terrain, below player so shots pass behind.
+  const bulletGfx = new Graphics()
+  worldContainer.addChild(bulletGfx)
+
+  // Crosshair + predicted-trajectory dots. Drawn on top of terrain so aim is
+  // always readable, but below the player.
+  const crosshairGfx = new Graphics()
+  worldContainer.addChild(crosshairGfx)
+
+  // AI-less dummy enemies — simple squares + HP pips + hit flash.
+  const dummyGfx = new Graphics()
+  worldContainer.addChild(dummyGfx)
+
   // Prowler graphics — one Graphics per prowler spawn in the level.
   const prowlerGfxList: Graphics[] = []
   for (const _s of level.prowlerSpawns) {
@@ -129,8 +149,8 @@ export function buildScene(app: Application, level: Level): RenderContext {
   const playerGhostGfx = new Graphics()
   worldContainer.addChild(playerGhostGfx) // below player
 
-  // Skeletal character replaces the old procedural pixel mass
-  const charBridge = createCharacterBridge()
+  // Spineboy replaces the old procedural pixel mass + custom skeletal rig.
+  const charBridge = createSpineboyBridge()
   worldContainer.addChild(charBridge.container)
 
   const playerGfx = new Graphics() // kept for legacy compat / overlay effects
@@ -210,6 +230,9 @@ export function buildScene(app: Application, level: Level): RenderContext {
     ruptureRingGfx,
     particlesGfx,
     deathPlaneGfx,
+    bulletGfx,
+    crosshairGfx,
+    dummyGfx,
     prowlerGfxList,
     flashGfx,
     dreadGfx,
@@ -308,6 +331,9 @@ export function render(
   level: Level,
   dt: number,
   prowlers?: readonly Prowler[],
+  bullets?: BulletState,
+  dummies?: readonly Dummy[],
+  broadphase?: BroadphaseGrid,
 ): void {
   ctx.time += dt
 
@@ -369,19 +395,17 @@ export function render(
     jy = Math.cos(ctx.time * 59 + player.x * 0.3) * amp * 0.7
   }
 
-  // Sync skeletal character state + position from Player
-  syncCharacter(ctx.charBridge, player, dt)
-  // Apply instability jitter on top of the synced position
+  // Spineboy visual sync (FSM + spine.update) runs at render cadence so bone
+  // interpolation is smooth at any refresh rate. Consume any pending fire
+  // edge so the upper-body 'shoot' overlay plays on track 1.
+  updateSpineboyVisual(ctx.charBridge, player, dt)
+  if (bullets && bullets.fireEdge) {
+    triggerShootOverlay(ctx.charBridge)
+    bullets.fireEdge = false
+  }
+  // Instability jitter on top of the synced position.
   ctx.charBridge.container.x += jx
   ctx.charBridge.container.y += jy
-
-  // Post-fracture flicker
-  const iframeBlink
-    = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0
-  ctx.charBridge.container.alpha = iframeBlink
-
-  // Hide if dead
-  ctx.charBridge.container.visible = player.alive
 
   // Clear legacy playerGfx (no longer drawn, but kept in scene for ordering)
   ctx.playerGfx.clear()
@@ -398,7 +422,7 @@ export function render(
     ctx.ruptureFrame = -1
     ctx.respawnFrame = 0
     resetPlayerRenderer()
-    resetCharacterBridge(ctx.charBridge)
+    resetSpineboyBridge(ctx.charBridge)
   }
   if (ctx.respawnFrame >= 0) {
     ctx.respawnFrame++
@@ -515,6 +539,94 @@ export function render(
       .fill({ color: PALETTE.auraCool, alpha: 0.8 })
     ctx.containArrowGfx.poly([bx - 3, by + 6, bx + 3, by + 6, bx, by + 10])
       .fill({ color: PALETTE.auraCool, alpha: 0.5 })
+  }
+
+  // ─── dummies (AI-less test enemies) ─────────────────────
+  // Flat square with a 1px outline, red hit-flash, and a tiny top-edge HP bar.
+  ctx.dummyGfx.clear()
+  if (dummies) {
+    for (const d of dummies) {
+      if (!d.alive)
+        continue
+      const flash = d.hitFlashTimer > 0
+      const fill = flash ? 0xFF4A4A : 0x3A3F4A
+      ctx.dummyGfx.rect(d.x, d.y, d.w, d.h)
+        .fill({ color: fill })
+        .stroke({ width: 1, color: 0x202632, alpha: 0.9 })
+      // HP pip bar.
+      const pipW = d.w - 2
+      const pipRatio = d.hp / d.maxHp
+      ctx.dummyGfx.rect(d.x + 1, d.y - 3, pipW, 1).fill({ color: 0x1A1A20, alpha: 0.8 })
+      if (pipRatio > 0) {
+        ctx.dummyGfx.rect(d.x + 1, d.y - 3, pipW * pipRatio, 1)
+          .fill({ color: flash ? 0xFFC060 : 0xE04040 })
+      }
+    }
+  }
+
+  // ─── bullets ────────────────────────────────────────────
+  // Tracer = 9px trail behind head along -velocity with three layers: wide
+  // oxblood halo, warm-white core stripe, and a bright head dot so the
+  // projectile reads as a physical object rather than a mere line.
+  ctx.bulletGfx.clear()
+  if (bullets) {
+    for (const b of bullets.bullets) {
+      if (!b.alive)
+        continue
+      const len = 9
+      const inv = 1 / Math.max(1, Math.hypot(b.vx, b.vy))
+      const tx = b.x - b.vx * inv * len
+      const ty = b.y - b.vy * inv * len
+      ctx.bulletGfx.moveTo(tx, ty).lineTo(b.x, b.y).stroke({ width: 5, color: 0x8A2A1C, alpha: 0.45 })
+      ctx.bulletGfx.moveTo(tx, ty).lineTo(b.x, b.y).stroke({ width: 2, color: 0xFFD48C, alpha: 1 })
+      ctx.bulletGfx.circle(b.x, b.y, 2.2).fill({ color: 0xFFF6D8, alpha: 1 })
+    }
+  }
+
+  // ─── crosshair + trajectory preview ─────────────────────
+  // Forward-simulate from current muzzle with current aim; draw fading dots
+  // along the arc + a target marker at the predicted impact. Color-codes by
+  // hit type: red for enemy, warm-white for terrain, dim for miss.
+  ctx.crosshairGfx.clear()
+  if (broadphase && dummies && ctx.charBridge.muzzleReady && player.alive) {
+    const b = ctx.charBridge
+    const pred = predictBulletImpact(
+      b.muzzleX,
+      b.muzzleY,
+      b.muzzleDirX,
+      b.muzzleDirY,
+      'slug',
+      level,
+      dummies,
+      broadphase,
+    )
+    // Trajectory dots — skip the first point (that's the muzzle), fade alpha.
+    for (let i = 1; i < pred.points.length; i += 2) {
+      const p = pred.points[i]!
+      const t = i / Math.max(1, pred.points.length - 1)
+      const alpha = 0.35 * (1 - t * 0.6)
+      ctx.crosshairGfx.circle(p.x, p.y, 1).fill({ color: 0xFFD48C, alpha })
+    }
+    // Impact marker — small cross. Red if it would hit enemy, warm-white if
+    // terrain, dim-gray if trajectory expires without hitting anything.
+    const hitColor
+      = pred.hit === 'enemy'
+        ? 0xFF4040
+        : pred.hit === 'terrain'
+          ? 0xFFE6A8
+          : 0x888888
+    const hitAlpha = pred.hit === 'none' ? 0.35 : 0.9
+    const r = pred.hit === 'enemy' ? 5 : 4
+    ctx.crosshairGfx.moveTo(pred.impactX - r, pred.impactY)
+      .lineTo(pred.impactX + r, pred.impactY)
+      .stroke({ width: 1, color: hitColor, alpha: hitAlpha })
+    ctx.crosshairGfx.moveTo(pred.impactX, pred.impactY - r)
+      .lineTo(pred.impactX, pred.impactY + r)
+      .stroke({ width: 1, color: hitColor, alpha: hitAlpha })
+    if (pred.hit !== 'none') {
+      ctx.crosshairGfx.circle(pred.impactX, pred.impactY, r + 1)
+        .stroke({ width: 1, color: hitColor, alpha: 0.4 })
+    }
   }
 
   // ─── particles ──────────────────────────────────────────
