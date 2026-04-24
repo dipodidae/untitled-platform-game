@@ -10,17 +10,17 @@
 //   2) Terrain SAT via the existing broadphase + collider pieces.
 // On any impact we spawn a material-tinted debris burst and despawn the bullet.
 
-import type { Camera } from './camera'
-import type { Dummy } from './enemies/dummy'
-import type { BroadphaseGrid } from './physics/broadphase'
-import type { ParticleSystem } from './render/particles'
-import type { Collider, Level, MaterialName } from './world/level'
-import { addTrauma } from './camera'
-import { CONFIG } from './config'
-import { damageDummy, dummyAabb, overlapsDummy } from './enemies/dummy'
-import { satAabbPoly } from './physics/sat'
-import { emitImpactBurst, emitMuzzleFlash } from './render/particles'
-import { applyRupture } from './world/destruction'
+import type { Camera } from '../camera'
+import type { Dummy } from '../enemies/dummy'
+import type { BroadphaseGrid } from '../physics/broadphase'
+import type { ParticleSystem } from '../render/particles'
+import type { Collider, Level, MaterialName } from '../world/level'
+import { addTrauma } from '../camera'
+import { CONFIG } from '../config'
+import { damageDummy, dummyAabb, overlapsDummy } from '../enemies/dummy'
+import { satAabbPoly } from '../physics/sat'
+import { emitImpactBurst, emitMuzzleFlash } from '../render/particles'
+import { applyRupture } from '../world/destruction'
 
 // ─── bullet kinds (weapon profiles) ──────────────────────────────────────────
 export interface BulletKind {

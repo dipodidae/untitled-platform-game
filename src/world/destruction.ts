@@ -10,7 +10,7 @@
 //
 // Shards are spawned here — fresh hazard colliders with a TTL.
 
-import type { RuptureShape } from '../rupture'
+import type { RuptureShape } from '../combat/rupture'
 import type { Collider, Level, MaterialName } from './level'
 import { CONFIG } from '../config'
 import { circleToPolygon, polygonDifference } from '../shared-kernel/polygon'

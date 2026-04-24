@@ -3,7 +3,7 @@ import type { InstabilityState } from './instability'
 import type { Vec2 } from './shared-kernel/vec2'
 import type { BroadphaseGrid } from './physics/broadphase'
 import type { ParticleSystem } from './render/particles'
-import type { RuptureResult } from './rupture'
+import type { RuptureResult } from './combat/rupture'
 import type { Level, MaterialName } from './world/level'
 import { CONFIG } from './config'
 import { emit } from './eventBus'
@@ -26,7 +26,7 @@ import {
   updateInstability,
 } from './instability'
 import { applySlopeProjection, moveAndCollide, overlapsLethal, tryStickToGround } from './physics'
-import { performRupture } from './rupture'
+import { performRupture } from './combat/rupture'
 import { resetLevel } from './world/level'
 
 export interface Player {

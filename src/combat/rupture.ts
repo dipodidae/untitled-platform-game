@@ -1,7 +1,7 @@
-import type { AffectedCollider } from './world/destruction'
-import type { Level } from './world/level'
-import { CONFIG } from './config'
-import { applyRupture } from './world/destruction'
+import type { AffectedCollider } from '../world/destruction'
+import type { Level } from '../world/level'
+import { CONFIG } from '../config'
+import { applyRupture } from '../world/destruction'
 
 // Rupture shape: a rotated ellipse biased along the player's velocity
 // vector at the moment of fracture. rx is the MAJOR axis (along velocity),
