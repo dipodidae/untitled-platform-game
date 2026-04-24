@@ -18,3 +18,4 @@ Append-only. One line per migration step.
 - 2026-04-24 Global docs: TOPOLOGY.md, GLOSSARY.md, AGENTS.md.
 - 2026-04-24 CLAUDE.md updated with adherence section.
 - 2026-04-24 Final push to `main`.
+- 2026-04-24 CONTEXT.md subagent surfaced 6 additional findings (FIND 7–12); appended to FINDINGS.md. Most consequential: BULLET_KINDS values disagree across the duplicate; levelManager isn't wired to the running game; pickup system is authored but dead at runtime.
