@@ -5,7 +5,7 @@
 import type { ItemKind } from '../../items/types'
 import type { MaterialName } from '../../world/level'
 import type { EditorState } from '../state'
-import { fromLevelJson, markDirty, redo, toLevelJson, undo } from '../state'
+import { markDirty, redo, toLevelJson, undo } from '../state'
 import { showToast } from './toast'
 
 const MATERIALS: MaterialName[] = ['bone', 'bone_fragile', 'glass', 'resonant', 'soft']
@@ -342,24 +342,11 @@ function ioSection(state: EditorState): HTMLElement {
   const s = section('Save / Load')
   const sup = fsaSupport()
 
-  const row1 = document.createElement('div'); row1.className = 'button-row'
-
-  const save = document.createElement('button')
-  save.textContent = 'Download JSON'
-  save.className = 'primary'
-  save.onclick = () => {
-    downloadJson(state)
-    state.activeFileHandle = null
-    state.activeFileName = null
-    state.activePresetName = null
-    markDirty(state)
-  }
-  row1.appendChild(save)
-
   // Overwrite — writes back to the source the level came from:
   //   - File System Access handle (Open File… flow), OR
-  //   - Bundled preset by name (status-bar dropdown flow, via dev server).
+  //   - Bundled preset by name (preset dropdown flow, via dev server).
   // Always prompts for confirmation before writing.
+  const row1 = document.createElement('div'); row1.className = 'button-row'
   const label = overwriteLabel(state)
   const overwrite = document.createElement('button')
   overwrite.textContent = label ? `Overwrite (${label})` : 'Overwrite'
@@ -367,7 +354,7 @@ function ioSection(state: EditorState): HTMLElement {
   overwrite.title = label
     ? `Overwrite ${label}`
     : sup.save
-      ? 'Load a bundled preset, or use "Open File…", before overwriting.'
+      ? 'Load a bundled preset, or use File > "Open File…", before overwriting.'
       : 'Load a bundled preset before overwriting.'
   overwrite.className = 'primary'
   overwrite.onclick = async () => {
@@ -392,98 +379,23 @@ function ioSection(state: EditorState): HTMLElement {
     }
   }
   row1.appendChild(overwrite)
-
-  const copy = document.createElement('button')
-  copy.textContent = 'Copy JSON'
-  copy.onclick = () => {
-    navigator.clipboard.writeText(JSON.stringify(toLevelJson(state.level), null, 2))
-  }
-  row1.appendChild(copy)
   s.appendChild(row1)
 
-  const row2 = document.createElement('div'); row2.className = 'button-row'
-
-  // Open File… — uses showOpenFilePicker so the file handle is retained
-  // for Overwrite. If unsupported, falls back to the classic file input.
-  const open = document.createElement('button')
-  open.textContent = sup.open ? 'Open File…' : 'Load from file'
-  open.onclick = async () => {
-    if (sup.open) {
-      try {
-        const pickers = (window as unknown as {
-          showOpenFilePicker: (opts: unknown) => Promise<FileSystemFileHandle[]>
-        }).showOpenFilePicker
-        const [handle] = await pickers({
-          types: [{ description: 'Level JSON', accept: { 'application/json': ['.json'] } }],
-          multiple: false,
-        })
-        if (!handle) return
-        state.activeFileHandle = handle
-        state.activeFileName = handle.name
-        state.activePresetName = null
-        const file = await handle.getFile()
-        const text = await file.text()
-        state.level = fromLevelJson(JSON.parse(text))
-        state.selection = null
-        state.undoStack.length = 0
-        state.redoStack.length = 0
-        markDirty(state)
-      }
-      catch (e) {
-        // Abort is normal when the user cancels the picker.
-        if ((e as DOMException)?.name === 'AbortError') return
-        console.error(e)
-        alert(`Open failed: ${String((e as Error).message ?? e)}`)
-      }
-    }
-    else {
-      openLoadDialog(state)
-    }
-  }
-  row2.appendChild(open)
-
-  const load = document.createElement('button')
-  load.textContent = 'Load JSON…'
-  load.onclick = () => openLoadDialog(state)
-  row2.appendChild(load)
-
-  const blank = document.createElement('button')
-  blank.textContent = 'New blank'
-  blank.onclick = () => {
-    if (confirm('Clear the current level and start blank?')) {
-      state.level = fromLevelJson({
-        spawn: { x: 80, y: 300 },
-        worldWidth: 3200,
-        worldHeight: 720,
-        colliders: [
-          { id: 1, material: 'bone', vertices: [[0, 500], [3200, 500], [3200, 600], [0, 600]] },
-        ],
-      })
-      state.selection = null
-      state.activeFileHandle = null
-      state.activeFileName = null
-      state.activePresetName = null
-      markDirty(state)
-    }
-  }
-  row2.appendChild(blank)
-  s.appendChild(row2)
-
   // Undo / redo row.
-  const row3 = document.createElement('div'); row3.className = 'button-row'
+  const row2 = document.createElement('div'); row2.className = 'button-row'
   const undoBtn = document.createElement('button')
   undoBtn.textContent = `Undo (${state.undoStack.length})`
   undoBtn.disabled = state.undoStack.length === 0
   undoBtn.title = 'Ctrl+Z'
   undoBtn.onclick = () => undo(state)
-  row3.appendChild(undoBtn)
+  row2.appendChild(undoBtn)
   const redoBtn = document.createElement('button')
   redoBtn.textContent = `Redo (${state.redoStack.length})`
   redoBtn.disabled = state.redoStack.length === 0
   redoBtn.title = 'Ctrl+Shift+Z / Ctrl+Y'
   redoBtn.onclick = () => redo(state)
-  row3.appendChild(redoBtn)
-  s.appendChild(row3)
+  row2.appendChild(redoBtn)
+  s.appendChild(row2)
 
   return s
 }
@@ -522,35 +434,3 @@ function numberInput(initial: number, onChange: (v: number) => void): HTMLInputE
   return i
 }
 
-function downloadJson(state: EditorState): void {
-  const data = toLevelJson(state.level)
-  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'level.json'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function openLoadDialog(state: EditorState): void {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'application/json,.json'
-  input.onchange = async () => {
-    const f = input.files?.[0]
-    if (!f)
-      return
-    const text = await f.text()
-    try {
-      const parsed = JSON.parse(text)
-      state.level = fromLevelJson(parsed)
-      state.selection = null
-      markDirty(state)
-    }
-    catch (e) {
-      alert(`Failed to parse JSON: ${String(e)}`)
-    }
-  }
-  input.click()
-}
