@@ -129,6 +129,14 @@ function checkLevelTransition(state: GameState): boolean {
 // visually "lands" — shake and flash keep animating on render cadence
 // regardless. Input edges are latched at the end of the step.
 function fixedUpdate(state: GameState): void {
+  // Phase gate — physics only runs during `gameplay` and `dead` (so the
+  // death-freeze timer can still elapse). Menu, drop-in cinematic, and the
+  // results screen all pause the world.
+  const phase = gameSession.phase
+  if (phase === 'menu' || phase === 'dropIn' || phase === 'results') {
+    return
+  }
+
   if (consumeHitstopTick(state.fx)) {
     // Frozen physics — nothing moves, no input latching either so buffered
     // presses during hitstop arrive on the first live tick after.

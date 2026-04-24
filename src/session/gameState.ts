@@ -8,7 +8,13 @@
 // Named `GameSession` to avoid colliding with the `GameState` bundle in
 // game.ts (player + level + camera + fx + …).
 
-export type GamePhase = 'gameplay' | 'results' | 'dead'
+// Phases:
+//   menu      — title screen is up; physics paused, input ignored.
+//   dropIn    — cinematic title-card + HUD stagger; physics paused.
+//   gameplay  — normal play.
+//   dead      — die() ran; awaiting respawn (either freeze-over or R).
+//   results   — goal reached; results overlay up, physics paused.
+export type GamePhase = 'menu' | 'dropIn' | 'gameplay' | 'dead' | 'results'
 
 export interface GameSession {
   phase: GamePhase
@@ -28,6 +34,10 @@ export interface GameSession {
 
 export function createGameSession(): GameSession {
   return {
+    // Bootstrap phase. main.ts flips this to 'menu' after createGame so the
+    // main menu is the first thing the player sees. Default stays
+    // 'gameplay' so a theoretical caller that bypasses main.ts still gets
+    // a running world.
     phase: 'gameplay',
     currentLevelId: '',
     deaths: 0,
