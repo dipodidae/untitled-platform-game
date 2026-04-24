@@ -17,78 +17,116 @@ No test runner is configured. The project targets Node 20+.
 
 TypeScript is strict with `noUncheckedIndexedAccess`, `noUnusedLocals`, and `noUnusedParameters` — array/record lookups return `T | undefined` and unused bindings fail the build. ESLint uses `@antfu/eslint-config` (stylistic rules on).
 
-## Architecture
+## Documentation map
 
-The game is a fixed-step platformer built on PixiJS v8. The core design choices below matter because they're load-bearing for how modules talk to each other.
+This codebase has been organized into bounded contexts. Read the docs **before** writing any non-trivial code:
 
-### Fixed-step loop with hitstop gate (`src/game.ts`)
+| File | What it tells you |
+|---|---|
+| [`docs/AGENTS.md`](docs/AGENTS.md) | Onboarding, where-to-find tables, load-bearing patterns, Chesterton's fences |
+| [`docs/TOPOLOGY.md`](docs/TOPOLOGY.md) | Context map, dependency rule, game-loop control flow |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Ubiquitous language; flagged collisions |
+| [`docs/adr/`](docs/adr/) | Per-decision rationale (ADRs 0001–0012) |
+| `src/<context>/CONTEXT.md` | Per-context purpose, owned concepts, invariants |
+
+If you're an agent and you're about to refactor or move files, **read the relevant ADR first.** Many things that look weird are intentional and ADR-explained.
+
+## Bounded-context layout
+
+Top-level folders under `src/` are bounded contexts:
+
+```
+session/    game loop + lifecycle + EventBus + level sequencing
+player/     Player record + behavior + instability
+enemies/    prowler, dummy
+combat/     bullets, ruptures, weapons (per-weapon profiles in weapons/)
+world/      level data, destruction, kinetic platforms (kinetic/), materials
+items/      pickups
+physics/    collision pipeline + SAT
+input/      keyboard mapping + edge detection
+render/     Pixi rendering, camera, fx (visual feedback)
+editor/     standalone level-editor app
+ui/         HTML overlays for the running game
+shared-kernel/   true cross-context primitives (vec2, polygon)
+```
+
+`src/main.ts` (Vite entry) and `src/config.ts` (consumed everywhere) stay at the root.
+
+Adherence rule: any new code lives inside an existing context, OR a new context that satisfies the three criteria in `docs/AGENTS.md#adding-a-new-bounded-context`. **No `utils/`, `helpers/`, `common/` folders.**
+
+## Architecture — load-bearing patterns
+
+Specific architectural choices that other docs assume. Don't break these.
+
+### Fixed-step loop with hitstop gate (`src/session/game.ts`)
 
 Pixi's ticker gives a variable frame dt; `startLoop` drains it into fixed `CONFIG.FIXED_DT` (1/60s) physics ticks using an accumulator, clamped by `MAX_FRAME_DT` to avoid the spiral of death.
 
 **Hitstop short-circuits `fixedUpdate` entirely.** `fx.hitstopTicks` counts physics ticks (not seconds — deterministic on fixed dt), and `consumeHitstopTick` decrements it while returning `true` to skip the update. Input edges are also NOT latched during hitstop, so presses buffered during a freeze arrive on the first live tick after.
 
-Camera smoothing and FX timers (shake, flash) run at **render** cadence, not physics cadence. Particles tick at **physics** cadence (they're spawned from deterministic blast events).
+`consumeHitstopTick` lives in `src/render/fx.ts` despite gating the loop — see [ADR-0003](docs/adr/0003-keep-fx-as-one-file.md).
 
-### State ownership
+Camera smoothing and FX timers (shake, flash) run at **render** cadence, not physics cadence. Particles tick at **physics** cadence (deterministic spawns).
 
-Data flows through plain records mutated in place — no classes, no ECS. Each module owns a slice:
+### Mutable records, no classes-with-behavior
 
-- `Player` (`src/player.ts`) — AABB + jump timers + pressure state + ephemeral `lastBlast` renderer handle
-- `Level` (`src/level.ts`) — mutable `tiles[y][x]` + per-tile `damage[y][x]` (stone chipping) + a frozen `pristineTiles` snapshot used by `resetLevel` on death
-- `PressureState` (`src/pressure.ts`) — resource, vent flags, `detonateQueued`
-- `FxState` (`src/fx.ts`) — hitstop/shake/flash timers + particle pool
-- `Camera` (`src/camera.ts`) — deadzone follow, clamped to world bounds
-- `RenderContext` (`src/render.ts`) — Pixi scene graph + `tileCacheKey`
+Data flows through plain records mutated in place — no classes, no ECS, no aggregates with invariants. Each module owns a slice and exports update functions that mutate that slice. See [ADR-0004](docs/adr/0004-mutable-records-not-aggregates.md).
 
-`respawn` and `resetPressure` **mutate in place** rather than returning a fresh record — keep that convention when extending state.
+Examples:
+- `Player` (`src/player/player.ts`) — AABB + jump timers + instability + state flags
+- `Level` (`src/world/level.ts`) — colliders + zones + pristine snapshot for `resetLevel`
+- `FxState` (`src/render/fx.ts`) — hitstop / shake / flash timers
+- `Camera` (`src/render/camera.ts`) — deadzone follow + trauma decay
+- `RenderContext` (`src/render/index.ts`) — Pixi scene graph
+- `GameSession` (`src/session/gameState.ts`) — phase / deaths / checkpoint / startTime
 
-### Deferred detonation
+`respawn` and similar reset functions **mutate in place** rather than returning a fresh record — keep that convention.
 
-At `PRESSURE_MAX`, `updatePressure` sets `detonateQueued = true` but does **not** fire the blast that tick. `updatePlayer` checks the flag at the **top of the next tick** and calls `performBlast` there, then returns early (the blast IS the tick's action). This gives the ghost-preview renderer one guaranteed frame at peak pressure and avoids a single tick both adding and consuming pressure.
+### Death + respawn cycle
 
-After a blast, `onDetonated` zeros pressure and `triggerDetonationFx` sets `fx.hitstopTicks = BLAST_HITSTOP_FRAMES`, so the next N physics ticks are skipped while shake/flash keep animating on render.
+`die(player, level, cause)` in `src/player/player.ts` sets `alive = false`, calls `resetLevel(level)` to restore destruction, increments `gameSession.deaths`, sets `gameSession.deathFreezeEndsAt = now + CONFIG.DEATH_FREEZE_MS`, and emits `playerDied`. `session/game.ts` waits out the freeze before triggering `respawn`. Pressing R bypasses the freeze.
 
-### Destruction & respawn cycle
+`respawn` honors `gameSession.lastSpawnPoint` if set (touched a checkpoint zone), else `level.spawn`.
 
-`performBlast` in `src/blast.ts` mutates `level.tiles` and `level.damage` directly. Destruction is **permanent within a run** — on hazard contact or fall-out, `die()` sets `alive = false` and calls `resetLevel(level)`, which restores every tile from `pristineTiles`. `game.ts` then triggers `respawn` on the tick after death so death visuals land first.
+### Axis-separated AABB collision (`src/physics/`)
 
-The renderer detects level mutation via `hashTiles(level)` — a cheap FNV-ish mix over (material, damage) — and rebuilds `tilesGfx` only when the hash changes. Don't redraw every frame; rely on the hash.
+`moveAndCollideX` then `tryCornerCorrection` then `moveAndCollideY`. Resolving X first, then Y (with a head-corner nudge in between capped by `CORNER_NUDGE` px) avoids the classic "stuck on a tile corner seam" bug that single-pass swept collisions hit. `moveAndCollideX` also sets `player.touchingWall` — instability + wall-jump logic read it.
 
-### Axis-separated AABB collision (`src/physics.ts`)
+### Materials (in `src/world/level.ts`)
 
-`moveAndCollideX` then `tryCornerCorrection` then `moveAndCollideY`. Resolving X first, then Y (with a head-corner nudge in between capped by `CORNER_NUDGE` px) avoids the classic "stuck on a tile corner seam" bug that single-pass swept collisions hit on axis-aligned grids. `moveAndCollideX` also sets `player.touchingWall` — the pressure system reads this for the "pressed into a wall" gain.
+`MaterialName = 'glass' | 'bone' | 'bone_fragile' | 'resonant' | 'soft' | 'shard'`. The union and the per-material gameplay-feel comments are inline in `level.ts` — see [ADR-0009](docs/adr/0009-materials-inline-in-level.md).
 
-Out-of-bounds tile reads return `MAT_DIRT` (any solid works — it just prevents the player from escaping the world).
+`shard` is a runtime-only material spawned from broken glass. Hazards are AABB-overlap-killed, not collision-blocking.
 
-### Materials are the single source of truth (`src/materials.ts`)
+Adding a material: extend the `MaterialName` union, update predicates and color tables, add a brush in `src/editor/brushes.ts` if authorable. Editor sync rule below covers the full checklist.
 
-Every "is it solid? / blastable? / reflective? / lethal?" question routes through predicates (`isSolid`, `isDestructible`, `isReflective`, `isHazard`). **Hazards are pass-through (non-solid)** so the player's AABB enters the tile and `rectOverlapsHazard` kills on overlap — don't accidentally add hazard to `isSolid`.
+### Input edges (`src/input/input.ts`)
 
-Adding a material means: new `MAT_*` id, predicate updates, parser char in `charToMaterial`, palette in `config.ts`, and a draw branch in `drawTiles` (`render.ts`). The README's "Where to tweak" table is the canonical list.
-
-### Input edges (`src/input.ts`)
-
-`keys` vs `prevKeys` diff produces `justPressed` / `justReleased` that are true for exactly one physics tick. **`endFrame()` must be called at the end of each fixed update** (after all edge reads) or the buffer/cut logic breaks. It lives at the tail of `fixedUpdate` in `game.ts` and is deliberately not called during hitstop.
+`keys` vs `prevKeys` diff produces `justPressed` / `justReleased` that are true for exactly one physics tick. **`endFrame()` must be called at the end of each fixed update** (after all edge reads) or the buffer/cut logic breaks. It lives at the tail of `fixedUpdate` in `src/session/game.ts` and is deliberately not called during hitstop.
 
 ### Tuning
 
-Every gameplay number lives in `src/config.ts` with `as const` so literal types propagate. Look for `// TUNING:` comments in `src/blast.ts` for flagged tuning points. The README's "Where to tweak" table maps intents to files.
+Every gameplay number lives in `src/config.ts` with `as const` so literal types propagate.
 
-### Render pipeline notes
+### Render pipeline
 
-Low-res logical buffer (`LOGICAL_WIDTH × LOGICAL_HEIGHT`, 480×270) is integer-scaled via CSS (`main.ts#resize`) with `image-rendering: pixelated` to keep the pixel grid crisp — **don't set `autoDensity` or change `resolution`**. Pixi's `roundPixels: true` is on. The scene is two containers: `worldContainer` (camera-panned + shake-offset) and `uiContainer` (screen-fixed, holds meter/hints/flash overlay).
+Logical buffer is `LOGICAL_WIDTH × LOGICAL_HEIGHT`; `src/main.ts#resize` integer-scales it via CSS. Pixi v8 `Application` is initialized async (`await app.init`). The scene composes `bgContainer` (screen-fixed parallax) + `worldContainer` (camera-panned) + `uiContainer` (screen-fixed overlays). See `src/render/index.ts`.
+
+### EventBus (`src/session/eventBus.ts`)
+
+Typed in-process synchronous emitter. `EngineEvents` enumerates payload shapes. Events are `playerDied`, `levelComplete`, `checkpointReached`, `retryPressed`, `levelLoaded`. Synchronous on purpose — see [ADR-0012](docs/adr/0012-eventbus-typed-emitter.md).
 
 ### Editor ↔ engine sync
 
-The level editor (`src/editor/`) and the game engine share a single authored data format: `LevelJson` in `src/world/level.ts`. Any engine change that touches authorable content must also update the editor, in the same change, so the editor never falls behind what the runtime reads. The checklist:
+The level editor (`src/editor/`) and the game engine share a single authored data format: `LevelJson` in `src/world/level.ts`. Any engine change that touches authorable content must also update the editor, in the same change. The checklist:
 
-- **New material** → add to `MaterialName`, the predicates in `src/materials.ts`, the editor's `MATERIALS` list in `src/editor/ui/leftPanel.ts` and `src/editor/ui/rightPanel.ts`, and any brush that should default to it in `src/editor/brushes.ts`.
-- **New zone type** → extend `ZoneType` in `src/world/level.ts`, add the runtime consumer (usually in `src/player.ts`), add a new `ZoneJson` field for per-type params, add or update the zone inspector in `src/editor/ui/rightPanel.ts`, add a default brush in `src/editor/brushes.ts`, and render it in `src/editor/canvas.ts` under the `zones` layer flag.
-- **New kinetic type** → add the file in `src/kinetic/`, wire into `src/kinetic/index.ts` dispatchers + `KineticJson`/`KineticState` unions, handle it in the editor's `computePreviewVerts` motion-preview simulation, surface params in the right-panel inspector, and add a brush.
-- **New entity kind** (enemies, pickups, etc.) → add runtime + renderer, extend `LevelJson` with its array, add a tool in `TOOLS` (`src/editor/ui/leftPanel.ts`), an inspector branch, a canvas-draw branch, and a brush if it has parameter variants.
-- **Schema extension on existing types** (e.g. new `Collider` field) → extend `LevelJson['colliders']`, `EditorCollider`, `fromLevelJson`, `toLevelJson`, and expose an inspector control on the right panel.
+- **New material** → extend `MaterialName` in `src/world/level.ts`, update the editor's `MATERIALS` lists in `src/editor/ui/leftPanel.ts` and `src/editor/ui/rightPanel.ts`, and add a brush in `src/editor/brushes.ts` if it should default to it.
+- **New zone type** → extend `ZoneType` in `src/world/level.ts`, add the runtime consumer in `src/player/player.ts`, add a `ZoneJson` field for per-type params, add the inspector branch in `src/editor/ui/rightPanel.ts`, add a brush in `src/editor/brushes.ts`, add the color in `src/editor/canvas.ts`'s `ZONE_COLORS`.
+- **New kinetic type** → add the file in `src/world/kinetic/`, wire into `src/world/kinetic/index.ts` dispatchers + `KineticJson`/`KineticState` unions, handle it in the editor's `computePreviewVerts` motion-preview, surface params in the right-panel inspector, add a brush.
+- **New entity kind** (enemies, pickups, etc.) → add runtime + renderer + barrel re-export, extend `LevelJson` with its array, add a tool in `src/editor/ui/leftPanel.ts`'s `TOOLS`, an inspector branch, a canvas-draw branch, and a brush if it has parameter variants.
+- **Schema extension on existing types** (e.g. new `Collider` field) → extend `LevelJson['colliders']`, `EditorCollider`, `fromLevelJson`, `toLevelJson`, expose an inspector control on the right panel.
 
-If a PR lands in `src/world/`, `src/kinetic/`, `src/enemies/`, `src/items/`, `src/materials.ts`, or changes input/runtime semantics, scan the editor for a corresponding change. Rule of thumb: **if the editor can't round-trip a level that uses the new feature, the change is incomplete.**
+If a PR lands in `src/world/`, `src/enemies/`, `src/items/`, `src/combat/`, or changes input/runtime semantics, scan the editor for a corresponding change. **Rule of thumb: if the editor can't round-trip a level that uses the new feature, the change is incomplete.**
 
 ## Working with this repo safely
 
@@ -107,3 +145,15 @@ This working tree frequently carries **substantial uncommitted work** — new di
 - **Prefer path-scoped staging and committing.** `git commit -- docs/file.md` commits only that path; a bare `git commit` takes everything in the index, which may include work you didn't mean to publish.
 - **When executing plans with subagents, commit after every implementer step.** A stray later mistake can wipe uncommitted progress; committed progress is recoverable.
 - **If confused about state, `git status` and `git diff HEAD`** before acting. If something looks unfamiliar (stale files, unexpected deletions), investigate before deleting.
+
+### Adherence with the bounded-context structure
+
+When making any change, ask:
+
+1. Does this concept belong in an existing context? Use `docs/AGENTS.md`'s where-to-find table.
+2. Am I about to introduce a `utils/` or `helpers/` folder? **Don't.** Pick a real context name.
+3. Am I about to put a new file at `src/` root? **Don't,** unless it's a new bounded context (and I've validated the three criteria in `docs/AGENTS.md`).
+4. If I'm changing authorable content, did I update the editor in the same change? See "Editor ↔ engine sync" above.
+5. If I made a non-obvious structural choice, did I write an ADR in `docs/adr/`?
+
+The DDD-lite refactor was deliberate scope — see [ADR-0001](docs/adr/0001-skip-heavyweight-ddd.md). Don't introduce ports/adapters, repositories, CQRS, or `domain/`/`application/`/`infrastructure/` layers without re-evaluating the trade-off documented there.
