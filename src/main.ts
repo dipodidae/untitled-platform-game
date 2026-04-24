@@ -6,6 +6,8 @@ import { gameState as gameSession } from './session/gameState'
 import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
+import { on } from './session/eventBus'
+import { playDropIn } from './ui/dropIn'
 import { mountMainMenu } from './ui/mainMenu'
 import { mountResultsScreen } from './ui/resultsScreen'
 import './style.css'
@@ -102,15 +104,37 @@ async function main(): Promise<void> {
   const dismissMenu = mountMainMenu({
     onPlay: () => {
       dismissMenu()
-      gameSession.phase = 'gameplay'
-      // Fade the world back in as control hands off.
+      // Hand off to the cinematic drop-in. Physics stay paused (fixedUpdate
+      // gates on phase='dropIn'); the cinematic emits 'dropInComplete' when
+      // the title card + letterbox have finished animating.
+      gameSession.phase = 'dropIn'
       gsap.to(app.stage, { alpha: 1, duration: 0.5, ease: 'power2.out' })
+      playDropIn(app, { levelId: gameSession.currentLevelId || 'level1' })
     },
     onQuit: () => {
       // Browsers can't really "quit" a tab — close what we can, blank out
       // otherwise. Harmless stub for now.
       window.close()
     },
+  })
+
+  // When the drop-in cinematic finishes, control hands off to the player.
+  on('dropInComplete', () => {
+    gameSession.phase = 'gameplay'
+  })
+
+  // Also play the drop-in on every subsequent level load (after Retry /
+  // Next). `levelLoaded` fires from game.ts#loadLevelAtIndex. Skip the
+  // very first firing — that's the one that happens inside createGame
+  // before the menu has even been shown.
+  let suppressFirstLoad = true
+  on('levelLoaded', (e) => {
+    if (suppressFirstLoad) {
+      suppressFirstLoad = false
+      return
+    }
+    gameSession.phase = 'dropIn'
+    playDropIn(app, { levelId: e.levelId })
   })
 
   // Results-screen overlay listens for levelComplete and shows itself.
