@@ -23,48 +23,14 @@ import { emitImpactBurst, emitMuzzleFlash } from '../render/particles'
 import { applyRupture } from '../world/destruction'
 
 // ─── bullet kinds (weapon profiles) ──────────────────────────────────────────
-export interface BulletKind {
-  speed: number // px/s — initial velocity magnitude along aim direction
-  gravity: number // px/s² — downward acceleration on vy
-  lifeSec: number
-  size: number // AABB half-extent for hit tests
-  ruptureRadius: number
-  damage: number
-  coreColor: number // tracer core
-  haloColor: number // tracer halo
-  fireCooldownSec: number
-}
+// Single source of truth lives in ./weapons — import from there so the
+// per-weapon files own their values and bullet.ts doesn't drift out of sync.
+import { BULLET_KINDS } from './weapons'
+import type { BulletKindName } from './weapons'
+import type { BulletKind } from './weapons/types'
 
-export const BULLET_KINDS = {
-  // Slug — sluggish, heavy, visibly arcs. Feels like a pistol-level round.
-  // Drop over full lifetime ≈ 0.5 * 280 * 1² = 140px against ~360px range.
-  slug: {
-    speed: 380,
-    gravity: 180,
-    lifeSec: 1.0,
-    size: 3,
-    ruptureRadius: 12,
-    damage: 1,
-    coreColor: 0xFFD48C,
-    haloColor: 0x8A2A1C,
-    fireCooldownSec: 0.14,
-  },
-  // Big-shot — boss-key weapon granted by the bigShot pickup. 10× damage,
-  // 12-second cooldown, larger bullet and bigger rupture.
-  bigShot: {
-    speed: 340,
-    gravity: 140,
-    lifeSec: 1.2,
-    size: 6,
-    ruptureRadius: 24,
-    damage: 10,
-    coreColor: 0xFFD48C,
-    haloColor: 0xC04020,
-    fireCooldownSec: 12,
-  },
-} as const satisfies Record<string, BulletKind>
-
-export type BulletKindName = keyof typeof BULLET_KINDS
+export type { BulletKind, BulletKindName }
+export { BULLET_KINDS }
 
 // ─── state ───────────────────────────────────────────────────────────────────
 export interface Bullet {
