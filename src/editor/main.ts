@@ -7,6 +7,7 @@ import { createCanvas, frameWorldViewport } from './canvas'
 import { mountMinimap } from './minimap'
 import { mountSidebar } from './sidebar'
 import { createEditorState, fromLevelJson, markDirty } from './state'
+import { mountLeftPanel } from './ui/leftPanel'
 import './style.css'
 
 const BUNDLED: { name: string, data: LevelJson }[] = [
@@ -16,6 +17,7 @@ const BUNDLED: { name: string, data: LevelJson }[] = [
 
 async function main(): Promise<void> {
   const leftPanelHost = document.getElementById('left-panel')!
+  const rightPanelHost = document.getElementById('right-panel')!
   const canvasHost = document.getElementById('canvas-host')!
   const minimapHost = document.getElementById('minimap-host')!
   const bottomBarHost = document.getElementById('bottom-bar')!
@@ -34,7 +36,8 @@ async function main(): Promise<void> {
     frameWorldViewport(canvas)
   })
 
-  mountSidebar(leftPanelHost, state, {
+  mountLeftPanel(leftPanelHost, state)
+  mountSidebar(rightPanelHost, state, {
     onFrame: () => frameWorldViewport(canvas),
   })
 
