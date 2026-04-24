@@ -1,9 +1,10 @@
 import { Application } from 'pixi.js'
 import { CONFIG } from './config'
-import { createGame, startLoop } from './game'
+import { advanceLevel, createGame, reloadLevel, startLoop } from './game'
 import { initInput } from './input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
+import { mountResultsScreen } from './ui/resultsScreen'
 import './style.css'
 
 function showLoadingScreen(mountEl: HTMLElement): HTMLElement {
@@ -70,6 +71,13 @@ async function main(): Promise<void> {
   initInput()
   const state = createGame(app)
   startLoop(state)
+
+  // Results-screen overlay listens for levelComplete and shows itself.
+  // Retry re-enters the current level; Next advances.
+  mountResultsScreen({
+    onRetry: () => reloadLevel(state),
+    onNext: () => advanceLevel(state),
+  })
 
   // Expose game state for the smoke test. Harmless in prod; lets the
   // CI verify player motion without resorting to screenshot heuristics.

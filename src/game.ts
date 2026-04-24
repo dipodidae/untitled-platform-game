@@ -77,10 +77,11 @@ export function createGame(app: Application): GameState {
   return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles }
 }
 
-// Transition to the next level. Wraps back to level 1 after the last.
-function advanceLevel(state: GameState): void {
-  state.levelIndex = (state.levelIndex + 1) % LEVELS.length
-  state.level = fromJson(LEVELS[state.levelIndex]!)
+// Internal: rebuild the scene for the level at `index`. Shared by
+// advanceLevel (increment then load) and reloadLevel (load current).
+function loadLevelAtIndex(state: GameState, index: number): void {
+  state.levelIndex = index
+  state.level = fromJson(LEVELS[index]!)
   state.player = createPlayer(state.level)
   state.camera = createCamera(state.player)
   state.now = 0
@@ -101,9 +102,19 @@ function advanceLevel(state: GameState): void {
   state.renderCtx = buildScene(state.app, state.level, state.particles)
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 
-  const levelId = `level${state.levelIndex + 1}`
+  const levelId = `level${index + 1}`
   resetForLevel(gameSession, levelId)
   emit('levelLoaded', { levelId })
+}
+
+// Transition to the next level. Wraps back to level 1 after the last.
+export function advanceLevel(state: GameState): void {
+  loadLevelAtIndex(state, (state.levelIndex + 1) % LEVELS.length)
+}
+
+// Re-enter the current level from scratch (Results-screen "retry").
+export function reloadLevel(state: GameState): void {
+  loadLevelAtIndex(state, state.levelIndex)
 }
 
 // Check if the player has reached the right boundary of the level.
