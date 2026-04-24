@@ -18,6 +18,10 @@ import type { Collider, Level, MaterialName } from '../world/level'
 import { addTrauma } from '../render/camera'
 import { CONFIG } from '../config'
 import { damageDummy, dummyAabb, overlapsDummy } from '../enemies/dummy'
+import { checkBulletHitSpecials } from '../enemies/specials'
+import type { SpecialsState } from '../enemies/specials'
+import { checkBulletHitClassics } from '../enemies/classics'
+import type { ClassicsState } from '../enemies/classics'
 import { satAabbPoly } from '../physics/sat'
 import { emit } from '../session/eventBus'
 import { emitImpactBurst, emitMuzzleFlash } from '../render/particles'
@@ -112,6 +116,8 @@ export function updateBullets(
   camera: Camera,
   now: number,
   dt: number,
+  specials?: SpecialsState,
+  classics?: ClassicsState,
 ): void {
   if (s.fireCooldown > 0)
     s.fireCooldown = Math.max(0, s.fireCooldown - dt)
@@ -159,6 +165,53 @@ export function updateBullets(
       emit('hitLanded', { x: b.x, y: b.y, damage: kind.damage, target: 'enemy' })
       b.alive = false
       continue
+    }
+
+    // ── 1b. Special-enemy hit routing. ───────────────────────────
+    // Absorbs the bullet on any contact (even non-damaging cases like
+    // Echo "adapting" or Knight armor). Damage numbers are emitted from
+    // inside the callback so each kind can customize damage.
+    if (specials) {
+      const absorbed = checkBulletHitSpecials(
+        specials,
+        b.x,
+        b.y,
+        kind.size,
+        b.kind,
+        now,
+        (x, y, dmg) => {
+          emitImpactBurst(particles, x, y, 'enemy', b.vx, b.vy)
+          addTrauma(camera, IMPACT_TRAUMA.enemy)
+          if (dmg > 0)
+            emit('hitLanded', { x, y, damage: dmg, target: 'enemy' })
+        },
+      )
+      if (absorbed) {
+        b.alive = false
+        continue
+      }
+    }
+
+    // ── 1c. Classic-inspired enemies. ────────────────────────────
+    if (classics) {
+      const absorbed = checkBulletHitClassics(
+        classics,
+        b.x,
+        b.y,
+        kind.size,
+        b.kind,
+        now,
+        (x, y, dmg) => {
+          emitImpactBurst(particles, x, y, 'enemy', b.vx, b.vy)
+          addTrauma(camera, IMPACT_TRAUMA.enemy)
+          if (dmg > 0)
+            emit('hitLanded', { x, y, damage: dmg, target: 'enemy' })
+        },
+      )
+      if (absorbed) {
+        b.alive = false
+        continue
+      }
     }
 
     // ── 2. Terrain SAT via broadphase. ───────────────────────────

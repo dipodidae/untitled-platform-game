@@ -93,4 +93,32 @@ export interface LevelJson {
   dummies?: { x: number, y: number, hp?: number }[]
   pickups?: { x: number, y: number, kind: ItemKind }[]
   zones?: ZoneJson[]
+  // ─── special enemies ───────────────────────────────────────────────
+  // Each array is an optional list of spawn points for the matching kind.
+  // Schema stays flat (x/y) except where a kind carries extra params —
+  // husk crows track an optional link partner, pilgrims list toggles.
+  mirrors?: { x: number, y: number }[]
+  hushes?: { x: number, y: number }[]
+  candlewicks?: { x: number, y: number }[]
+  knights?: { x: number, y: number }[]
+  blooms?: { x: number, y: number }[]
+  echoes?: { x: number, y: number }[]
+  crows?: { x: number, y: number, linkIdx?: number }[]
+  carts?: { x: number, y: number }[]
+  shrines?: { x: number, y: number }[]
+  pilgrims?: { x: number, y: number, toggles?: number[] }[]
+  // ─── classic-inspired enemies ──────────────────────────────────────
+  medusas?: { x: number, y: number }[]
+  beetles?: { x: number, y: number }[]
+  boos?: { x: number, y: number }[]
+  wallmasters?: { x: number, y: number }[]
+  stalkers?: { x: number, y: number }[]
+  wizards?: { x: number, y: number }[]
+  garpedes?: { x0: number, y: number, x1: number, period?: number }[]
+  ironKnuckles?: { x: number, y: number, facing?: 1 | -1 }[]
+  cagneys?: { x: number, y: number }[]
+  dryBones?: { x: number, y: number }[]
+  planteras?: { x: number, y: number }[]
+  hammerBros?: { x: number, y: number, period?: number }[]
+  mantisLords?: { x: number, y: number }[]
 }

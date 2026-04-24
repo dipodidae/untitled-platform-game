@@ -12,6 +12,12 @@ import type { SpineboyBridge } from './spineboy'
 import type { WindState } from './wind'
 import type { Level } from '../world/level'
 import type { Pickup } from '../items'
+import type { SpecialsState } from '../enemies/specials'
+import type { ClassicsState } from '../enemies/classics'
+import { hushIsSilencingPlayer } from '../enemies/specials'
+import { shootingDisabled } from '../enemies/classics'
+import { drawSpecials } from './specialsRenderer'
+import { drawClassics } from './classicsRenderer'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { predictBulletImpact } from '../combat/bullet'
 import { CONFIG } from '../config'
@@ -55,6 +61,8 @@ export interface RenderContext {
   readonly pickupGfx: Graphics
   readonly crosshairGfx: Graphics
   readonly dummyGfx: Graphics
+  readonly specialsGfx: Graphics
+  readonly classicsGfx: Graphics
   readonly prowlerGfxList: Graphics[]
   readonly flashGfx: Graphics
   readonly dreadGfx: Graphics
@@ -148,6 +156,14 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   // AI-less dummy enemies — simple squares + HP pips + hit flash.
   const dummyGfx = new Graphics()
   worldContainer.addChild(dummyGfx)
+
+  // Specials — all 10 special-enemy kinds share one Graphics layer.
+  const specialsGfx = new Graphics()
+  worldContainer.addChild(specialsGfx)
+
+  // Classics — 13 classic-inspired kinds + shared projectile pool.
+  const classicsGfx = new Graphics()
+  worldContainer.addChild(classicsGfx)
 
   // Prowler graphics — one Graphics per prowler spawn in the level.
   const prowlerGfxList: Graphics[] = []
@@ -250,6 +266,8 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     pickupGfx,
     crosshairGfx,
     dummyGfx,
+    specialsGfx,
+    classicsGfx,
     prowlerGfxList,
     flashGfx,
     dreadGfx,
@@ -355,6 +373,8 @@ export function render(
   dummies?: readonly Dummy[],
   broadphase?: BroadphaseGrid,
   pickups?: readonly Pickup[],
+  specials?: SpecialsState,
+  classics?: ClassicsState,
 ): void {
   ctx.time += dt
 
@@ -585,6 +605,16 @@ export function render(
     }
   }
 
+  // ─── specials ────────────────────────────────────────────
+  if (specials)
+    drawSpecials(ctx.specialsGfx, specials, ctx.time)
+  else ctx.specialsGfx.clear()
+
+  // ─── classics ────────────────────────────────────────────
+  if (classics)
+    drawClassics(ctx.classicsGfx, classics, ctx.time)
+  else ctx.classicsGfx.clear()
+
   // ─── bullets ────────────────────────────────────────────
   // Tracer = 9px trail behind head along -velocity with three layers: wide
   // oxblood halo, warm-white core stripe, and a bright head dot so the
@@ -631,7 +661,9 @@ export function render(
   // along the arc + a target marker at the predicted impact. Color-codes by
   // hit type: red for enemy, warm-white for terrain, dim for miss.
   ctx.crosshairGfx.clear()
-  if (broadphase && dummies && ctx.charBridge.muzzleReady && player.alive) {
+  const silenced = specials ? hushIsSilencingPlayer(specials, player) : false
+  const disabled = classics ? shootingDisabled(classics) : false
+  if (broadphase && dummies && ctx.charBridge.muzzleReady && player.alive && !silenced && !disabled) {
     const b = ctx.charBridge
     const pred = predictBulletImpact(
       b.muzzleX,

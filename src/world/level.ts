@@ -66,6 +66,39 @@ export interface Level {
   // Authored zones, consumed by player.ts each tick for goal/checkpoint
   // detection + per-type modifiers. See ZoneType above for semantics.
   readonly zones: readonly ZoneJson[]
+  // Optional special-enemy spawn tables. Hydrated from LevelJson so the
+  // game session can construct a SpecialsState without re-parsing JSON.
+  readonly specialSpawns: SpecialSpawnTables
+  readonly classicSpawns: ClassicSpawnTables
+}
+
+export interface SpecialSpawnTables {
+  readonly mirrors: readonly { x: number, y: number }[]
+  readonly hushes: readonly { x: number, y: number }[]
+  readonly candlewicks: readonly { x: number, y: number }[]
+  readonly knights: readonly { x: number, y: number }[]
+  readonly blooms: readonly { x: number, y: number }[]
+  readonly echoes: readonly { x: number, y: number }[]
+  readonly crows: readonly { x: number, y: number, linkIdx?: number }[]
+  readonly carts: readonly { x: number, y: number }[]
+  readonly shrines: readonly { x: number, y: number }[]
+  readonly pilgrims: readonly { x: number, y: number, toggles?: readonly number[] }[]
+}
+
+export interface ClassicSpawnTables {
+  readonly medusas: readonly { x: number, y: number }[]
+  readonly beetles: readonly { x: number, y: number }[]
+  readonly boos: readonly { x: number, y: number }[]
+  readonly wallmasters: readonly { x: number, y: number }[]
+  readonly stalkers: readonly { x: number, y: number }[]
+  readonly wizards: readonly { x: number, y: number }[]
+  readonly garpedes: readonly { x0: number, y: number, x1: number, period?: number }[]
+  readonly ironKnuckles: readonly { x: number, y: number, facing?: 1 | -1 }[]
+  readonly cagneys: readonly { x: number, y: number }[]
+  readonly dryBones: readonly { x: number, y: number }[]
+  readonly planteras: readonly { x: number, y: number }[]
+  readonly hammerBros: readonly { x: number, y: number, period?: number }[]
+  readonly mantisLords: readonly { x: number, y: number }[]
 }
 
 interface PristineCollider {
@@ -246,6 +279,33 @@ export function fromJson(data: LevelJson): Level {
     dummySpawns: (data.dummies ?? []).map(d => ({ x: d.x, y: d.y, hp: d.hp })),
     pickupSpawns: (data.pickups ?? []).map(p => ({ x: p.x, y: p.y, kind: p.kind })),
     zones: (data.zones ?? []).map(z => ({ ...z })),
+    specialSpawns: {
+      mirrors: (data.mirrors ?? []).map(p => ({ x: p.x, y: p.y })),
+      hushes: (data.hushes ?? []).map(p => ({ x: p.x, y: p.y })),
+      candlewicks: (data.candlewicks ?? []).map(p => ({ x: p.x, y: p.y })),
+      knights: (data.knights ?? []).map(p => ({ x: p.x, y: p.y })),
+      blooms: (data.blooms ?? []).map(p => ({ x: p.x, y: p.y })),
+      echoes: (data.echoes ?? []).map(p => ({ x: p.x, y: p.y })),
+      crows: (data.crows ?? []).map(p => ({ x: p.x, y: p.y, linkIdx: p.linkIdx })),
+      carts: (data.carts ?? []).map(p => ({ x: p.x, y: p.y })),
+      shrines: (data.shrines ?? []).map(p => ({ x: p.x, y: p.y })),
+      pilgrims: (data.pilgrims ?? []).map(p => ({ x: p.x, y: p.y, toggles: p.toggles })),
+    },
+    classicSpawns: {
+      medusas: (data.medusas ?? []).map(p => ({ x: p.x, y: p.y })),
+      beetles: (data.beetles ?? []).map(p => ({ x: p.x, y: p.y })),
+      boos: (data.boos ?? []).map(p => ({ x: p.x, y: p.y })),
+      wallmasters: (data.wallmasters ?? []).map(p => ({ x: p.x, y: p.y })),
+      stalkers: (data.stalkers ?? []).map(p => ({ x: p.x, y: p.y })),
+      wizards: (data.wizards ?? []).map(p => ({ x: p.x, y: p.y })),
+      garpedes: (data.garpedes ?? []).map(p => ({ x0: p.x0, y: p.y, x1: p.x1, period: p.period })),
+      ironKnuckles: (data.ironKnuckles ?? []).map(p => ({ x: p.x, y: p.y, facing: p.facing })),
+      cagneys: (data.cagneys ?? []).map(p => ({ x: p.x, y: p.y })),
+      dryBones: (data.dryBones ?? []).map(p => ({ x: p.x, y: p.y })),
+      planteras: (data.planteras ?? []).map(p => ({ x: p.x, y: p.y })),
+      hammerBros: (data.hammerBros ?? []).map(p => ({ x: p.x, y: p.y, period: p.period })),
+      mantisLords: (data.mantisLords ?? []).map(p => ({ x: p.x, y: p.y })),
+    },
   }
 }
 
@@ -263,6 +323,41 @@ export function fromTilemap(rows: readonly string[]): Level {
     dummySpawns: [],
     pickupSpawns: [],
     zones: [],
+    specialSpawns: emptySpecialSpawns(),
+    classicSpawns: emptyClassicSpawns(),
+  }
+}
+
+function emptySpecialSpawns(): SpecialSpawnTables {
+  return {
+    mirrors: [],
+    hushes: [],
+    candlewicks: [],
+    knights: [],
+    blooms: [],
+    echoes: [],
+    crows: [],
+    carts: [],
+    shrines: [],
+    pilgrims: [],
+  }
+}
+
+function emptyClassicSpawns(): ClassicSpawnTables {
+  return {
+    medusas: [],
+    beetles: [],
+    boos: [],
+    wallmasters: [],
+    stalkers: [],
+    wizards: [],
+    garpedes: [],
+    ironKnuckles: [],
+    cagneys: [],
+    dryBones: [],
+    planteras: [],
+    hammerBros: [],
+    mantisLords: [],
   }
 }
 

@@ -5,3 +5,5 @@
 
 export * from './dummy'
 export * from './prowler'
+export * from './specials'
+export * from './classics'

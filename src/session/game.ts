@@ -15,6 +15,10 @@ import { createBulletState, resetBulletState, spawnBullet, updateBullets } from 
 import { CONFIG } from '../config'
 import { createDummy, updateDummy } from '../enemies/dummy'
 import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from '../enemies/prowler'
+import { createSpecialsFromSpawns, updateSpecials } from '../enemies/specials'
+import type { SpecialsState } from '../enemies/specials'
+import { createClassicsFromSpawns, shootingDisabled, updateClassics } from '../enemies/classics'
+import type { ClassicsState } from '../enemies/classics'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
 import { createPickupsFromSpawns, getItemDef, pickupOverlapsPlayer, tickPickups } from '../items'
 import { BroadphaseGrid } from '../physics'
@@ -60,6 +64,8 @@ export interface GameState {
   readonly particles: ParticleSystem
   pickups: Pickup[]
   readonly damageNumbers: DamageNumbers
+  specials: SpecialsState
+  classics: ClassicsState
 }
 
 export function createGame(app: Application): GameState {
@@ -85,6 +91,8 @@ export function createGame(app: Application): GameState {
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
   const pickups = createPickupsFromSpawns(level.pickupSpawns)
+  const specials = createSpecialsFromSpawns(level.specialSpawns)
+  const classics = createClassicsFromSpawns(level.classicSpawns)
   const damageNumbers = createDamageNumbers()
   renderCtx.worldContainer.addChild(damageNumbers.root)
   // Hit feedback: pop a damage number at the hit site. Subscribed once
@@ -95,7 +103,7 @@ export function createGame(app: Application): GameState {
   })
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
   markLevelLoaded(id)
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, screenOverlay, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, screenOverlay, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers, specials, classics }
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
@@ -115,6 +123,8 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   resetBulletState(state.bullets)
   state.dummies = state.level.dummySpawns.map(s => createDummy(s.x, s.y, s.hp))
   state.pickups = createPickupsFromSpawns(state.level.pickupSpawns)
+  state.specials = createSpecialsFromSpawns(state.level.specialSpawns)
+  state.classics = createClassicsFromSpawns(state.level.classicSpawns)
 
   // Clean up visual state from the previous level.
   state.fx.hitstopTicks = 0
@@ -222,7 +232,7 @@ function fixedUpdate(state: GameState): void {
   // from the Spineboy bridge's last-render snapshot, so bullets launch from
   // the visible gun tip along the visible aim. If the bridge hasn't snapshotted
   // yet (first-frame), fall back to AABB center + facing vector.
-  if (shootPressed() && state.player.alive) {
+  if (shootPressed() && state.player.alive && !shootingDisabled(state.classics)) {
     const b = state.renderCtx.charBridge
     const muzzleX = b.muzzleReady ? b.muzzleX : state.player.x + state.player.w / 2
     const muzzleY = b.muzzleReady ? b.muzzleY : state.player.y + state.player.h / 2
@@ -230,7 +240,7 @@ function fixedUpdate(state: GameState): void {
     const dirY = b.muzzleReady ? b.muzzleDirY : 0
     spawnBullet(state.bullets, state.particles, muzzleX, muzzleY, dirX, dirY, state.player.currentWeapon)
   }
-  updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.particles, state.camera, state.now, CONFIG.FIXED_DT)
+  updateBullets(state.bullets, state.level, state.dummies, state.broadphase, state.particles, state.camera, state.now, CONFIG.FIXED_DT, state.specials, state.classics)
 
   // Stance cycle (KeyC). Hot-swap the upper-body track-1 animation + aim
   // mitigation/bias. Forward → high → low → hip → forward.
@@ -242,6 +252,11 @@ function fixedUpdate(state: GameState): void {
   // Tick dummies (just drains their hit-flash timer — no AI).
   for (const d of state.dummies)
     updateDummy(d, CONFIG.FIXED_DT)
+
+  // Tick all special-enemy kinds — runs after the player update so contact
+  // damage reads current player position.
+  updateSpecials(state.specials, state.player, state.level, state.broadphase, CONFIG.FIXED_DT, state.now)
+  updateClassics(state.classics, state.player, state.level, state.broadphase, CONFIG.FIXED_DT, state.now)
 
   tickParticles(state.particles, CONFIG.FIXED_DT)
 
@@ -323,7 +338,7 @@ export function startLoop(state: GameState): void {
     // Camera smoothing runs once per rendered frame (not per physics tick)
     // so its lerp rate stays tied to display refresh, same as the original.
     updateCamera(state.camera, state.player, state.level)
-    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase, state.pickups)
+    render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase, state.pickups, state.specials, state.classics)
 
     // Update CRT shader uniforms
     const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX
