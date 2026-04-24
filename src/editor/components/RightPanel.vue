@@ -1,28 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import type { MaterialName } from '../../world/level'
 import type { ItemKind } from '../../items/types'
 
 const store = useEditorStore()
+const toast = useToast()
 
 const MATERIALS: MaterialName[] = ['bone', 'bone_fragile', 'glass', 'resonant', 'soft']
 const ITEM_KINDS: ItemKind[] = ['bigShot']
 
-// Toast
-const toastMsg = ref('')
-const toastKind = ref<'ok' | 'err' | ''>('')
-const toastVisible = ref(false)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-
-function showToast(msg: string, kind: 'ok' | 'err' | '' = '') {
-  toastMsg.value = msg
-  toastKind.value = kind
-  toastVisible.value = true
-  if (toastTimer)
-    clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { toastVisible.value = false }, 2400)
-}
+const materialItems = MATERIALS.map(m => ({ label: m, value: m }))
+const itemKindItems = ITEM_KINDS.map(k => ({ label: k, value: k }))
+const kineticTypeItems = [
+  { label: 'none', value: 'none' },
+  { label: 'rotor', value: 'rotor' },
+  { label: 'breather', value: 'breather' },
+  { label: 'spring', value: 'spring' },
+]
 
 // Computed helpers
 const sel = computed(() => store.selection.value)
@@ -158,11 +153,11 @@ async function doOverwrite() {
     else if (store.activePresetName.value) {
       await overwritePreset(store.activePresetName.value)
     }
-    showToast(`Saved ${target}`, 'ok')
+    toast.add({ title: `Saved ${target}`, icon: 'i-mdi-check', color: 'success' })
   }
   catch (e) {
     console.error('overwrite failed', e)
-    showToast(`Overwrite failed: ${String((e as Error).message ?? e)}`, 'err')
+    toast.add({ title: 'Overwrite failed', description: String((e as Error).message ?? e), icon: 'i-mdi-alert', color: 'error' })
   }
 }
 
@@ -195,21 +190,16 @@ function parsePathJson(val: string): [number, number][] | null {
 </script>
 
 <template>
-  <!-- Toast -->
-  <div class="editor-toast" :class="{ visible: toastVisible }" :data-kind="toastKind || undefined" style="position:fixed;top:12px;right:12px;z-index:200;">
-    {{ toastMsg }}
-  </div>
-
   <!-- World Size -->
   <div class="section">
     <h3>World Size</h3>
     <div class="row">
       <label>worldWidth</label>
-      <input v-model.number="store.level.value.worldWidth" type="number">
+      <UInput v-model.number="store.level.value.worldWidth" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </div>
     <div class="row">
       <label>worldHeight</label>
-      <input v-model.number="store.level.value.worldHeight" type="number">
+      <UInput v-model.number="store.level.value.worldHeight" type="number" size="xs" class="flex-[1.4] min-w-0" />
     </div>
   </div>
 
@@ -218,7 +208,7 @@ function parsePathJson(val: string): [number, number][] | null {
     <h3>Grid / Snap</h3>
     <div class="row">
       <label>snap (px)</label>
-      <input v-model.number="store.snapStep.value" type="number" min="0">
+      <UInput v-model.number="store.snapStep.value" type="number" min="0" size="xs" class="flex-[1.4] min-w-0" />
     </div>
     <div class="hint">
       0 = off
@@ -242,41 +232,30 @@ function parsePathJson(val: string): [number, number][] | null {
 
       <div class="row">
         <label>material</label>
-        <select v-model="selectedCollider.material">
-          <option v-for="m in MATERIALS" :key="m" :value="m">
-            {{ m }}
-          </option>
-        </select>
+        <USelect v-model="selectedCollider.material" :items="materialItems" size="xs" class="flex-[1.4] min-w-0" />
       </div>
 
       <div class="row">
         <label>oneWay</label>
-        <input
-          type="checkbox"
-          :checked="!!selectedCollider.oneWay"
-          @change="(e) => {
-            if ((e.target as HTMLInputElement).checked) selectedCollider!.oneWay = true
+        <UCheckbox
+          :model-value="!!selectedCollider.oneWay"
+          size="sm"
+          @update:model-value="(v) => {
+            if (v) selectedCollider!.oneWay = true
             else delete selectedCollider!.oneWay
           }"
-        >
+        />
       </div>
 
       <div class="row">
         <label>kinetic</label>
-        <select :value="getKineticType()" @change="(e) => setKineticType((e.target as HTMLSelectElement).value)">
-          <option value="none">
-            none
-          </option>
-          <option value="rotor">
-            rotor
-          </option>
-          <option value="breather">
-            breather
-          </option>
-          <option value="spring">
-            spring
-          </option>
-        </select>
+        <USelect
+          :model-value="getKineticType()"
+          :items="kineticTypeItems"
+          size="xs"
+          class="flex-[1.4] min-w-0"
+          @update:model-value="setKineticType"
+        />
       </div>
 
       <!-- Kinetic fields -->
@@ -295,83 +274,91 @@ function parsePathJson(val: string): [number, number][] | null {
         </div>
         <div v-else-if="typeof val === 'string'" class="row">
           <label>{{ key }}</label>
-          <input
+          <UInput
             type="text"
-            :value="val"
+            :model-value="val"
+            size="xs"
+            class="flex-[1.4] min-w-0"
             @change="(e) => setKineticField(key, (e.target as HTMLInputElement).value)"
-          >
+          />
         </div>
         <div v-else class="row">
           <label>{{ key }}</label>
-          <input
+          <UInput
             type="number"
-            :value="val as number"
+            :model-value="val as number"
+            size="xs"
+            class="flex-[1.4] min-w-0"
             @change="(e) => {
               const n = Number((e.target as HTMLInputElement).value)
               if (Number.isFinite(n)) setKineticField(key, n)
             }"
-          >
+          />
         </div>
       </template>
 
       <!-- Conveyor -->
       <div class="row">
         <label>conveyor</label>
-        <input
-          type="checkbox"
-          :checked="getConveyor()"
-          @change="(e) => setConveyor((e.target as HTMLInputElement).checked)"
-        >
+        <UCheckbox
+          :model-value="getConveyor()"
+          size="sm"
+          @update:model-value="setConveyor"
+        />
       </div>
       <div v-if="selectedCollider.surfaceMotion && selectedCollider.surfaceMotion.vx !== 0" class="row">
         <label>surface vx</label>
-        <input
+        <UInput
           type="number"
-          :value="selectedCollider.surfaceMotion.vx"
+          :model-value="selectedCollider.surfaceMotion.vx"
+          size="xs"
+          class="flex-[1.4] min-w-0"
           @change="(e) => {
             const n = Number((e.target as HTMLInputElement).value)
             if (Number.isFinite(n)) selectedCollider!.surfaceMotion = { vx: n }
           }"
-        >
+        />
       </div>
 
       <!-- Launch pad -->
       <div class="row">
         <label>launch pad</label>
-        <input
-          type="checkbox"
-          :checked="getLaunchPad()"
-          @change="(e) => setLaunchPad((e.target as HTMLInputElement).checked)"
-        >
+        <UCheckbox
+          :model-value="getLaunchPad()"
+          size="sm"
+          @update:model-value="setLaunchPad"
+        />
       </div>
       <template v-if="selectedCollider.launchPad">
         <div class="row">
           <label>force</label>
-          <input
+          <UInput
             type="number"
-            :value="selectedCollider.launchPad.force"
+            :model-value="selectedCollider.launchPad.force"
+            size="xs"
+            class="flex-[1.4] min-w-0"
             @change="(e) => {
               const n = Number((e.target as HTMLInputElement).value)
               if (Number.isFinite(n) && selectedCollider!.launchPad) selectedCollider!.launchPad.force = n
             }"
-          >
+          />
         </div>
         <div class="row">
           <label>angle (rad)</label>
-          <input
+          <UInput
             type="number"
-            :value="selectedCollider.launchPad.angle ?? 0"
+            :model-value="selectedCollider.launchPad.angle ?? 0"
+            size="xs"
+            class="flex-[1.4] min-w-0"
             @change="(e) => {
               const n = Number((e.target as HTMLInputElement).value)
               if (Number.isFinite(n) && selectedCollider!.launchPad) selectedCollider!.launchPad.angle = n
             }"
-          >
+          />
         </div>
       </template>
 
-      <button class="danger" @click="deleteSelection">
-        Delete
-      </button>
+      <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="deleteSelection" />
     </template>
 
     <!-- Zone -->
@@ -381,70 +368,68 @@ function parsePathJson(val: string): [number, number][] | null {
       </div>
       <div class="row">
         <label>x</label>
-        <input v-model.number="selectedZone.x" type="number">
+        <UInput v-model.number="selectedZone.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>y</label>
-        <input v-model.number="selectedZone.y" type="number">
+        <UInput v-model.number="selectedZone.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>w</label>
-        <input v-model.number="selectedZone.w" type="number">
+        <UInput v-model.number="selectedZone.w" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>h</label>
-        <input v-model.number="selectedZone.h" type="number">
+        <UInput v-model.number="selectedZone.h" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <template v-if="selectedZone.type === 'gravity'">
         <div class="row">
           <label>gravityScale</label>
-          <input v-model.number="selectedZone.gravityScale" type="number" step="0.1">
+          <UInput v-model.number="selectedZone.gravityScale" type="number" step="0.1" size="xs" class="flex-[1.4] min-w-0" />
         </div>
         <div class="row">
           <label>airControlScale</label>
-          <input v-model.number="selectedZone.airControlScale" type="number" step="0.1">
+          <UInput v-model.number="selectedZone.airControlScale" type="number" step="0.1" size="xs" class="flex-[1.4] min-w-0" />
         </div>
       </template>
       <template v-else-if="selectedZone.type === 'wind'">
         <div class="row">
           <label>windVx</label>
-          <input v-model.number="selectedZone.windVx" type="number">
+          <UInput v-model.number="selectedZone.windVx" type="number" size="xs" class="flex-[1.4] min-w-0" />
         </div>
         <div class="row">
           <label>windVy</label>
-          <input v-model.number="selectedZone.windVy" type="number">
+          <UInput v-model.number="selectedZone.windVy" type="number" size="xs" class="flex-[1.4] min-w-0" />
         </div>
         <div class="row">
           <label>turbulence</label>
-          <input v-model.number="selectedZone.windTurbulence" type="number" step="0.01">
+          <UInput v-model.number="selectedZone.windTurbulence" type="number" step="0.01" size="xs" class="flex-[1.4] min-w-0" />
         </div>
       </template>
       <template v-else-if="selectedZone.type === 'hazard'">
         <div class="row">
           <label>hazardDamage</label>
-          <input v-model.number="selectedZone.hazardDamage" type="number">
+          <UInput v-model.number="selectedZone.hazardDamage" type="number" size="xs" class="flex-[1.4] min-w-0" />
         </div>
       </template>
       <template v-else-if="selectedZone.type === 'trigger'">
         <div class="row">
           <label>triggerId</label>
-          <input v-model="selectedZone.triggerId" type="text">
+          <UInput v-model="selectedZone.triggerId" type="text" size="xs" class="flex-[1.4] min-w-0" />
         </div>
       </template>
-      <button class="danger" @click="deleteSelection">
-        Delete
-      </button>
+      <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="deleteSelection" />
     </template>
 
     <!-- Spawn -->
     <template v-else-if="sel.kind === 'spawn'">
       <div class="row">
         <label>spawn x</label>
-        <input v-model.number="store.level.value.spawn.x" type="number">
+        <UInput v-model.number="store.level.value.spawn.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>spawn y</label>
-        <input v-model.number="store.level.value.spawn.y" type="number">
+        <UInput v-model.number="store.level.value.spawn.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
     </template>
 
@@ -452,32 +437,32 @@ function parsePathJson(val: string): [number, number][] | null {
     <template v-else-if="sel.kind === 'prowler' && selectedProwler">
       <div class="row">
         <label>x</label>
-        <input v-model.number="selectedProwler.x" type="number">
+        <UInput v-model.number="selectedProwler.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>y</label>
-        <input v-model.number="selectedProwler.y" type="number">
+        <UInput v-model.number="selectedProwler.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
-      <button class="danger" @click="deleteSelection">
-        Delete
-      </button>
+      <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="deleteSelection" />
     </template>
 
     <!-- Dummy -->
     <template v-else-if="sel.kind === 'dummy' && selectedDummy">
       <div class="row">
         <label>x</label>
-        <input v-model.number="selectedDummy.x" type="number">
+        <UInput v-model.number="selectedDummy.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>y</label>
-        <input v-model.number="selectedDummy.y" type="number">
+        <UInput v-model.number="selectedDummy.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>hp</label>
-        <input
+        <UInput
           type="number"
-          :value="selectedDummy.hp ?? 1"
+          :model-value="selectedDummy.hp ?? 1"
+          size="xs"
+          class="flex-[1.4] min-w-0"
           @change="(e) => {
             const n = Number((e.target as HTMLInputElement).value)
             if (Number.isFinite(n) && selectedDummy) {
@@ -485,34 +470,26 @@ function parsePathJson(val: string): [number, number][] | null {
               else selectedDummy.hp = n
             }
           }"
-        >
+        />
       </div>
-      <button class="danger" @click="deleteSelection">
-        Delete
-      </button>
+      <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="deleteSelection" />
     </template>
 
     <!-- Pickup -->
     <template v-else-if="sel.kind === 'pickup' && selectedPickup">
       <div class="row">
         <label>x</label>
-        <input v-model.number="selectedPickup.x" type="number">
+        <UInput v-model.number="selectedPickup.x" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>y</label>
-        <input v-model.number="selectedPickup.y" type="number">
+        <UInput v-model.number="selectedPickup.y" type="number" size="xs" class="flex-[1.4] min-w-0" />
       </div>
       <div class="row">
         <label>kind</label>
-        <select v-model="selectedPickup.kind">
-          <option v-for="k in ITEM_KINDS" :key="k" :value="k">
-            {{ k }}
-          </option>
-        </select>
+        <USelect v-model="selectedPickup.kind" :items="itemKindItems" size="xs" class="flex-[1.4] min-w-0" />
       </div>
-      <button class="danger" @click="deleteSelection">
-        Delete
-      </button>
+      <UButton color="error" variant="soft" icon="i-mdi-delete-outline" label="Delete" size="xs" @click="deleteSelection" />
     </template>
 
     <!-- Fallback -->
@@ -525,33 +502,41 @@ function parsePathJson(val: string): [number, number][] | null {
   <div class="section">
     <h3>Save / Load</h3>
     <div class="button-row">
-      <button
-        class="primary"
+      <UButton
+        color="primary"
+        variant="solid"
+        icon="i-mdi-content-save-outline"
+        :label="overwriteLabel() ? `Overwrite (${overwriteLabel()})` : 'Overwrite'"
         :disabled="!overwriteLabel()"
         :title="overwriteLabel() ? `Overwrite ${overwriteLabel()}` : 'Load a bundled preset or open a file first.'"
+        size="xs"
+        class="flex-1"
         @click="doOverwrite"
-      >
-        <iconify-icon icon="mdi:content-save-outline" />
-        <span>{{ overwriteLabel() ? `Overwrite (${overwriteLabel()})` : 'Overwrite' }}</span>
-      </button>
+      />
     </div>
     <div class="button-row">
-      <button
+      <UButton
+        color="neutral"
+        variant="ghost"
+        icon="i-mdi-undo"
+        :label="`Undo (${store.undoStack.value.length})`"
         :disabled="store.undoStack.value.length === 0"
         title="Ctrl+Z"
+        size="xs"
+        class="flex-1"
         @click="store.undo()"
-      >
-        <iconify-icon icon="mdi:undo" />
-        <span>Undo ({{ store.undoStack.value.length }})</span>
-      </button>
-      <button
+      />
+      <UButton
+        color="neutral"
+        variant="ghost"
+        icon="i-mdi-redo"
+        :label="`Redo (${store.redoStack.value.length})`"
         :disabled="store.redoStack.value.length === 0"
         title="Ctrl+Shift+Z / Ctrl+Y"
+        size="xs"
+        class="flex-1"
         @click="store.redo()"
-      >
-        <iconify-icon icon="mdi:redo" />
-        <span>Redo ({{ store.redoStack.value.length }})</span>
-      </button>
+      />
     </div>
   </div>
 

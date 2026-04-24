@@ -1,39 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { BRUSH_CATEGORY_LABEL, BRUSHES } from '../brushes'
 import type { Tool } from '../brushes'
 import type { MaterialName } from '../../world/level'
 
 const store = useEditorStore()
-
-// Toast state (local — panels are isolated)
-const toastMsg = ref('')
-const toastKind = ref<'err' | ''>('')
-const toastVisible = ref(false)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-
-function showToast(msg: string, kind: 'err' | '' = '') {
-  toastMsg.value = msg
-  toastKind.value = kind
-  toastVisible.value = true
-  if (toastTimer)
-    clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { toastVisible.value = false }, 2400)
-}
+const toast = useToast()
 
 const TOOLS: { id: Tool, label: string, hint: string, icon: string }[] = [
-  { id: 'select', label: 'Select', hint: 'V', icon: 'mdi:cursor-default' },
-  { id: 'polygon', label: 'Polygon', hint: 'P', icon: 'mdi:vector-polygon' },
-  { id: 'rect', label: 'Rect', hint: 'R', icon: 'mdi:rectangle-outline' },
-  { id: 'zone', label: 'Zone', hint: '', icon: 'mdi:shape-rectangle-plus' },
-  { id: 'spawn', label: 'Spawn', hint: '', icon: 'mdi:flag' },
-  { id: 'prowler', label: 'Prowler', hint: '', icon: 'mdi:spider' },
-  { id: 'dummy', label: 'Dummy', hint: '', icon: 'mdi:target' },
-  { id: 'pickup', label: 'Pickup', hint: '', icon: 'mdi:diamond-stone' },
+  { id: 'select', label: 'Select', hint: 'V', icon: 'i-mdi-cursor-default' },
+  { id: 'polygon', label: 'Polygon', hint: 'P', icon: 'i-mdi-vector-polygon' },
+  { id: 'rect', label: 'Rect', hint: 'R', icon: 'i-mdi-rectangle-outline' },
+  { id: 'zone', label: 'Zone', hint: '', icon: 'i-mdi-shape-rectangle-plus' },
+  { id: 'spawn', label: 'Spawn', hint: '', icon: 'i-mdi-flag' },
+  { id: 'prowler', label: 'Prowler', hint: '', icon: 'i-mdi-spider' },
+  { id: 'dummy', label: 'Dummy', hint: '', icon: 'i-mdi-target' },
+  { id: 'pickup', label: 'Pickup', hint: '', icon: 'i-mdi-diamond-stone' },
 ]
 
 const MATERIALS: MaterialName[] = ['bone', 'bone_fragile', 'glass', 'resonant', 'soft']
+const materialItems = MATERIALS.map(m => ({ label: m, value: m }))
 
 // Group brushes by category
 const brushesByCategory = (() => {
@@ -53,7 +39,7 @@ function setTool(t: Tool) {
 
 function applyBrush(brush: typeof BRUSHES[number]) {
   if (!brush.live)
-    showToast(`${brush.label}: no runtime effect yet`, 'err')
+    toast.add({ title: `${brush.label}: no runtime effect yet`, icon: 'i-mdi-alert', color: 'warning' })
 
   // Build a slim BrushTarget adapter — only the four fields brushes ever touch.
   const adapter = {
@@ -72,25 +58,22 @@ function applyBrush(brush: typeof BRUSHES[number]) {
 </script>
 
 <template>
-  <!-- Toast -->
-  <div class="editor-toast" :class="{ visible: toastVisible }" :data-kind="toastKind || undefined" style="position:fixed;top:12px;right:12px;z-index:200;">
-    {{ toastMsg }}
-  </div>
-
   <!-- Tools section -->
   <div class="section">
     <h3>Tools</h3>
     <div class="button-row">
-      <button
+      <UButton
         v-for="t in TOOLS"
         :key="t.id"
-        :class="{ active: store.tool.value === t.id }"
+        :color="store.tool.value === t.id ? 'primary' : 'neutral'"
+        :variant="store.tool.value === t.id ? 'solid' : 'ghost'"
+        :icon="t.icon"
+        :label="t.hint ? `${t.label} (${t.hint})` : t.label"
         :title="t.hint ? `${t.label} — shortcut ${t.hint}` : t.label"
+        size="xs"
+        class="flex-1 min-w-[72px]"
         @click="setTool(t.id)"
-      >
-        <iconify-icon :icon="t.icon" />
-        <span>{{ t.hint ? `${t.label} (${t.hint})` : t.label }}</span>
-      </button>
+      />
     </div>
   </div>
 
@@ -98,7 +81,7 @@ function applyBrush(brush: typeof BRUSHES[number]) {
   <div class="section">
     <h3>Brushes</h3>
     <template v-for="[cat, list] in brushesByCategory" :key="cat">
-      <div class="mono" style="margin-top:4px;">
+      <div class="mono mt-1">
         {{ BRUSH_CATEGORY_LABEL[cat as keyof typeof BRUSH_CATEGORY_LABEL] }}
       </div>
       <div class="button-row">
@@ -110,7 +93,8 @@ function applyBrush(brush: typeof BRUSHES[number]) {
           :title="b.summary + (b.live ? '' : ' (editor-only, runtime TODO)')"
           @click="applyBrush(b)"
         >
-          <iconify-icon :icon="b.icon" />
+          <!-- Convert 'mdi:icon-name' → 'i-mdi-icon-name' for UIcon -->
+          <UIcon :name="b.icon.replace(':', '-').replace(/^/, 'i-')" class="text-[var(--bronze-accent)] text-sm flex-shrink-0" />
           <span>{{ b.label }}{{ b.live ? '' : ' *' }}</span>
         </button>
       </div>
@@ -125,11 +109,12 @@ function applyBrush(brush: typeof BRUSHES[number]) {
     <h3>New Shape Material</h3>
     <div class="row">
       <label>material</label>
-      <select v-model="store.createMaterial.value">
-        <option v-for="m in MATERIALS" :key="m" :value="m">
-          {{ m }}
-        </option>
-      </select>
+      <USelect
+        v-model="store.createMaterial.value"
+        :items="materialItems"
+        size="xs"
+        class="flex-[1.4] min-w-0"
+      />
     </div>
   </div>
 </template>
