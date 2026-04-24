@@ -1,15 +1,15 @@
-// Main menu — full-screen HTML overlay shown above the Pixi canvas while
-// gameSession.phase === 'menu'. Emits 'menuPlayPressed' on the EventBus
-// when the player commits to Play (either via the button or Enter/Space).
+// Main menu — rendered inside the Pixi stage so the same CRT filter that
+// distorts gameplay also distorts the menu. No HTML/CSS overlay.
 //
-// Animation uses GSAP (already a dep). Staggered reveal:
-//   1. Overlay fades in (200ms)
-//   2. Logo title lands (400ms, bounce-ease)
-//   3. Subtitle fades (250ms, delayed 200)
-//   4. "Press any key" pulse (loops until first keypress)
-//   5. On keypress → menu items stagger in, press-any-key fades out
+// Crude on purpose: hard rectangles, monospace, ASCII bracket markers
+// (`> PLAY <`) for selection. Bone-and-oxblood. Two beats:
+//   1. Logo + subtitle land. "PRESS ANY KEY" blinks.
+//   2. First key/click → items snap in, "PRESS ANY KEY" disappears.
 
+import type { Container as PixiContainer } from 'pixi.js'
 import { gsap } from 'gsap'
+import { Container, Graphics, Text } from 'pixi.js'
+import { CONFIG } from '../config'
 import { emit } from '../session/eventBus'
 
 export interface MainMenuHandlers {
@@ -19,129 +19,335 @@ export interface MainMenuHandlers {
   onContinue?: () => void
 }
 
-export function mountMainMenu(handlers: MainMenuHandlers): () => void {
-  const overlay = document.createElement('div')
-  overlay.className = 'menu-overlay'
-  overlay.innerHTML = `
-    <div class="menu-bg">
-      <div class="menu-bg-layer menu-bg-far"></div>
-      <div class="menu-bg-layer menu-bg-mid"></div>
-      <div class="menu-bg-layer menu-bg-near"></div>
-      <div class="menu-bg-vignette"></div>
-    </div>
-    <div class="menu-panel">
-      <h1 class="menu-logo" data-slot="logo"><span>FAULTLINE</span></h1>
-      <p class="menu-subtitle" data-slot="subtitle">the world does not forgive</p>
-      <div class="menu-presskey" data-slot="presskey">press any key</div>
-      <nav class="menu-items" data-slot="items" aria-hidden="true">
-        <button class="menu-item" data-action="play">Play</button>
-        <button class="menu-item" data-action="continue" disabled>Continue</button>
-        <button class="menu-item" data-action="settings" disabled>Settings</button>
-        <button class="menu-item" data-action="quit">Quit</button>
-      </nav>
-    </div>
-  `
-  document.body.appendChild(overlay)
+interface MenuItem {
+  container: Container
+  label: Text
+  bracketL: Text
+  bracketR: Text
+  action: 'play' | 'continue' | 'settings' | 'quit'
+  disabled: boolean
+}
 
-  const logoEl = overlay.querySelector<HTMLElement>('[data-slot="logo"]')!
-  const subtitleEl = overlay.querySelector<HTMLElement>('[data-slot="subtitle"]')!
-  const presskeyEl = overlay.querySelector<HTMLElement>('[data-slot="presskey"]')!
-  const itemsEl = overlay.querySelector<HTMLElement>('[data-slot="items"]')!
-  const itemNodes = Array.from(itemsEl.querySelectorAll<HTMLButtonElement>('.menu-item'))
+const COLOR_BONE = 0xE0D8C8 // primary text
+const COLOR_BONE_DIM = 0x8A8478 // unfocused / subtitle
+const COLOR_OXBLOOD = 0xCC2020 // focus accent + logo shadow
+const COLOR_DISABLED = 0x40404A
+const COLOR_BACKING = 0x05060A
 
-  let itemsRevealed = false
+const W = CONFIG.LOGICAL_WIDTH
+const H = CONFIG.LOGICAL_HEIGHT
 
-  // ─── intro sequence ───────────────────────────────────────────────────
-  gsap.set(overlay, { opacity: 0 })
-  gsap.set(logoEl, { opacity: 0, y: -12, letterSpacing: '1em' })
-  gsap.set(subtitleEl, { opacity: 0 })
-  gsap.set(presskeyEl, { opacity: 0 })
-  gsap.set(itemNodes, { opacity: 0, y: 10 })
+export function mountMainMenu(parent: PixiContainer, handlers: MainMenuHandlers): () => void {
+  const root = new Container()
+  parent.addChild(root)
 
-  const tl = gsap.timeline()
-  tl.to(overlay, { opacity: 1, duration: 0.2, ease: 'power1.out' })
-    .to(logoEl, { opacity: 1, y: 0, letterSpacing: '0.25em', duration: 0.8, ease: 'power2.out' }, '-=0.05')
-    .to(subtitleEl, { opacity: 1, duration: 0.35 }, '-=0.3')
-    .to(presskeyEl, { opacity: 0.85, duration: 0.3 }, '-=0.1')
-    .to(presskeyEl, {
-      opacity: 0.35,
-      duration: 0.9,
-      ease: 'sine.inOut',
-      yoyo: true,
-      repeat: -1,
-    })
+  // ─── dark backing rect + horizontal scan-bands ────────────────────
+  const backing = new Graphics()
+  backing.rect(0, 0, W, H).fill({ color: COLOR_BACKING, alpha: 0.82 })
+  // Random horizontal "static" bands — purely decorative, redrawn once.
+  for (let i = 0; i < 8; i++) {
+    const y = Math.floor(Math.random() * H)
+    const a = 0.04 + Math.random() * 0.06
+    backing.rect(0, y, W, 1).fill({ color: 0xFFFFFF, alpha: a })
+  }
+  root.addChild(backing)
 
-  function revealItems(): void {
-    if (itemsRevealed) return
-    itemsRevealed = true
-    itemsEl.setAttribute('aria-hidden', 'false')
-    gsap.to(presskeyEl, {
-      opacity: 0,
-      duration: 0.25,
-      overwrite: true,
-      onComplete: () => { presskeyEl.style.display = 'none' },
-    })
-    gsap.to(itemNodes, {
-      opacity: 1,
-      y: 0,
-      duration: 0.28,
-      stagger: 0.07,
-      ease: 'power2.out',
-      onComplete: () => {
-        // Focus the Play button once items land, so keyboard nav works
-        // immediately (Enter commits, arrow keys change focus natively).
-        itemNodes[0]?.focus()
+  // ─── logo: "FAULTLINE" with oxblood ghost behind ──────────────────
+  const logoStyle = {
+    fontFamily: 'monospace',
+    fontSize: 38,
+    fontWeight: '700' as const,
+    fill: COLOR_BONE,
+    letterSpacing: 8,
+  }
+  const logoShadow = new Text({
+    text: 'FAULTLINE',
+    style: { ...logoStyle, fill: COLOR_OXBLOOD },
+    resolution: 1,
+  })
+  logoShadow.anchor.set(0.5)
+  logoShadow.x = W / 2 + 2
+  logoShadow.y = 92 + 2
+  logoShadow.alpha = 0.55
+  root.addChild(logoShadow)
+
+  const logo = new Text({
+    text: 'FAULTLINE',
+    style: logoStyle,
+    resolution: 1,
+  })
+  logo.anchor.set(0.5)
+  logo.x = W / 2
+  logo.y = 92
+  root.addChild(logo)
+
+  // Hard underline bar — a single oxblood pixel-row beneath the logo.
+  const logoBar = new Graphics()
+  logoBar.rect(W / 2 - 110, 116, 220, 1).fill({ color: COLOR_OXBLOOD, alpha: 0.7 })
+  root.addChild(logoBar)
+
+  // ─── subtitle ─────────────────────────────────────────────────────
+  const subtitle = new Text({
+    text: 'the world does not forgive',
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 9,
+      fill: COLOR_BONE_DIM,
+      letterSpacing: 4,
+    },
+    resolution: 1,
+  })
+  subtitle.anchor.set(0.5)
+  subtitle.x = W / 2
+  subtitle.y = 132
+  root.addChild(subtitle)
+
+  // ─── press-any-key beat ───────────────────────────────────────────
+  const pressKey = new Text({
+    text: 'PRESS ANY KEY',
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 9,
+      fill: COLOR_OXBLOOD,
+      letterSpacing: 5,
+      fontWeight: '700' as const,
+    },
+    resolution: 1,
+  })
+  pressKey.anchor.set(0.5)
+  pressKey.x = W / 2
+  pressKey.y = 220
+  root.addChild(pressKey)
+
+  // ─── item list — hidden until first input ─────────────────────────
+  const itemsContainer = new Container()
+  itemsContainer.x = W / 2
+  itemsContainer.y = 200
+  itemsContainer.visible = false
+  root.addChild(itemsContainer)
+
+  const itemDefs: { label: string, action: MenuItem['action'], disabled?: boolean }[] = [
+    { label: 'PLAY', action: 'play' },
+    { label: 'CONTINUE', action: 'continue', disabled: true },
+    { label: 'SETTINGS', action: 'settings', disabled: true },
+    { label: 'QUIT', action: 'quit' },
+  ]
+
+  const items: MenuItem[] = itemDefs.map((def, i) => {
+    const c = new Container()
+    c.y = i * 18
+    const fill = def.disabled ? COLOR_DISABLED : COLOR_BONE_DIM
+    const label = new Text({
+      text: def.label,
+      style: {
+        fontFamily: 'monospace',
+        fontSize: 13,
+        fill,
+        letterSpacing: 5,
+        fontWeight: '700' as const,
       },
+      resolution: 1,
+    })
+    label.anchor.set(0.5)
+    c.addChild(label)
+
+    const bracketL = new Text({
+      text: '>',
+      style: {
+        fontFamily: 'monospace',
+        fontSize: 13,
+        fill: COLOR_OXBLOOD,
+        letterSpacing: 0,
+        fontWeight: '700' as const,
+      },
+      resolution: 1,
+    })
+    bracketL.anchor.set(1, 0.5)
+    bracketL.visible = false
+    c.addChild(bracketL)
+
+    const bracketR = new Text({
+      text: '<',
+      style: {
+        fontFamily: 'monospace',
+        fontSize: 13,
+        fill: COLOR_OXBLOOD,
+        letterSpacing: 0,
+        fontWeight: '700' as const,
+      },
+      resolution: 1,
+    })
+    bracketR.anchor.set(0, 0.5)
+    bracketR.visible = false
+    c.addChild(bracketR)
+
+    if (!def.disabled) {
+      c.eventMode = 'static'
+      c.cursor = 'pointer'
+    }
+
+    itemsContainer.addChild(c)
+    return { container: c, label, bracketL, bracketR, action: def.action, disabled: def.disabled ?? false }
+  })
+
+  // First non-disabled item starts focused.
+  let focusedIdx = items.findIndex(it => !it.disabled)
+  function applyFocus(): void {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]!
+      const focused = i === focusedIdx
+      it.bracketL.visible = focused
+      it.bracketR.visible = focused
+      if (it.disabled) {
+        it.label.style.fill = COLOR_DISABLED
+      }
+      else if (focused) {
+        it.label.style.fill = COLOR_BONE
+        // Bracket positions track the label's measured width.
+        const halfW = it.label.width / 2
+        it.bracketL.x = -halfW - 6
+        it.bracketR.x = halfW + 6
+      }
+      else {
+        it.label.style.fill = COLOR_BONE_DIM
+      }
+    }
+  }
+
+  function moveFocus(delta: number): void {
+    if (items.length === 0)
+      return
+    let idx = focusedIdx
+    for (let i = 0; i < items.length; i++) {
+      idx = (idx + delta + items.length) % items.length
+      const it = items[idx]!
+      if (!it.disabled) {
+        focusedIdx = idx
+        break
+      }
+    }
+    applyFocus()
+  }
+
+  // ─── intro animation: hard reveal, no smooth fades ────────────────
+  // Snap reveals: backing is on instantly, logo lands with a 1-frame
+  // black-frame pulse, subtitle types in by stepping the visible chars.
+  root.alpha = 0
+  gsap.to(root, { alpha: 1, duration: 0.18, ease: 'steps(3)' })
+
+  // Subtitle "type-on" — increment a proxy and slice the text.
+  const fullSubtitle = subtitle.text
+  subtitle.text = ''
+  const typeProxy = { i: 0 }
+  gsap.to(typeProxy, {
+    i: fullSubtitle.length,
+    duration: 0.6,
+    delay: 0.25,
+    ease: `steps(${fullSubtitle.length})`,
+    onUpdate: () => {
+      subtitle.text = fullSubtitle.slice(0, Math.floor(typeProxy.i))
+    },
+    onComplete: () => { subtitle.text = fullSubtitle },
+  })
+
+  // Press-any-key hard blink.
+  let blinkOn = true
+  const blinkTween = gsap.to({}, {
+    duration: 0.55,
+    repeat: -1,
+    onRepeat: () => {
+      blinkOn = !blinkOn
+      pressKey.alpha = blinkOn ? 1 : 0
+    },
+  })
+
+  // ─── reveal items ─────────────────────────────────────────────────
+  let itemsRevealed = false
+  function revealItems(): void {
+    if (itemsRevealed)
+      return
+    itemsRevealed = true
+    pressKey.visible = false
+    blinkTween.kill()
+    itemsContainer.visible = true
+    // Snap items in one at a time, hard step.
+    itemsContainer.alpha = 0
+    gsap.to(itemsContainer, { alpha: 1, duration: 0.18, ease: 'steps(2)' })
+    applyFocus()
+  }
+
+  // ─── input ────────────────────────────────────────────────────────
+  function activateFocused(): void {
+    const it = items[focusedIdx]
+    if (!it || it.disabled)
+      return
+    if (it.action === 'play')
+      handlers.onPlay()
+    else if (it.action === 'continue')
+      handlers.onContinue?.()
+    else if (it.action === 'settings')
+      handlers.onSettings?.()
+    else if (it.action === 'quit')
+      handlers.onQuit()
+  }
+
+  function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta')
+      return
+    if (!itemsRevealed) {
+      revealItems()
+      return
+    }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      moveFocus(1)
+      e.preventDefault()
+    }
+    else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      moveFocus(-1)
+      e.preventDefault()
+    }
+    else if (e.key === 'Enter' || e.key === ' ') {
+      activateFocused()
+      e.preventDefault()
+    }
+  }
+  window.addEventListener('keydown', onKey)
+
+  // Pointer interactions on each item — hover sets focus; click activates.
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]!
+    if (it.disabled)
+      continue
+    it.container.on('pointerover', () => {
+      focusedIdx = i
+      applyFocus()
+    })
+    it.container.on('pointerdown', () => {
+      revealItems()
+      focusedIdx = i
+      applyFocus()
+      activateFocused()
     })
   }
 
-  // Any key reveals the menu items — but ignore pure modifier presses so
-  // holding Shift alone doesn't blow past the press-any-key beat.
-  function onAnyKey(e: KeyboardEvent): void {
-    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return
-    revealItems()
-  }
-  window.addEventListener('keydown', onAnyKey, { once: false })
-  overlay.addEventListener('pointerdown', revealItems, { once: true })
-
-  // ─── item actions ─────────────────────────────────────────────────────
-  for (const btn of itemNodes) {
-    btn.addEventListener('click', () => {
-      if (btn.disabled) return
-      const action = btn.dataset.action
-      if (action === 'play') handlers.onPlay()
-      else if (action === 'continue') handlers.onContinue?.()
-      else if (action === 'settings') handlers.onSettings?.()
-      else if (action === 'quit') handlers.onQuit()
-    })
-  }
-
-  // Enter while items visible = activate focused button (native handles most
-  // of this; the explicit path makes keyboard-only flow crisp).
-  function onCommit(e: KeyboardEvent): void {
-    if (!itemsRevealed) return
-    if (e.key !== 'Enter' && e.key !== ' ') return
-    const focused = document.activeElement
-    if (focused instanceof HTMLButtonElement && focused.classList.contains('menu-item'))
-      return // let the click fire natively
-    // If nothing focused (e.g. pointer user), default to Play.
-    e.preventDefault()
-    handlers.onPlay()
-  }
-  window.addEventListener('keydown', onCommit)
+  // First click anywhere reveals items even if they missed an item.
+  backing.eventMode = 'static'
+  backing.on('pointerdown', revealItems)
 
   emit('menuShown', null)
 
-  // ─── teardown ─────────────────────────────────────────────────────────
+  // ─── teardown ────────────────────────────────────────────────────
   function dismiss(): void {
-    window.removeEventListener('keydown', onAnyKey)
-    window.removeEventListener('keydown', onCommit)
-    gsap.killTweensOf([overlay, logoEl, subtitleEl, presskeyEl, itemNodes])
-    gsap.to(overlay, {
-      opacity: 0,
-      duration: 0.25,
-      ease: 'power1.in',
-      onComplete: () => overlay.remove(),
+    window.removeEventListener('keydown', onKey)
+    gsap.killTweensOf(root)
+    blinkTween.kill()
+    gsap.to(root, {
+      alpha: 0,
+      duration: 0.18,
+      ease: 'steps(2)',
+      onComplete: () => {
+        root.destroy({ children: true })
+      },
     })
   }
 

@@ -1,12 +1,12 @@
-import { Application } from 'pixi.js'
 import { gsap } from 'gsap'
+import { Application } from 'pixi.js'
 import { CONFIG } from './config'
-import { advanceLevel, createGame, reloadLevel, startLoop } from './session/game'
-import { gameState as gameSession } from './session/gameState'
 import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'
 import { on } from './session/eventBus'
+import { advanceLevel, createGame, reloadLevel, startLoop } from './session/game'
+import { gameState as gameSession } from './session/gameState'
 import { mountDamageVignette } from './ui/damageVignette'
 import { playDropIn } from './ui/dropIn'
 import { mountMainMenu } from './ui/mainMenu'
@@ -140,7 +140,8 @@ async function main(): Promise<void> {
     )
   })
   on('hitLanded', (e) => {
-    if (e.target !== 'player') return
+    if (e.target !== 'player')
+      return
     gsap.killTweensOf(state.crtFilter)
     gsap.fromTo(
       state.crtFilter,

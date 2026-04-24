@@ -1,38 +1,38 @@
 import type { Application } from 'pixi.js'
 import type { BulletState } from '../combat/bullet'
-import type { Camera } from '../render/camera'
 import type { Dummy } from '../enemies/dummy'
-import type { FxState } from '../render/fx'
-import type { Player } from '../player/player'
 import type { Prowler } from '../enemies/prowler'
-import type { RenderContext } from '../render'
-import type { Level } from '../world/level'
 import type { Pickup } from '../items'
+import type { Player } from '../player/player'
+import type { RenderContext } from '../render'
+import type { Camera } from '../render/camera'
+import type { DamageNumbers } from '../render/damageNumbers'
+import type { FxState } from '../render/fx'
+import type { ParticleSystem } from '../render/particles'
+import type { Level } from '../world/level'
+import { Container } from 'pixi.js'
 import { createBulletState, resetBulletState, spawnBullet, updateBullets } from '../combat/bullet'
-import { addTrauma, createCamera, updateCamera } from '../render/camera'
 import { CONFIG } from '../config'
 import { createDummy, updateDummy } from '../enemies/dummy'
-import { emit } from './eventBus'
-import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
-import { gameState as gameSession } from './gameState'
-import { createParticleSystem, emitDisintegration, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
-import type { ParticleSystem } from '../render/particles'
-import type { DamageNumbers } from '../render/damageNumbers'
-import { createDamageNumbers, resetDamageNumbers, spawnDamageNumber, tickDamageNumbers } from '../render/damageNumbers'
-import { on } from './eventBus'
+import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from '../enemies/prowler'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
-import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
+import { createPickupsFromSpawns, getItemDef, pickupOverlapsPlayer, tickPickups } from '../items'
 import { BroadphaseGrid } from '../physics'
 import { createPlayer, respawn, updatePlayer } from '../player/player'
-import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from '../enemies/prowler'
 import { buildScene, render, teardownScene } from '../render'
+import { addTrauma, createCamera, updateCamera } from '../render/camera'
 import { CRTFilter } from '../render/CRTFilter'
+import { createDamageNumbers, resetDamageNumbers, spawnDamageNumber, tickDamageNumbers } from '../render/damageNumbers'
+import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
+import { createParticleSystem, emitDisintegration, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
 import { resetPlayerRenderer } from '../render/playerRenderer'
-import { levelIdAt, listLevels, loadLevel, markLevelLoaded } from './levelManager'
-import { createPickupsFromSpawns, getItemDef, pickupOverlapsPlayer, tickPickups } from '../items'
-
 import { cycleStance } from '../render/spineboy'
+import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
 import { fromJson, tickEphemeral } from '../world/level'
+import { emit, on } from './eventBus'
+
+import { gameState as gameSession } from './gameState'
+import { levelIdAt, listLevels, loadLevel, markLevelLoaded } from './levelManager'
 
 export interface GameState {
   readonly app: Application
@@ -43,6 +43,12 @@ export interface GameState {
   readonly fx: FxState
   readonly broadphase: BroadphaseGrid
   readonly crtFilter: CRTFilter
+  // Top-of-stage container that hosts every UI overlay (menu, drop-in,
+  // results, damage vignette). Sits above bgContainer/worldContainer/
+  // uiContainer, INSIDE app.stage, so the CRT filter on the stage applies
+  // to overlays uniformly with the game world. Survives level loads —
+  // teardownScene only destroys the three scene containers, not this one.
+  readonly screenOverlay: Container
   accumulator: number
   // Continuous game time (seconds). Drives shard TTLs and any other
   // wall-clock-like timers that need a consistent reading across ticks.
@@ -72,6 +78,10 @@ export function createGame(app: Application): GameState {
   const renderCtx = buildScene(app, level, particles)
   const crtFilter = new CRTFilter()
   app.stage.filters = [crtFilter]
+  // Screen-overlay layer for menus / cinematics / results. Added LAST so
+  // it stays on top of the scene; re-elevated after every loadLevelAtIndex.
+  const screenOverlay = new Container()
+  app.stage.addChild(screenOverlay)
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
   const pickups = createPickupsFromSpawns(level.pickupSpawns)
@@ -85,7 +95,7 @@ export function createGame(app: Application): GameState {
   })
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
   markLevelLoaded(id)
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers }
+  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, screenOverlay, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers }
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
@@ -116,6 +126,10 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   teardownScene(state.renderCtx)
   state.renderCtx = buildScene(state.app, state.level, state.particles)
   state.renderCtx.worldContainer.addChild(state.damageNumbers.root)
+  // buildScene appended bg/world/ui at the top of stage; keep the overlay
+  // layer above them by re-adding (Pixi treats addChild on an existing
+  // child as a move-to-top).
+  state.app.stage.addChild(state.screenOverlay)
   resetDamageNumbers(state.damageNumbers)
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 

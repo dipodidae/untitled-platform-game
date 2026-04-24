@@ -1,18 +1,18 @@
-// Cinematic level drop-in — fade-to-black, title card, letterbox retract,
-// HUD stagger. Plays while gameSession.phase === 'dropIn'; flips phase to
-// 'gameplay' when the cinematic finishes.
+// Cinematic level drop-in — Pixi-rendered into the screen-overlay container
+// so the CRT filter on the stage chromatic-aberrates the title card the same
+// way it does the world. Black fade, letterbox, slow-mo, then control hands
+// off via the `dropInComplete` event.
 //
-// Timing (total ≈ 2.4s):
-//   0.00 — black overlay opaque, level name fades in
-//   0.80 — subtitle fades in
-//   1.40 — fade-out black + title card, letterbox starts retracting
-//   1.80 — HUD stagger begins (health, score/deaths, minimap/hint)
-//   2.30 — "dropInComplete" emitted → main.ts flips to 'gameplay'
-//
-// Input is naturally suppressed because fixedUpdate gates on phase.
+// Timing (≈2.4s):
+//   0.00 — black opaque, card fades in, letterbox bars extended (12% each)
+//   1.40 — black fade-out, card fade-out
+//   1.60 — letterbox bars retract
+//   2.30 — emit 'dropInComplete'
 
+import type { Application, Container as PixiContainer } from 'pixi.js'
 import { gsap } from 'gsap'
-import type { Application } from 'pixi.js'
+import { Container, Graphics, Text } from 'pixi.js'
+import { CONFIG } from '../config'
 import { emit } from '../session/eventBus'
 import { levelName } from '../session/levelManager'
 
@@ -26,82 +26,127 @@ const SUBTITLES: Record<string, string> = {
   level2: 'what you break stays broken',
 }
 
+const COLOR_BONE = 0xE0D8C8
+const COLOR_BONE_DIM = 0x8A8478
+const COLOR_OXBLOOD = 0xCC2020
+
+const W = CONFIG.LOGICAL_WIDTH
+const H = CONFIG.LOGICAL_HEIGHT
+const BAR_H = Math.round(H * 0.12) // letterbox bar thickness
+
 function pickSubtitle(levelId: string, override: string | undefined): string {
   return override ?? SUBTITLES[levelId] ?? 'hold nothing back'
 }
 
-export function playDropIn(app: Application, opts: DropInOptions): void {
-  // Build the overlay lazily so successive drop-ins don't stack on the DOM.
-  const existing = document.querySelector('.dropin-overlay')
-  if (existing) existing.remove()
+export function playDropIn(app: Application, parent: PixiContainer, opts: DropInOptions): void {
+  // Successive drop-ins shouldn't stack — strip any prior overlay first.
+  for (const child of parent.children.slice()) {
+    if ((child as Container).label === 'dropin')
+      child.destroy({ children: true })
+  }
 
-  const overlay = document.createElement('div')
-  overlay.className = 'dropin-overlay'
-  overlay.innerHTML = `
-    <div class="dropin-letterbox dropin-letterbox-top"></div>
-    <div class="dropin-letterbox dropin-letterbox-bottom"></div>
-    <div class="dropin-fade"></div>
-    <div class="dropin-card">
-      <div class="dropin-eyebrow" data-slot="eyebrow">Entering</div>
-      <h1 class="dropin-title" data-slot="title">${levelName(opts.levelId)}</h1>
-      <p class="dropin-subtitle" data-slot="subtitle">${pickSubtitle(opts.levelId, opts.subtitle)}</p>
-    </div>
-  `
-  document.body.appendChild(overlay)
+  const root = new Container()
+  root.label = 'dropin'
+  parent.addChild(root)
 
-  const fadeEl = overlay.querySelector<HTMLElement>('.dropin-fade')!
-  const cardEl = overlay.querySelector<HTMLElement>('.dropin-card')!
-  const eyebrowEl = overlay.querySelector<HTMLElement>('[data-slot="eyebrow"]')!
-  const titleEl = overlay.querySelector<HTMLElement>('[data-slot="title"]')!
-  const subtitleEl = overlay.querySelector<HTMLElement>('[data-slot="subtitle"]')!
-  const topBar = overlay.querySelector<HTMLElement>('.dropin-letterbox-top')!
-  const botBar = overlay.querySelector<HTMLElement>('.dropin-letterbox-bottom')!
+  // Solid black field that fades to transparent.
+  const fade = new Graphics()
+  fade.rect(0, 0, W, H).fill({ color: 0x000000 })
+  root.addChild(fade)
 
-  // Initial state — opaque black, card invisible, letterbox bars extended
-  // (each covering 12% of the viewport).
-  gsap.set(fadeEl, { opacity: 1 })
-  gsap.set(cardEl, { opacity: 0 })
-  gsap.set(eyebrowEl, { opacity: 0, y: -6, letterSpacing: '0.6em' })
-  gsap.set(titleEl, { opacity: 0, y: 8, letterSpacing: '0.5em' })
-  gsap.set(subtitleEl, { opacity: 0, y: 6 })
-  gsap.set([topBar, botBar], { height: '12vh' })
+  // Letterbox bars — drawn LAST, so they sit above the card during the
+  // retract beat too (looks deliberate).
+  // Card sits between fade and bars.
+  const card = new Container()
+  card.alpha = 0
+  root.addChild(card)
 
-  // Slow-mo the stage for the first moment after control hands off.
-  // Implemented as a ticker-side speed multiplier we'll install on
-  // app.ticker — scaling deltaMS so fixedUpdate accumulates slower.
-  // (See installSlowMo below.)
-  const release = installSlowMo(app, 0.4, 0.9) // 40% speed for 0.9s after release
+  const eyebrow = new Text({
+    text: 'ENTERING',
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 9,
+      fill: COLOR_OXBLOOD,
+      letterSpacing: 5,
+      fontWeight: '700' as const,
+    },
+    resolution: 1,
+  })
+  eyebrow.anchor.set(0.5)
+  eyebrow.x = W / 2
+  eyebrow.y = H / 2 - 24
+  card.addChild(eyebrow)
 
+  const title = new Text({
+    text: levelName(opts.levelId).toUpperCase(),
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 28,
+      fill: COLOR_BONE,
+      letterSpacing: 6,
+      fontWeight: '700' as const,
+    },
+    resolution: 1,
+  })
+  title.anchor.set(0.5)
+  title.x = W / 2
+  title.y = H / 2
+  card.addChild(title)
+
+  // Hard underline bar
+  const bar = new Graphics()
+  bar.rect(W / 2 - 80, H / 2 + 14, 160, 1).fill({ color: COLOR_OXBLOOD, alpha: 0.7 })
+  card.addChild(bar)
+
+  const subtitle = new Text({
+    text: pickSubtitle(opts.levelId, opts.subtitle),
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 9,
+      fill: COLOR_BONE_DIM,
+      letterSpacing: 4,
+    },
+    resolution: 1,
+  })
+  subtitle.anchor.set(0.5)
+  subtitle.x = W / 2
+  subtitle.y = H / 2 + 28
+  card.addChild(subtitle)
+
+  // Letterbox bars on top of everything.
+  const topBar = new Graphics()
+  topBar.rect(0, 0, W, BAR_H).fill({ color: 0x000000 })
+  root.addChild(topBar)
+
+  const botBar = new Graphics()
+  botBar.rect(0, H - BAR_H, W, BAR_H).fill({ color: 0x000000 })
+  root.addChild(botBar)
+
+  // ─── slow-mo ──────────────────────────────────────────────────────
+  const release = installSlowMo(app, 0.4, 0.9)
+
+  // ─── timeline ────────────────────────────────────────────────────
   const tl = gsap.timeline({
     onComplete: () => {
-      overlay.remove()
       release()
+      root.destroy({ children: true })
       emit('dropInComplete', null)
     },
   })
 
-  tl
-    // 1. Card lands on a black field.
-    .to(cardEl, { opacity: 1, duration: 0.2 }, 0)
-    .to(eyebrowEl, { opacity: 1, y: 0, letterSpacing: '0.35em', duration: 0.4, ease: 'power2.out' }, 0.05)
-    .to(titleEl, { opacity: 1, y: 0, letterSpacing: '0.2em', duration: 0.55, ease: 'power2.out' }, 0.15)
-    .to(subtitleEl, { opacity: 1, y: 0, duration: 0.35 }, 0.4)
-    // 2. Hold the title for a beat, then fade black away so the world shows.
-    .to(fadeEl, { opacity: 0, duration: 0.5, ease: 'power1.inOut' }, 1.3)
-    .to(cardEl, { opacity: 0, duration: 0.4, ease: 'power1.in' }, 1.4)
-    // 3. Letterbox bars retract as control lands.
-    .to([topBar, botBar], { height: '0vh', duration: 0.45, ease: 'power2.inOut' }, 1.6)
-    // 4. Terminal hold so the letterbox finishes before we emit complete.
-    .to({}, { duration: 0.15 }, 2.05)
+  // 1. Card lands hard (steps ease for crude snap).
+  tl.to(card, { alpha: 1, duration: 0.25, ease: 'steps(3)' }, 0.1)
+  // 2. Hold then fade black so world bleeds through.
+  tl.to(fade, { alpha: 0, duration: 0.5, ease: 'power1.inOut' }, 1.3)
+  tl.to(card, { alpha: 0, duration: 0.4, ease: 'power1.in' }, 1.45)
+  // 3. Letterbox retracts by sliding off-screen (simpler than redrawing).
+  tl.to(topBar, { y: -BAR_H, duration: 0.45, ease: 'power2.inOut' }, 1.6)
+  tl.to(botBar, { y: H, duration: 0.45, ease: 'power2.inOut' }, 1.6)
+  // 4. Terminal hold so retract finishes before emit.
+  tl.to({}, { duration: 0.15 }, 2.05)
 }
 
-// ─── slow-motion helper ─────────────────────────────────────────────────────
-//
-// Pixi's ticker exposes a `speed` multiplier that scales deltaTime
-// downstream. Setting it to 0.4 makes everything — physics accumulator,
-// render-tick particles, camera smoothing — run at 40% speed. We ramp it
-// back to 1 over `rampSeconds` so the "bullet-time" is a real ease, not a
-// hard snap.
+// ─── slow-motion helper (unchanged from previous version) ───────────────
 function installSlowMo(app: Application, startSpeed: number, rampSeconds: number): () => void {
   app.ticker.speed = startSpeed
   const tween = gsap.to(app.ticker, {
