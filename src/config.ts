@@ -74,6 +74,9 @@ export const CONFIG = {
   // Brief invincibility on respawn so consecutive hazards don't chain-kill
   // the player before they've even regained control.
   RESPAWN_IFRAMES: 0.5,
+  // Hit-stop ticks when the player crosses a goal zone. Sells the finish.
+  GOAL_HITSTOP_TICKS: 20,
+  GOAL_FLASH_DURATION: 0.25,
 
   // Fixed-timestep main loop
   FIXED_DT: 1 / 60, // physics step

@@ -141,6 +141,57 @@ canvas {
   filter: brightness(1.08);
 }
 
+/* White flash behind the grade stamp. Sits inside the overlay, behind the
+   panel, so it tints everything momentarily when the grade lands. */
+.results-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 248, 220, 0.85);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.results-panel {
+  position: relative;
+  z-index: 2;
+}
+
+.results-grade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 28px;
+  transform-origin: center;
+}
+
+.results-grade-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0;
+  border: 3px solid currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.results-grade-label {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: #8a8e96;
+  text-transform: uppercase;
+}
+
+/* Grade colours — richer tints for better grades. */
+.results-grade[data-grade="S"] .results-grade-letter { color: #FFD700; text-shadow: 0 0 16px rgba(255, 215, 0, 0.6); }
+.results-grade[data-grade="A"] .results-grade-letter { color: #C8A020; }
+.results-grade[data-grade="B"] .results-grade-letter { color: #8AC58A; }
+.results-grade[data-grade="C"] .results-grade-letter { color: #8A8E96; }
+
 /* ─── Main menu overlay ─────────────────────────────────────────────────── */
 
 .menu-overlay {

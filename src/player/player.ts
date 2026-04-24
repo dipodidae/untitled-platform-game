@@ -497,6 +497,12 @@ export function updatePlayer(
       continue
     if (z.type === 'goal' && gameState.phase === 'gameplay') {
       gameState.phase = 'results'
+      // Hit-stop the final frame so the finish "lands" visually. 20 ticks
+      // at 60Hz = ~333ms. Flash + shake pump on top via triggerGoalFx-ish
+      // handling from fx; for now the hitstop alone reads.
+      fx.hitstopTicks = Math.max(fx.hitstopTicks, CONFIG.GOAL_HITSTOP_TICKS)
+      fx.flashTimer = CONFIG.GOAL_FLASH_DURATION
+      fx.flashDuration = CONFIG.GOAL_FLASH_DURATION
       emit('levelComplete', {
         levelId: gameState.currentLevelId,
         deaths: gameState.deaths,
