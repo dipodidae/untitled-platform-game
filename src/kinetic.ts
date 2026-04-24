@@ -181,7 +181,8 @@ interface PlayerLike {
 }
 
 function playerOnCollider(p: PlayerLike, c: Collider): boolean {
-  if (!p.grounded) return false
+  if (!p.grounded)
+    return false
   // Check if player's bottom overlaps collider's top region
   const pBottom = p.y + p.h
   const pLeft = p.x
@@ -277,8 +278,14 @@ function updateSpring(c: Collider, k: SpringState, player: PlayerLike, dt: numbe
 
   // Clamp to prevent wild oscillation
   const maxOffset = 20
-  if (k.offsetY > maxOffset) { k.offsetY = maxOffset; k.velocityY = 0 }
-  if (k.offsetY < -maxOffset) { k.offsetY = -maxOffset; k.velocityY *= -0.5 }
+  if (k.offsetY > maxOffset) {
+    k.offsetY = maxOffset
+    k.velocityY = 0
+  }
+  if (k.offsetY < -maxOffset) {
+    k.offsetY = -maxOffset
+    k.velocityY *= -0.5
+  }
 
   // Transform: translate all vertices by offsetY
   c.vertices = translateVertices(k.baseVertices, 0, k.offsetY)
@@ -289,7 +296,8 @@ function updateSpring(c: Collider, k: SpringState, player: PlayerLike, dt: numbe
 
 export function updateKinetics(level: Level, player: PlayerLike, dt: number): void {
   for (const c of level.colliders) {
-    if (!c.alive || !c.kinetic) continue
+    if (!c.alive || !c.kinetic)
+      continue
     const k = c.kinetic
     switch (k.type) {
       case 'rotor':
@@ -313,12 +321,14 @@ export function updateKinetics(level: Level, player: PlayerLike, dt: number): vo
 
 export function kineticReactToRupture(level: Level, rx: number, ry: number): void {
   for (const c of level.colliders) {
-    if (!c.alive || !c.kinetic) continue
+    if (!c.alive || !c.kinetic)
+      continue
     const k = c.kinetic
     const dx = k.pivotX - rx
     const dy = k.pivotY - ry
     const dist = Math.hypot(dx, dy)
-    if (dist > 120) continue // out of range
+    if (dist > 120)
+      continue // out of range
 
     const falloff = 1 - dist / 120 // 1 at center, 0 at edge
 

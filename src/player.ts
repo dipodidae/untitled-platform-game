@@ -108,7 +108,8 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   // This prevents immediately re-sticking and makes wall-jumps feel decisive.
   if (p.wallJumpInputLock > 0) {
     p.wallJumpInputLock -= dt
-    if (inputX === p.wallSide) inputX = 0
+    if (inputX === p.wallSide)
+      inputX = 0
   }
 
   if (inputX !== 0)
@@ -149,15 +150,19 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     else {
       accel = CONFIG.AIR_ACCEL
       // Air snap: boosted control right after a jump
-      if (p.airSnapTimer > 0) accel *= CONFIG.AIR_SNAP_MULT
+      if (p.airSnapTimer > 0)
+        accel *= CONFIG.AIR_SNAP_MULT
       // Air brake: boosted decel when reversing direction mid-air
-      if (turning) accel *= CONFIG.AIR_BRAKE_MULT
+      if (turning)
+        accel *= CONFIG.AIR_BRAKE_MULT
     }
-    if (turning) accel *= CONFIG.TURN_BOOST
+    if (turning)
+      accel *= CONFIG.TURN_BOOST
   }
   else {
     accel = p.grounded ? CONFIG.GROUND_DECEL : CONFIG.AIR_DECEL
-    if (!p.grounded && p.airSnapTimer > 0) accel *= CONFIG.AIR_SNAP_MULT
+    if (!p.grounded && p.airSnapTimer > 0)
+      accel *= CONFIG.AIR_SNAP_MULT
   }
 
   // Instability damping reduction: harder to stop, NOT harder to start.
@@ -168,8 +173,10 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     accel *= 1 - instab * CONFIG.DEGRADE_DAMPING_REDUCTION
 
   const dv = accel * dt
-  if (p.vx < targetVx) p.vx = Math.min(p.vx + dv, targetVx)
-  else if (p.vx > targetVx) p.vx = Math.max(p.vx - dv, targetVx)
+  if (p.vx < targetVx)
+    p.vx = Math.min(p.vx + dv, targetVx)
+  else if (p.vx > targetVx)
+    p.vx = Math.max(p.vx - dv, targetVx)
 
   // ─── jump: ground, coyote, OR wall ───────────────────────────────
   const canGroundJump = !locked && (p.grounded || p.coyoteTimer > 0)
@@ -231,7 +238,8 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   }
 
   // Air snap timer decay
-  if (p.airSnapTimer > 0) p.airSnapTimer -= dt
+  if (p.airSnapTimer > 0)
+    p.airSnapTimer -= dt
 
   // Variable jump height: release-to-cut. Skip on the tick a jump fires.
   if (!firedJump && jumpReleased() && p.vy < 0) {
@@ -362,7 +370,8 @@ export function updatePlayer(
       // Normal gravity — no instability penalty (DEGRADE_GRAVITY_AMP is 0).
       const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
       p.vy += gravity * dt
-      if (p.vy > CONFIG.MAX_FALL) p.vy = CONFIG.MAX_FALL
+      if (p.vy > CONFIG.MAX_FALL)
+        p.vy = CONFIG.MAX_FALL
     }
   }
 

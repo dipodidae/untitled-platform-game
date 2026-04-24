@@ -32,7 +32,10 @@ export interface DestructionOutcome {
 }
 
 function ellipseBBox(cx: number, cy: number, shape: RuptureShape): {
-  minX: number, minY: number, maxX: number, maxY: number
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
 } {
   const r = Math.max(shape.rx, shape.ry)
   return { minX: cx - r, minY: cy - r, maxX: cx + r, maxY: cy + r }

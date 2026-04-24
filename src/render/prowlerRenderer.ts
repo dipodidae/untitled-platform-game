@@ -13,19 +13,20 @@ const COL_INSTAB_HIGH = 0x8060C0
 
 // Angular diamond vertices (14×14 body, drawn around 0,0)
 const BASE: { x: number, y: number }[] = [
-  { x: 0, y: -7 },   // top
+  { x: 0, y: -7 }, // top
   { x: 5, y: -3 },
-  { x: 7, y: 0 },     // right
+  { x: 7, y: 0 }, // right
   { x: 5, y: 4 },
-  { x: 2, y: 7 },     // bottom-right
-  { x: -2, y: 7 },    // bottom-left
+  { x: 2, y: 7 }, // bottom-right
+  { x: -2, y: 7 }, // bottom-left
   { x: -5, y: 4 },
-  { x: -7, y: 0 },    // left
+  { x: -7, y: 0 }, // left
   { x: -5, y: -3 },
 ]
 
 function pathPoly(g: Graphics, verts: { x: number, y: number }[]): void {
-  if (verts.length < 3) return
+  if (verts.length < 3)
+    return
   const flat: number[] = []
   for (const v of verts) flat.push(v.x, v.y)
   g.poly(flat)
@@ -49,12 +50,13 @@ export function drawProwler(
 ): void {
   g.clear()
 
-  if (!prowler.alive) return
+  if (!prowler.alive)
+    return
 
   const inst = prowler.instability
 
   // Build jittered vertices
-  let verts = BASE.map(v => {
+  const verts = BASE.map((v) => {
     let jx = 0
     let jy = 0
     if (inst > 0.3) {

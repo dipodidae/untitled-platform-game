@@ -31,7 +31,7 @@ const LIGHT_NX = LIGHT_DX / LIGHT_LEN
 const LIGHT_NY = LIGHT_DY / LIGHT_LEN
 
 // ─── vertex transforms for instability betrayal ────────────────────
-type Vert = { x: number, y: number }
+interface Vert { x: number, y: number }
 
 function transformVerts(verts: readonly Vert[]): Vert[] {
   if (_instability <= 0.3)
@@ -354,12 +354,23 @@ function drawCollider(g: Graphics, c: Collider): void {
   if (!c.alive)
     return
   switch (c.material) {
-    case 'shard': drawShard(g, c); return
-    case 'glass': drawGlass(g, c); return
-    case 'bone': drawBone(g, c); return
-    case 'bone_fragile': drawBoneFragile(g, c); return
-    case 'resonant': drawResonant(g, c); return
-    case 'soft': drawSoft(g, c); return
+    case 'shard':
+      drawShard(g, c)
+      return
+    case 'glass':
+      drawGlass(g, c)
+      return
+    case 'bone':
+      drawBone(g, c)
+      return
+    case 'bone_fragile':
+      drawBoneFragile(g, c)
+      return
+    case 'resonant':
+      drawResonant(g, c)
+      return
+    case 'soft':
+      drawSoft(g, c)
   }
 }
 

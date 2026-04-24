@@ -25,8 +25,8 @@
 import type { KineticJson, KineticState } from '../kinetic'
 import type { Polygon } from '../math/polygon'
 import type { Vec2 } from '../math/vec2'
-import { createKineticState } from '../kinetic'
 import { CONFIG } from '../config'
+import { createKineticState } from '../kinetic'
 import { bounds, decompose } from '../math/polygon'
 
 // ─── materials ───────────────────────────────────────────────────────────
@@ -218,12 +218,16 @@ export function tilemapToPolygons(rows: readonly string[]): Collider[] {
         rw++
 
       let rh = 1
-      growDown: while (y + rh < h) {
+      let canGrow = true
+      while (canGrow && y + rh < h) {
         for (let i = 0; i < rw; i++) {
-          if (meshed[y + rh]![x + i]! || matAt(x + i, y + rh) !== mat)
-            break growDown
+          if (meshed[y + rh]![x + i]! || matAt(x + i, y + rh) !== mat) {
+            canGrow = false
+            break
+          }
         }
-        rh++
+        if (canGrow)
+          rh++
       }
       for (let yy = 0; yy < rh; yy++) {
         for (let xx = 0; xx < rw; xx++)

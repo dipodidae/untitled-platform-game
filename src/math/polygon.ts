@@ -7,8 +7,8 @@
 // the library runs.
 
 import type { Vec2 } from './vec2'
-import * as clip from 'polygon-clipping'
 import { makeCCW, quickDecomp } from 'poly-decomp-es'
+import * as clip from 'polygon-clipping'
 
 export type Polygon = Vec2[]
 
@@ -147,8 +147,8 @@ export function pointInPolygon(poly: Polygon, p: Vec2): boolean {
     const pi = poly[i]!
     const pj = poly[j]!
     const intersect
-      = pi.y > p.y !== pj.y > p.y
-      && p.x < ((pj.x - pi.x) * (p.y - pi.y)) / (pj.y - pi.y) + pi.x
+      = (pi.y > p.y) !== (pj.y > p.y)
+        && p.x < ((pj.x - pi.x) * (p.y - pi.y)) / (pj.y - pi.y) + pi.x
     if (intersect)
       inside = !inside
   }

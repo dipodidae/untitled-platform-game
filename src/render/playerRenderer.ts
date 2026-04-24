@@ -35,19 +35,19 @@ const COL_DJ_GHOST = 0x503890 // afterimage tint
 
 // ─── base shape (10×14, center = 0,0) ────────────────────────────────
 // Slightly taller than wide. Left bulges ~1px. Bottom flat, top rounded.
-interface V { x: number; y: number }
+interface V { x: number, y: number }
 
 const BASE_VERTICES: V[] = [
-  { x: -6, y: 7 },   // bottom-left (flat bottom)
-  { x: 5, y: 7 },    // bottom-right
-  { x: 5, y: 4 },    // right lower
-  { x: 5, y: 0 },    // right mid
-  { x: 4, y: -4 },   // right upper
-  { x: 2, y: -6 },   // top-right
-  { x: -1, y: -7 },  // top center (slight left lean)
-  { x: -4, y: -6 },  // top-left
-  { x: -6, y: -3 },  // left upper (bulges 1px more than right)
-  { x: -6, y: 2 },   // left mid
+  { x: -6, y: 7 }, // bottom-left (flat bottom)
+  { x: 5, y: 7 }, // bottom-right
+  { x: 5, y: 4 }, // right lower
+  { x: 5, y: 0 }, // right mid
+  { x: 4, y: -4 }, // right upper
+  { x: 2, y: -6 }, // top-right
+  { x: -1, y: -7 }, // top center (slight left lean)
+  { x: -4, y: -6 }, // top-left
+  { x: -6, y: -3 }, // left upper (bulges 1px more than right)
+  { x: -6, y: 2 }, // left mid
 ]
 
 // Pre-compute vertex normals (outward-facing) for inset operations
@@ -105,13 +105,13 @@ let _tickIndex = 0
 
 // 8Hz tick decisions (cached per interval)
 interface TickDecisions {
-  edgeJitter: number[]    // per-vertex jitter offset (-2..+2)
-  splitHalves: boolean    // body renders in two offset halves
-  splitOffA: V            // offset for first half
-  splitOffB: V            // offset for second half
-  swapBlobs: boolean      // swap heat blob positions
-  coreSpike: boolean      // white core flash
-  dropVerts: number[]     // indices of vertices to drop (notch)
+  edgeJitter: number[] // per-vertex jitter offset (-2..+2)
+  splitHalves: boolean // body renders in two offset halves
+  splitOffA: V // offset for first half
+  splitOffB: V // offset for second half
+  swapBlobs: boolean // swap heat blob positions
+  coreSpike: boolean // white core flash
+  dropVerts: number[] // indices of vertices to drop (notch)
   alternateFrame: boolean // double silhouette toggle
   separateTopBot: boolean // top/bottom separation
 }
@@ -199,7 +199,7 @@ let _shadowY = 0
 let _shadowAlpha = 0
 
 // Trail pixel (stage 2, fast movement)
-interface TrailPx { x: number; y: number; life: number }
+interface TrailPx { x: number, y: number, life: number }
 let _trails: TrailPx[] = []
 
 // Landing squash
@@ -289,7 +289,8 @@ export function drawPlayer(
     _birthJitter = 0
   }
 
-  if (!state.alive) return
+  if (!state.alive)
+    return
 
   // ─── 8 Hz clock ────────────────────────────────────────────
   const tickInterval = 0.125
@@ -306,7 +307,8 @@ export function drawPlayer(
   _containLerp = Math.max(0, Math.min(1, _containLerp))
 
   if (state.containing) {
-    if (_containRing < 4) _containRing = 4
+    if (_containRing < 4)
+      _containRing = 4
     _containRing = Math.max(0, _containRing - 0.5)
     _wasContaining = true
   }
@@ -321,8 +323,10 @@ export function drawPlayer(
   // ─── rebound after contain release ─────────────────────────
   let reboundOffset = 0
   if (_reboundFrames > 0) {
-    if (_reboundFrames === 3) reboundOffset = 2
-    else if (_reboundFrames === 2) reboundOffset = 0.5
+    if (_reboundFrames === 3)
+      reboundOffset = 2
+    else if (_reboundFrames === 2)
+      reboundOffset = 0.5
     else reboundOffset = 0
     _reboundFrames--
   }
@@ -445,9 +449,10 @@ export function drawPlayer(
   if (instability > 0.3 && instability <= 0.6 && Math.abs(state.vx) > 2.5 * 60) {
     _trails.push({ x: -state.vx / 60, y: -state.vy / 60, life: 3 })
   }
-  _trails = _trails.filter(t => {
+  _trails = _trails.filter((t) => {
     t.life--
-    if (t.life <= 0) return false
+    if (t.life <= 0)
+      return false
     g.rect(t.x - 0.5, t.y - 0.5, 1, 1)
       .fill({ color: COL_OUTER, alpha: t.life / 3 })
     return true
@@ -503,7 +508,8 @@ export function drawPlayer(
   // ─── DJ afterimages (drawn BEHIND body) ──────────────────────
   _djAfterimages = _djAfterimages.filter((ai) => {
     ai.life -= 1 / 60
-    if (ai.life <= 0) return false
+    if (ai.life <= 0)
+      return false
     // Non-linear decay: fast initial fade, lingering tail
     const t = ai.life / ai.maxLife
     const alpha = t * t * 0.35
@@ -588,7 +594,8 @@ function drawBody(
   containing: boolean,
   coreSpike: boolean,
 ): void {
-  if (verts.length < 3) return
+  if (verts.length < 3)
+    return
 
   const normals = computeNormals(verts)
 
@@ -664,7 +671,8 @@ function drawHeatBlobs(g: Graphics, instability: number, time: number): void {
   const clampR = 3
   const clamp = (p: V): V => {
     const d = Math.sqrt(p.x * p.x + p.y * p.y)
-    if (d > clampR) return { x: p.x * clampR / d, y: p.y * clampR / d }
+    if (d > clampR)
+      return { x: p.x * clampR / d, y: p.y * clampR / d }
     return p
   }
   axPos = clamp(axPos)
@@ -694,14 +702,16 @@ export function drawPlayerGhost(
     verts = [...BASE_VERTICES]
   }
 
-  if (verts.length < 3) return
+  if (verts.length < 3)
+    return
   pathPoly(g, verts)
   g.fill({ color: COL_FORESIGHT, alpha })
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────
 function pathPoly(g: Graphics, verts: V[]): void {
-  if (verts.length < 3) return
+  if (verts.length < 3)
+    return
   const flat: number[] = []
   for (const v of verts) {
     flat.push(v.x, v.y)

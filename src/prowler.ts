@@ -12,10 +12,10 @@
 // Rupture within radius = massive knockback + instability spike.
 // Max instability = shatter (removed temporarily, respawns after cooldown).
 
-import type { Collider, Level, MaterialName } from './world/level'
-import type { Player } from './player'
-import type { BroadphaseGrid } from './physics/broadphase'
 import type { AABB } from './math/sat'
+import type { BroadphaseGrid } from './physics/broadphase'
+import type { Player } from './player'
+import type { Collider, Level, MaterialName } from './world/level'
 import { CONFIG } from './config'
 import { satAabbPoly } from './math/sat'
 
@@ -32,22 +32,22 @@ const GROUND_CONFIDENCE: Partial<Record<MaterialName, number>> = {
 // ─── config ───────────────────────────────────────────────────────────
 const PROWLER_W = 14
 const PROWLER_H = 14
-const PROWLER_MAX_SPEED = 55        // px/s — slower than player (110)
-const PROWLER_ACCEL = 280           // px/s²
-const PROWLER_ATTRACTION = 0.6      // weight toward player.x (0..1)
-const PROWLER_DETECT_RANGE = 200    // px — horizontal range for attraction
-const PROWLER_KNOCKBACK = 180       // impulse applied to player on contact
+const PROWLER_MAX_SPEED = 55 // px/s — slower than player (110)
+const PROWLER_ACCEL = 280 // px/s²
+const PROWLER_ATTRACTION = 0.6 // weight toward player.x (0..1)
+const PROWLER_DETECT_RANGE = 200 // px — horizontal range for attraction
+const PROWLER_KNOCKBACK = 180 // impulse applied to player on contact
 const PROWLER_INSTABILITY_MAX = 1.0
-const PROWLER_INSTAB_DECAY = 0.08   // per second
+const PROWLER_INSTAB_DECAY = 0.08 // per second
 const PROWLER_INSTAB_RESONANT = 0.25 // gained per resonant launch
-const PROWLER_INSTAB_GLASS = 0.15   // gained per glass contact tick
+const PROWLER_INSTAB_GLASS = 0.15 // gained per glass contact tick
 const PROWLER_INSTAB_LANDING = 0.10 // gained on fast landing
 const PROWLER_GLASS_BREAK_THRESH = 0.7 // instability above this breaks glass
 const PROWLER_SHATTER_RESPAWN = 3.0 // seconds before respawn after shatter
-const PROWLER_RUPTURE_RANGE = 40    // px — rupture within this radius affects prowler
+const PROWLER_RUPTURE_RANGE = 40 // px — rupture within this radius affects prowler
 const PROWLER_RUPTURE_KNOCKBACK = 250 // impulse from rupture
 const PROWLER_RUPTURE_INSTAB = 0.35 // instability gained from rupture hit
-const PROWLER_STUN_TIME = 0.8       // seconds stunned after rupture hit
+const PROWLER_STUN_TIME = 0.8 // seconds stunned after rupture hit
 
 const GROUND_NORMAL_Y = -Math.cos((CONFIG.MAX_SLOPE_ANGLE * Math.PI) / 180)
 
@@ -63,17 +63,20 @@ export interface Prowler {
   facing: 1 | -1
   instability: number
   alive: boolean
-  stunTimer: number      // seconds remaining in stun
-  shatterTimer: number   // seconds until respawn (0 = active)
+  stunTimer: number // seconds remaining in stun
+  shatterTimer: number // seconds until respawn (0 = active)
   spawnX: number
   spawnY: number
 }
 
 export function createProwler(x: number, y: number): Prowler {
   return {
-    x, y,
-    vx: 0, vy: 0,
-    w: PROWLER_W, h: PROWLER_H,
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    w: PROWLER_W,
+    h: PROWLER_H,
     grounded: false,
     groundMaterial: null,
     facing: 1,
@@ -81,7 +84,8 @@ export function createProwler(x: number, y: number): Prowler {
     alive: true,
     stunTimer: 0,
     shatterTimer: 0,
-    spawnX: x, spawnY: y,
+    spawnX: x,
+    spawnY: y,
   }
 }
 
@@ -119,11 +123,14 @@ function moveAndCollideProwler(
       const effectiveOneWay = c.oneWay || (c.material === 'glass' && c.touched)
       for (const piece of c.pieces) {
         const hit = satAabbPoly(box, piece)
-        if (!hit) continue
+        if (!hit)
+          continue
         // One-way: only collide from above
         if (effectiveOneWay) {
-          if (hit.normal.y >= GROUND_NORMAL_Y) continue
-          if (p.vy < 0) continue
+          if (hit.normal.y >= GROUND_NORMAL_Y)
+            continue
+          if (p.vy < 0)
+            continue
         }
         if (!found || hit.depth > bestDepth) {
           bestDepth = hit.depth
@@ -134,14 +141,16 @@ function moveAndCollideProwler(
         }
       }
     }
-    if (!found) break
+    if (!found)
+      break
 
     if (bestNy < GROUND_NORMAL_Y) {
       grounded = true
       groundMat = bestCollider?.material ?? null
     }
 
-    if (bestDepth <= 0.001) break
+    if (bestDepth <= 0.001)
+      break
     p.x += bestNx * bestDepth
     p.y += bestNy * bestDepth
     const vn = p.vx * bestNx + p.vy * bestNy
@@ -163,7 +172,8 @@ function hasFloorAhead(p: Prowler, broadphase: BroadphaseGrid): boolean {
   const candidates: Collider[] = []
   broadphase.query(probeX, probeY, probeX + 2, probeY + 16, candidates)
   for (const c of candidates) {
-    if (!c.alive || c.material === 'shard') continue
+    if (!c.alive || c.material === 'shard')
+      continue
     for (const piece of c.pieces) {
       if (satAabbPoly({ x: probeX, y: probeY, w: 2, h: 16 }, piece))
         return true
@@ -196,7 +206,8 @@ export function updateProwler(
     return
   }
 
-  if (!p.alive) return
+  if (!p.alive)
+    return
 
   // Stun decay
   if (p.stunTimer > 0) {
@@ -209,7 +220,8 @@ export function updateProwler(
   // Gravity
   const gravity = p.vy < 0 ? CONFIG.JUMP_GRAVITY : CONFIG.FALL_GRAVITY
   p.vy += gravity * dt
-  if (p.vy > CONFIG.MAX_FALL) p.vy = CONFIG.MAX_FALL
+  if (p.vy > CONFIG.MAX_FALL)
+    p.vy = CONFIG.MAX_FALL
 
   // Confidence from ground material
   const confidence = p.grounded && p.groundMaterial
@@ -239,13 +251,17 @@ export function updateProwler(
     }
 
     // Update facing
-    if (targetVx > 1) p.facing = 1
-    else if (targetVx < -1) p.facing = -1
+    if (targetVx > 1)
+      p.facing = 1
+    else if (targetVx < -1)
+      p.facing = -1
 
     // Accelerate toward target
     const accel = PROWLER_ACCEL * confidence * dt
-    if (p.vx < targetVx) p.vx = Math.min(p.vx + accel, targetVx)
-    else if (p.vx > targetVx) p.vx = Math.max(p.vx - accel, targetVx)
+    if (p.vx < targetVx)
+      p.vx = Math.min(p.vx + accel, targetVx)
+    else if (p.vx > targetVx)
+      p.vx = Math.max(p.vx - accel, targetVx)
   }
   else if (p.stunTimer > 0) {
     // Stunned: friction decay
@@ -254,7 +270,7 @@ export function updateProwler(
 
   // Soft damping
   if (p.grounded && p.groundMaterial === 'soft') {
-    const factor = Math.pow(CONFIG.SOFT_DAMPING_PER_SEC, dt)
+    const factor = CONFIG.SOFT_DAMPING_PER_SEC ** dt
     p.vx *= factor
   }
 
@@ -277,8 +293,10 @@ export function updateProwler(
   if (p.grounded && p.groundMaterial === 'glass' && p.instability > PROWLER_GLASS_BREAK_THRESH) {
     const box = prowlerBox(p)
     for (const c of level.colliders) {
-      if (!c.alive || c.material !== 'glass') continue
-      if (box.x + box.w < c.minX || box.x > c.maxX || box.y + box.h < c.minY || box.y > c.maxY) continue
+      if (!c.alive || c.material !== 'glass')
+        continue
+      if (box.x + box.w < c.minX || box.x > c.maxX || box.y + box.h < c.minY || box.y > c.maxY)
+        continue
       c.alive = false
     }
   }
@@ -303,13 +321,15 @@ export function prowlerReactToRupture(
   ruptureX: number,
   ruptureY: number,
 ): void {
-  if (!p.alive || p.shatterTimer > 0) return
+  if (!p.alive || p.shatterTimer > 0)
+    return
   const cx = p.x + p.w / 2
   const cy = p.y + p.h / 2
   const dx = cx - ruptureX
   const dy = cy - ruptureY
   const dist = Math.hypot(dx, dy)
-  if (dist > PROWLER_RUPTURE_RANGE) return
+  if (dist > PROWLER_RUPTURE_RANGE)
+    return
 
   // Knockback away from rupture center
   const falloff = 1 - dist / PROWLER_RUPTURE_RANGE
@@ -325,8 +345,10 @@ export function prowlerReactToRupture(
 // ─── player contact ───────────────────────────────────────────────────
 // Returns true if contact happened (player gets knocked back).
 export function checkProwlerPlayerContact(p: Prowler, player: Player): boolean {
-  if (!p.alive || p.shatterTimer > 0 || !player.alive) return false
-  if (player.iframeTimer > 0) return false
+  if (!p.alive || p.shatterTimer > 0 || !player.alive)
+    return false
+  if (player.iframeTimer > 0)
+    return false
 
   // AABB overlap
   if (
@@ -334,7 +356,9 @@ export function checkProwlerPlayerContact(p: Prowler, player: Player): boolean {
     || player.x >= p.x + p.w
     || player.y + player.h <= p.y
     || player.y >= p.y + p.h
-  ) return false
+  ) {
+    return false
+  }
 
   // Knockback direction: away from prowler center
   const pcx = p.x + p.w / 2

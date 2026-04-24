@@ -33,9 +33,9 @@ export type MaterialName = 'glass' | 'bone' | 'resonant' | 'soft' | 'shard' | 'b
 In `src/world/level.ts`, add `contactTime` field to the `Collider` interface after `damage`:
 
 ```typescript
-  damage: number // hit counter; consulted by bone (via BONE_HITS)
-  contactTime: number // seconds player has stood on this; consulted by bone_fragile
-  alive: boolean
+damage: number // hit counter; consulted by bone (via BONE_HITS)
+contactTime: number // seconds player has stood on this; consulted by bone_fragile
+alive: boolean
 ```
 
 - [ ] **Step 3: Initialize `contactTime` in `buildCollider`**
@@ -43,21 +43,21 @@ In `src/world/level.ts`, add `contactTime` field to the `Collider` interface aft
 In the `buildCollider` function, add `contactTime: 0` to the collider literal:
 
 ```typescript
-  const c: Collider = {
-    id,
-    material,
-    vertices,
-    pieces,
-    oneWay,
-    minX: 0,
-    minY: 0,
-    maxX: 0,
-    maxY: 0,
-    damage: 0,
-    contactTime: 0,
-    alive: true,
-    expiresAt,
-  }
+const c: Collider = {
+  id,
+  material,
+  vertices,
+  pieces,
+  oneWay,
+  minX: 0,
+  minY: 0,
+  maxX: 0,
+  maxY: 0,
+  damage: 0,
+  contactTime: 0,
+  alive: true,
+  expiresAt,
+}
 ```
 
 - [ ] **Step 4: Reset `contactTime` in `resetLevel`**
@@ -65,9 +65,9 @@ In the `buildCollider` function, add `contactTime: 0` to the collider literal:
 In the `resetLevel` function, add `existing.contactTime = 0` alongside `existing.damage = 0`:
 
 ```typescript
-      existing.damage = 0
-      existing.contactTime = 0
-      existing.alive = true
+existing.damage = 0
+existing.contactTime = 0
+existing.alive = true
 ```
 
 - [ ] **Step 5: Add `bone_fragile` to tilemap char map**
@@ -216,7 +216,7 @@ function drawCollider(g: Graphics, c: Collider): void {
     case 'bone': drawBone(g, c); return
     case 'bone_fragile': drawBoneFragile(g, c); return
     case 'resonant': drawResonant(g, c); return
-    case 'soft': drawSoft(g, c); return
+    case 'soft': drawSoft(g, c)
   }
 }
 ```
@@ -249,29 +249,30 @@ git commit -m "feat: add bone_fragile rendering (shake + cracks as timer fills)"
 In `src/physics/resolve.ts`, add this block after the soft-damping block (after `if (touchedSoft) { ... }`) and before `p.grounded = grounded`:
 
 ```typescript
-  // Bone-fragile collapse: increment contactTime for any bone_fragile
-  // collider the player is standing on this tick. Once the timer fills,
-  // the collider dies. Timer persists — leaving and returning continues
-  // the countdown.
-  if (grounded) {
-    for (const c of physical) {
-      if (!c.alive || c.material !== 'bone_fragile')
-        continue
-      if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
-        || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1)
-        continue
-      // Check if grounded specifically on this collider (floor-facing normal)
-      for (const piece of c.pieces) {
-        const hit = satAabbPoly(postBox, piece)
-        if (hit && hit.normal.y < GROUND_NORMAL_Y) {
-          c.contactTime += dt
-          if (c.contactTime >= CONFIG.BONE_FRAGILE_COLLAPSE_TIME)
-            c.alive = false
-          break
-        }
+// Bone-fragile collapse: increment contactTime for any bone_fragile
+// collider the player is standing on this tick. Once the timer fills,
+// the collider dies. Timer persists — leaving and returning continues
+// the countdown.
+if (grounded) {
+  for (const c of physical) {
+    if (!c.alive || c.material !== 'bone_fragile')
+      continue
+    if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
+      || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1) {
+      continue
+    }
+    // Check if grounded specifically on this collider (floor-facing normal)
+    for (const piece of c.pieces) {
+      const hit = satAabbPoly(postBox, piece)
+      if (hit && hit.normal.y < GROUND_NORMAL_Y) {
+        c.contactTime += dt
+        if (c.contactTime >= CONFIG.BONE_FRAGILE_COLLAPSE_TIME)
+          c.alive = false
+        break
       }
     }
   }
+}
 ```
 
 - [ ] **Step 2: Ensure `satAabbPoly` and `CONFIG` are imported**

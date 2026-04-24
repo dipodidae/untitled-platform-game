@@ -2,9 +2,9 @@
 // CCD for high-speed tunneling prevention. Narrowphase only computes the
 // collision data; `resolve.ts` applies it to the player.
 
-import type { Collider } from '../world/level'
 import type { AABB, SatHit } from '../math/sat'
 import type { Vec2 } from '../math/vec2'
+import type { Collider } from '../world/level'
 import { satAabbPoly } from '../math/sat'
 
 export interface ContactHit extends SatHit {

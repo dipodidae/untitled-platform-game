@@ -113,15 +113,15 @@ Levels are JSON, loaded directly from `src/levels/*.json`. The schema:
 
 ```jsonc
 {
-  "spawn":       { "x": 50, "y": 300 },
-  "worldWidth":  900,                 // px — camera clamps + fall-out use this
+  "spawn": { "x": 50, "y": 300 },
+  "worldWidth": 900, // px — camera clamps + fall-out use this
   "worldHeight": 420,
   "colliders": [
     {
-      "id":       1,                  // unique within the level
-      "material": "bone",             // "glass" | "bone" | "resonant" | "soft"
+      "id": 1, // unique within the level
+      "material": "bone", // "glass" | "bone" | "resonant" | "soft"
       "vertices": [[0, 370], [180, 370], [180, 400], [0, 400]],
-      "oneWay":   false               // optional; collide only from above, vy ≥ 0
+      "oneWay": false // optional; collide only from above, vy ≥ 0
     }
     // ...
   ]

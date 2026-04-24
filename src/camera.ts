@@ -1,5 +1,5 @@
-import type { Level } from './world/level'
 import type { Player } from './player'
+import type { Level } from './world/level'
 import { CONFIG } from './config'
 
 export interface Camera {

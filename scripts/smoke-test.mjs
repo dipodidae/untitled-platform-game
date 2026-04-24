@@ -20,7 +20,7 @@ const page = await context.newPage()
 
 const errors = []
 page.on('pageerror', err => errors.push(`pageerror: ${err.message}`))
-page.on('console', msg => {
+page.on('console', (msg) => {
   if (msg.type() === 'error')
     errors.push(`console: ${msg.text()}`)
 })
@@ -34,8 +34,8 @@ console.log(`canvas: ${canvasBox?.width}x${canvasBox?.height}`)
 // Wait for the game to attach its state.
 await page.waitForFunction(() => !!(window).__game, null, { timeout: 5000 })
 
-const snap = async () =>
-  page.evaluate(() => {
+async function snap() {
+  return page.evaluate(() => {
     const g = (window).__game
     return {
       x: g.player.x,
@@ -47,6 +47,7 @@ const snap = async () =>
       instability: g.player.instability.value,
     }
   })
+}
 
 // Animation via screenshot diff (WebGL canvas.toDataURL is blank w/o
 // preserveDrawingBuffer).
@@ -84,11 +85,16 @@ await page.screenshot({ path: 'scripts/smoke.png' })
 await browser.close()
 
 const failures = []
-if (errors.length > 0) failures.push(`page errors: ${errors.length}`)
-if (!animating) failures.push('render loop not animating')
-if (!rest.grounded) failures.push(`player did not settle on ground (y=${rest.y})`)
-if (!jumped) failures.push(`jump did not raise player (y before=${jumpTriggerY.toFixed(1)}, after=${mid.y.toFixed(1)}, vy=${mid.vy.toFixed(1)})`)
-if (!movedRight) failures.push(`right arrow did not move player right (dx=${(moved.x - startX).toFixed(1)})`)
+if (errors.length > 0)
+  failures.push(`page errors: ${errors.length}`)
+if (!animating)
+  failures.push('render loop not animating')
+if (!rest.grounded)
+  failures.push(`player did not settle on ground (y=${rest.y})`)
+if (!jumped)
+  failures.push(`jump did not raise player (y before=${jumpTriggerY.toFixed(1)}, after=${mid.y.toFixed(1)}, vy=${mid.vy.toFixed(1)})`)
+if (!movedRight)
+  failures.push(`right arrow did not move player right (dx=${(moved.x - startX).toFixed(1)})`)
 
 if (failures.length > 0) {
   console.error('FAIL:')

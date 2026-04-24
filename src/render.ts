@@ -2,20 +2,20 @@ import type { Application } from 'pixi.js'
 import type { Camera } from './camera'
 import type { FxState } from './fx'
 import type { Player } from './player'
-import type { Level } from './world/level'
+import type { Prowler } from './prowler'
 import type { ParallaxState } from './render/parallax'
-import type { WindState } from './render/wind'
+import type { PlayerRenderState } from './render/playerRenderer'
+import type { Level } from './world/level'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { CONFIG } from './config'
 import { flashAlpha, shakeOffset } from './fx'
-import { createParallax, updateParallax } from './render/parallax'
 import { PALETTE } from './render/palette'
+import { createParallax, updateParallax } from './render/parallax'
+import { drawPlayer, drawPlayerGhost, resetPlayerRenderer } from './render/playerRenderer'
 import { drawSky, drawVignette } from './render/post'
+import { drawProwler } from './render/prowlerRenderer'
 import { createWindState, drawWind, tickWind, type WindState as WindS } from './render/wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './render/world'
-import { drawPlayer, drawPlayerGhost, resetPlayerRenderer, type PlayerRenderState } from './render/playerRenderer'
-import { drawProwler } from './render/prowlerRenderer'
-import type { Prowler } from './prowler'
 import { computeRuptureShape } from './rupture'
 
 // Scene graph:
@@ -54,8 +54,8 @@ export interface RenderContext {
   time: number
   // Player renderer bookkeeping
   wasGrounded: boolean
-  ruptureFrame: number  // -1 = none, 0+ = frames since rupture
-  respawnFrame: number  // -1 = none, 0+ = frames since respawn
+  ruptureFrame: number // -1 = none, 0+ = frames since rupture
+  respawnFrame: number // -1 = none, 0+ = frames since respawn
   // Hint fadeout: once the player demonstrates each action the hints
   // become redundant. Fade them out over ~2 seconds.
   hintSeen: { moved: boolean, jumped: boolean, contained: boolean }
@@ -237,8 +237,12 @@ function auraColorFor(ratio: number): number {
 }
 
 function lerpColor(a: number, b: number, t: number): number {
-  const ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF
-  const br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF
+  const ar = (a >> 16) & 0xFF
+  const ag = (a >> 8) & 0xFF
+  const ab = a & 0xFF
+  const br = (b >> 16) & 0xFF
+  const bg = (b >> 8) & 0xFF
+  const bb = b & 0xFF
   const rr = Math.round(ar + (br - ar) * t)
   const rg = Math.round(ag + (bg - ag) * t)
   const rb = Math.round(ab + (bb - ab) * t)
@@ -383,7 +387,8 @@ export function render(
   }
   if (ctx.respawnFrame >= 0) {
     ctx.respawnFrame++
-    if (ctx.respawnFrame > 65) ctx.respawnFrame = -1
+    if (ctx.respawnFrame > 65)
+      ctx.respawnFrame = -1
   }
 
   const prs: PlayerRenderState = {
@@ -410,11 +415,13 @@ export function render(
     for (let i = 0; i < prowlers.length; i++) {
       const pg = ctx.prowlerGfxList[i]
       const pr = prowlers[i]
-      if (!pg || !pr) continue
+      if (!pg || !pr)
+        continue
       pg.x = pr.x + pr.w / 2
       pg.y = pr.y + pr.h / 2
       pg.visible = pr.alive
-      if (pr.alive) drawProwler(pg, pr, ctx.time)
+      if (pr.alive)
+        drawProwler(pg, pr, ctx.time)
       else pg.clear()
     }
   }

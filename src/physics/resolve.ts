@@ -6,10 +6,10 @@
 //   - stick-to-ground probe to keep descent smooth on bumpy terrain
 //   - grounded / touchingWall / groundNormal flags
 
+import type { AABB } from '../math/sat'
 import type { Player } from '../player'
 import type { Collider, Level } from '../world/level'
 import type { BroadphaseGrid } from './broadphase'
-import type { AABB } from '../math/sat'
 import { CONFIG } from '../config'
 import { satAabbPoly } from '../math/sat'
 import { deepestContact } from './narrowphase'
@@ -252,13 +252,14 @@ export function moveAndCollide(
     if (!c.alive || c.material !== 'soft')
       continue
     if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
-      || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1)
+      || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1) {
       continue
+    }
     touchedSoft = true
     break
   }
   if (touchedSoft) {
-    const factor = Math.pow(CONFIG.SOFT_DAMPING_PER_SEC, dt)
+    const factor = CONFIG.SOFT_DAMPING_PER_SEC ** dt
     p.vx *= factor
     p.vy *= factor
   }
@@ -272,8 +273,9 @@ export function moveAndCollide(
       if (!c.alive || c.material !== 'bone_fragile')
         continue
       if (postBox.x + postBox.w < c.minX - 1 || postBox.x > c.maxX + 1
-        || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1)
+        || postBox.y + postBox.h < c.minY - 1 || postBox.y > c.maxY + 1) {
         continue
+      }
       for (const piece of c.pieces) {
         const hit = satAabbPoly(postBox, piece)
         if (hit && hit.normal.y < GROUND_NORMAL_Y) {
