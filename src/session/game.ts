@@ -6,35 +6,28 @@ import type { FxState } from '../render/fx'
 import type { Player } from '../player/player'
 import type { Prowler } from '../enemies/prowler'
 import type { RenderContext } from '../render'
-import type { Level, LevelJson } from '../world/level'
+import type { Level } from '../world/level'
 import { createBulletState, resetBulletState, spawnBullet, updateBullets } from '../combat/bullet'
 import { addTrauma, createCamera, updateCamera } from '../render/camera'
 import { CONFIG } from '../config'
 import { createDummy, updateDummy } from '../enemies/dummy'
 import { emit } from './eventBus'
 import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
-import { gameState as gameSession, resetForLevel } from './gameState'
+import { gameState as gameSession } from './gameState'
 import { createParticleSystem, emitDisintegration, emitLandingDust, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
 import type { ParticleSystem } from '../render/particles'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
 import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
-import level1Json from '../levels/level1.json'
-import level2Json from '../levels/level2.json'
 import { BroadphaseGrid } from '../physics'
 import { createPlayer, respawn, updatePlayer } from '../player/player'
 import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from '../enemies/prowler'
 import { buildScene, render, teardownScene } from '../render'
 import { CRTFilter } from '../render/CRTFilter'
 import { resetPlayerRenderer } from '../render/playerRenderer'
+import { levelIdAt, listLevels, loadLevel, markLevelLoaded } from './levelManager'
 
 import { cycleStance } from '../render/spineboy'
 import { fromJson, tickEphemeral } from '../world/level'
-
-// Ordered level list — progression advances through this array.
-const LEVELS: LevelJson[] = [
-  level1Json as LevelJson,
-  level2Json as LevelJson,
-]
 
 export interface GameState {
   readonly app: Application
@@ -57,7 +50,10 @@ export interface GameState {
 }
 
 export function createGame(app: Application): GameState {
-  const level = fromJson(LEVELS[0]!)
+  const id = levelIdAt(0)
+  if (!id)
+    throw new Error('Level catalog is empty')
+  const level = fromJson(loadLevel(id)!)
   const player = createPlayer(level)
   const camera = createCamera(player)
   const fx = createFxState()
@@ -72,16 +68,18 @@ export function createGame(app: Application): GameState {
   // Prime the background with ambient motes (replaces the old wind-mote system
   // for now — far cheaper and reads the same at this scale).
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
-  resetForLevel(gameSession, 'level1')
-  emit('levelLoaded', { levelId: 'level1' })
+  markLevelLoaded(id)
   return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles }
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
 // advanceLevel (increment then load) and reloadLevel (load current).
 function loadLevelAtIndex(state: GameState, index: number): void {
+  const id = levelIdAt(index)
+  if (!id)
+    throw new Error(`No level at index ${index}`)
   state.levelIndex = index
-  state.level = fromJson(LEVELS[index]!)
+  state.level = fromJson(loadLevel(id)!)
   state.player = createPlayer(state.level)
   state.camera = createCamera(state.player)
   state.now = 0
@@ -102,14 +100,12 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   state.renderCtx = buildScene(state.app, state.level, state.particles)
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 
-  const levelId = `level${index + 1}`
-  resetForLevel(gameSession, levelId)
-  emit('levelLoaded', { levelId })
+  markLevelLoaded(id)
 }
 
 // Transition to the next level. Wraps back to level 1 after the last.
 export function advanceLevel(state: GameState): void {
-  loadLevelAtIndex(state, (state.levelIndex + 1) % LEVELS.length)
+  loadLevelAtIndex(state, (state.levelIndex + 1) % listLevels().length)
 }
 
 // Re-enter the current level from scratch (Results-screen "retry").

@@ -68,6 +68,12 @@ export function markLevelLoaded(id: string): void {
   emit('levelLoaded', { levelId: id })
 }
 
+// Return the catalog id at a given zero-based index. Returns null when the
+// index is out of range (caller should handle as end-of-catalog).
+export function levelIdAt(index: number): string | null {
+  return LEVEL_CATALOG[index]?.id ?? null
+}
+
 function readStored(id: string): LevelJson | null {
   try {
     const raw = localStorage.getItem(STORAGE_PREFIX + id)
