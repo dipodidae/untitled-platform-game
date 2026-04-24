@@ -78,6 +78,18 @@ Every gameplay number lives in `src/config.ts` with `as const` so literal types 
 
 Low-res logical buffer (`LOGICAL_WIDTH × LOGICAL_HEIGHT`, 480×270) is integer-scaled via CSS (`main.ts#resize`) with `image-rendering: pixelated` to keep the pixel grid crisp — **don't set `autoDensity` or change `resolution`**. Pixi's `roundPixels: true` is on. The scene is two containers: `worldContainer` (camera-panned + shake-offset) and `uiContainer` (screen-fixed, holds meter/hints/flash overlay).
 
+### Editor ↔ engine sync
+
+The level editor (`src/editor/`) and the game engine share a single authored data format: `LevelJson` in `src/world/level.ts`. Any engine change that touches authorable content must also update the editor, in the same change, so the editor never falls behind what the runtime reads. The checklist:
+
+- **New material** → add to `MaterialName`, the predicates in `src/materials.ts`, the editor's `MATERIALS` list in `src/editor/ui/leftPanel.ts` and `src/editor/ui/rightPanel.ts`, and any brush that should default to it in `src/editor/brushes.ts`.
+- **New zone type** → extend `ZoneType` in `src/world/level.ts`, add the runtime consumer (usually in `src/player.ts`), add a new `ZoneJson` field for per-type params, add or update the zone inspector in `src/editor/ui/rightPanel.ts`, add a default brush in `src/editor/brushes.ts`, and render it in `src/editor/canvas.ts` under the `zones` layer flag.
+- **New kinetic type** → add the file in `src/kinetic/`, wire into `src/kinetic/index.ts` dispatchers + `KineticJson`/`KineticState` unions, handle it in the editor's `computePreviewVerts` motion-preview simulation, surface params in the right-panel inspector, and add a brush.
+- **New entity kind** (enemies, pickups, etc.) → add runtime + renderer, extend `LevelJson` with its array, add a tool in `TOOLS` (`src/editor/ui/leftPanel.ts`), an inspector branch, a canvas-draw branch, and a brush if it has parameter variants.
+- **Schema extension on existing types** (e.g. new `Collider` field) → extend `LevelJson['colliders']`, `EditorCollider`, `fromLevelJson`, `toLevelJson`, and expose an inspector control on the right panel.
+
+If a PR lands in `src/world/`, `src/kinetic/`, `src/enemies/`, `src/items/`, `src/materials.ts`, or changes input/runtime semantics, scan the editor for a corresponding change. Rule of thumb: **if the editor can't round-trip a level that uses the new feature, the change is incomplete.**
+
 ## Working with this repo safely
 
 This working tree frequently carries **substantial uncommitted work** — new directories, partial renames, schema extensions in flight. Before running any git command that touches state, pause and confirm.
