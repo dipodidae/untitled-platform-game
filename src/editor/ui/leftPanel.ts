@@ -91,10 +91,12 @@ function brushSection(state: EditorState): HTMLElement {
     grid.className = 'button-row'
     for (const b of list) {
       const btn = document.createElement('button')
-      btn.textContent = b.label + (b.live ? '' : ' *')
+      btn.className = 'brush-btn'
+      const suffix = b.live ? '' : ' *'
+      btn.innerHTML = `<iconify-icon icon="${b.icon}"></iconify-icon><span>${b.label}${suffix}</span>`
       btn.title = b.summary + (b.live ? '' : ' (editor-only, runtime TODO)')
       if (!b.live)
-        btn.style.opacity = '0.55'
+        btn.classList.add('preview')
       btn.onclick = () => {
         if (!b.live)
           showToast(`${b.label}: no runtime effect yet`, 'err')

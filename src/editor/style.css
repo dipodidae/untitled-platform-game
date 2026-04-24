@@ -8,6 +8,14 @@
   --accent: #c8a020;
   --danger: #e04040;
   --ok: #60c060;
+
+  /* Brush palette — warm bronze tones so brushes read as a distinct
+     layer from the cool grey chrome of panels and menus. */
+  --bronze-bg: #2a1f16;
+  --bronze-bg-hover: #3a2c1e;
+  --bronze-border: #6b4a2b;
+  --bronze-text: #d4a574;
+  --bronze-accent: #cd7f32;
 }
 
 * { box-sizing: border-box; }
@@ -221,6 +229,33 @@ button.active { background: var(--accent); color: #161820; border-color: var(--a
 
 .editor-toast[data-kind="ok"] { border-color: var(--ok); }
 .editor-toast[data-kind="err"] { border-color: var(--danger); color: var(--danger); }
+
+/* Brush buttons — warm bronze palette, distinct from the cool grey
+   chrome of tool-strip / menu buttons. Icon leads; label follows. */
+.brush-btn {
+  background: var(--bronze-bg);
+  color: var(--bronze-text);
+  border: 1px solid var(--bronze-border);
+}
+
+.brush-btn:hover {
+  background: var(--bronze-bg-hover);
+  border-color: var(--bronze-accent);
+  color: #f0c896;
+}
+
+.brush-btn iconify-icon {
+  color: var(--bronze-accent);
+  font-size: 14px;
+}
+
+.brush-btn.preview {
+  opacity: 0.55;
+}
+
+.brush-btn.preview iconify-icon {
+  color: var(--dim);
+}
 
 .topbar-menu {
   position: relative;
