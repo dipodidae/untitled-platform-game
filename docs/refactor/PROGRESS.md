@@ -19,3 +19,4 @@ Append-only. One line per migration step.
 - 2026-04-24 CLAUDE.md updated with adherence section.
 - 2026-04-24 Final push to `main`.
 - 2026-04-24 CONTEXT.md subagent surfaced 6 additional findings (FIND 7–12); appended to FINDINGS.md. Most consequential: BULLET_KINDS values disagree across the duplicate; levelManager isn't wired to the running game; pickup system is authored but dead at runtime.
+- 2026-04-24 Findings 1/7/8/9/10 resolved; docs updated. Fix 1 (4d71f80): BULLET_KINDS unified to weapons/ as single source of truth. Fix 2 (b68dbfc): sweptToi CCD deleted (no call site). Fix 3 (c75bb27): game.ts routed through LevelManager so editor localStorage saves take effect. Fix 4 (716316b): pickup system wired end-to-end — spawn, bob render, AABB collect, weapon grant, particle burst.

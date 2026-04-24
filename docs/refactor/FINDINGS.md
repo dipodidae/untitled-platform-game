@@ -4,18 +4,19 @@ The refactor is pure — zero behavior changes. Anything that looked like a
 bug, smell, or load-bearing oddity got logged here for a future session
 to triage.
 
-## 1. Duplicate `BULLET_KINDS` / `BulletKindName` definitions
+## 1. Duplicate `BULLET_KINDS` / `BulletKindName` definitions — **RESOLVED** (`4d71f80`)
 
 **Files:** `src/combat/bullet.ts` and `src/combat/weapons/index.ts`.
 
-Both files independently define a `BULLET_KINDS` map and a
-`BulletKindName` type. They drifted at some point — the two are not
-guaranteed identical (and aren't a single source of truth).
+Both files independently defined a `BULLET_KINDS` map and a
+`BulletKindName` type. They drifted at some point — the two were not
+a single source of truth.
 
-Pre-existing the refactor. Not unified per the no-behavior-change rule.
-Recommend: pick one as authoritative (probably `combat/weapons/index.ts`
-since the weapons sub-folder is the natural home), make `bullet.ts`
-import from it, delete the duplicate.
+**Fix:** Removed the inline `BulletKind` interface, `BULLET_KINDS`
+constant, and `BulletKindName` type from `combat/bullet.ts`; now
+re-exports them from `./weapons`. `weapons/bigShot.ts` values corrected
+to match the runtime-authoritative values (see also finding 7). Commit
+`4d71f80`.
 
 ## 2. Other zone types (wind/gravity/hazard/trigger) authorable but not wired at runtime
 
@@ -61,53 +62,53 @@ Cosmetic, but the docstring no longer matches the reality (sidebar was
 split into `leftPanel.ts` + `rightPanel.ts`). Recommend a doc-comment
 sweep across the editor.
 
-## 7. **Functional discrepancy** in duplicated `BULLET_KINDS`
+## 7. **Functional discrepancy** in duplicated `BULLET_KINDS` — **RESOLVED** (`4d71f80`)
 
-Building on finding 1: the duplicated definitions don't just exist — they
-**disagree**.
+Building on finding 1: the duplicated definitions didn't just exist — they
+**disagreed**.
 
 - `combat/bullet.ts` `bigShot`: `speed: 340, size: 6, gravity: 140, lifeSec: 1.2, ruptureRadius: 24`
-- `combat/weapons/bigShot.ts` `BIG_SHOT`: different values (notably
-  `speed: 440, size: 7`).
+- `combat/weapons/bigShot.ts` `BIG_SHOT`: `speed: 440, size: 7` (diverged).
 
-The runtime uses `combat/bullet.ts`. The values in `combat/weapons/`
-are silently dead. Before unifying (finding 1's fix), verify which set
-is intended — they may have drifted because someone tuned one and forgot
-the other.
+**Fix:** `weapons/bigShot.ts` values corrected to the runtime-authoritative
+`combat/bullet.ts` values, then the inline copy in `bullet.ts` was removed
+(see finding 1). Both findings resolved in the same commit `4d71f80`.
 
-## 8. `session/levelManager.ts` is not wired into the running game
+## 8. `session/levelManager.ts` is not wired into the running game — **RESOLVED** (`c75bb27`)
 
 `levelManager.loadLevel(id)`, `saveLevel(id)`, `markLevelLoaded(id)`,
-`nextLevelId(id)` all exist. `session/game.ts` ignores all of them —
-it has its own inline `LEVELS` array and calls `resetForLevel(gameSession, levelId)`
-+ `emit('levelLoaded', …)` directly.
+`nextLevelId(id)` all existed. `session/game.ts` was ignoring all of them.
 
 **Concrete consequence:** the editor's "save" flow (which writes to
-`localStorage` via `saveLevel`) is never read by the running game. The
-game always loads from the bundled JSON imports. Editor saves only show
-up after a build that re-imports the JSON — which doesn't happen during
-runtime swaps.
+`localStorage` via `saveLevel`) was never read by the running game.
 
-Recommend: have `session/game.ts#loadLevelAtIndex` call
-`levelManager.loadLevel(id)` instead of indexing into `LEVELS` directly,
-and call `levelManager.markLevelLoaded(id)` instead of duplicating the
-session-reset code.
+**Fix:** Deleted private `LEVELS` array and raw JSON imports from
+`game.ts`. Added `levelIdAt(index)` helper to `levelManager.ts`.
+`createGame` and `loadLevelAtIndex` now call `levelIdAt + loadLevel`
+(localStorage-first) and `markLevelLoaded`. `advanceLevel` uses
+`listLevels().length` for catalog sizing. Commit `c75bb27`.
 
-## 9. Pickup system is authored but dead at runtime
+## 9. Pickup system is authored but dead at runtime — **RESOLVED** (`716316b`)
 
-`LevelJson.pickups` exists, `createPickupsFromSpawns` /
-`tickPickups` / `pickupOverlapsPlayer` are exported from `items/`, the
-editor places pickups — but `session/game.ts` never spawns, ticks,
-renders, or detects collection. A level with a pickup silently does
-nothing in-game.
+`LevelJson.pickups` existed, `createPickupsFromSpawns` /
+`tickPickups` / `pickupOverlapsPlayer` were exported from `items/`, the
+editor placed pickups — but `session/game.ts` never spawned, ticked,
+rendered, or detected collection.
 
-The `bigShot` particle emitter (`emitPickupClaim`) added earlier in this
-session has no call site for the same reason.
+**Fix:** `Level.pickupSpawns` field added; `GameState.pickups` wired in;
+`fixedUpdate` ticks + detects + collects pickups (sets
+`player.currentWeapon`, emits `emitPickupClaim` burst); `render()` draws
+each alive pickup as a glow halo + body + accent dot with vertical bob.
+`Player.currentWeapon` field added; `spawnBullet` now passes it so the
+equipped weapon fires. Commit `716316b`.
 
-## 10. `physics/narrowphase.ts#sweptToi` is unreachable
+## 10. `physics/narrowphase.ts#sweptToi` is unreachable — **RESOLVED** (`b68dbfc`)
 
-CCD function exists, looks correct, no call site. Either tunneling isn't
-a current concern (delete) or it was added preemptively (wire up).
+CCD function existed with no call site.
+
+**Fix:** Deleted `sweptToi` and the now-unused `Vec2` import from
+`narrowphase.ts`. Tunneling is not a concern at player-speed substep
+dt with the current substep count. Commit `b68dbfc`.
 
 ## 11. `RenderContext.eyeGfx` is a permanently-empty Graphics node
 
