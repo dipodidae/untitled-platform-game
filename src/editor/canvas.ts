@@ -12,7 +12,8 @@
 //   - Rect tool: drag to draw.
 //   - Spawn/prowler/dummy/pickup tools: click to place.
 
-import type { EditorState, Tool } from './state'
+import type { EditorCollider, EditorState, Tool } from './state'
+import type { KineticJson } from '../kinetic'
 import type { ZoneType } from '../world/level'
 import { Application, Container, Graphics, Text } from 'pixi.js'
 import { allocId, markDirty, polygonBounds, polygonCenter, pushUndo, redo, rotatePolygon, scalePolygon, snap, undo } from './state'
@@ -42,6 +43,84 @@ const MATERIAL_COLORS: Record<string, { fill: number, stroke: number }> = {
 
 // How far (in screen pixels) a vertex handle extends. Independent of zoom.
 const VERTEX_HANDLE_PX = 5
+
+// ─── motion preview (hold G) ───────────────────────────────────────────────
+
+interface MotionPreviewEntry {
+  collIdx: number
+  originalVerts: [number, number][]
+  t: number // seconds elapsed in preview
+}
+
+let motionPreviewActive = false
+let motionPreviewLastTime = 0
+let motionPreviewScratch: MotionPreviewEntry[] = []
+
+function computePreviewVerts(
+  base: [number, number][],
+  k: KineticJson,
+  t: number,
+): [number, number][] {
+  switch (k.type) {
+    case 'rotor': {
+      const { cx, cy } = polygonCenter(base)
+      const speed = k.speed ?? 0.4
+      const angle = speed * t
+      return rotatePolygon(base, cx, cy, angle)
+    }
+    case 'breather': {
+      const amp = k.amplitude ?? 2
+      const freq = k.frequency ?? 0.6
+      const dy = Math.sin(t * Math.PI * 2 * freq) * amp
+      return base.map(([x, y]) => [x, y + dy] as [number, number])
+    }
+    case 'spring': {
+      const stiffness = k.stiffness ?? 180
+      const damping = k.damping ?? 8
+      const omega = Math.sqrt(stiffness)
+      const decay = Math.exp(-damping * t * 0.05)
+      const dy = Math.sin(omega * t) * 8 * decay
+      return base.map(([x, y]) => [x, y + dy] as [number, number])
+    }
+    case 'linear': {
+      const path = k.path
+      const speed = k.speed ?? 40
+      const mode = k.mode ?? 'pingpong'
+      if (!path || path.length < 2) return base
+      const segs: { len: number, dx: number, dy: number }[] = []
+      let totalLen = 0
+      for (let i = 0; i < path.length - 1; i++) {
+        const a = path[i]!
+        const b = path[i + 1]!
+        const dx = b[0] - a[0]
+        const dy = b[1] - a[1]
+        const len = Math.hypot(dx, dy)
+        segs.push({ len, dx, dy })
+        totalLen += len
+      }
+      if (totalLen < 0.001) return base
+      let dist = (speed * t) % (mode === 'pingpong' ? totalLen * 2 : totalLen)
+      if (mode === 'pingpong' && dist > totalLen) dist = totalLen * 2 - dist
+      let accum = 0
+      let offX = path[0]![0]
+      let offY = path[0]![1]
+      for (const seg of segs) {
+        if (accum + seg.len >= dist) {
+          const f = (dist - accum) / seg.len
+          offX += seg.dx * f
+          offY += seg.dy * f
+          break
+        }
+        accum += seg.len
+        offX += seg.dx
+        offY += seg.dy
+      }
+      const firstDx = path[0]![0]
+      const firstDy = path[0]![1]
+      return base.map(([x, y]) => [x + offX - firstDx, y + offY - firstDy] as [number, number])
+    }
+  }
+}
 
 interface CanvasCtx {
   app: Application
@@ -112,9 +191,26 @@ export async function createCanvas(
   state.listeners.add(() => redraw(ctx))
 
   wireInput(ctx)
-  app.ticker.add(() => applyCamera(ctx))
+  app.ticker.add(() => {
+    applyCamera(ctx)
+    tickMotionPreview(ctx.state)
+  })
   redraw(ctx)
   return ctx
+}
+
+function tickMotionPreview(state: EditorState): void {
+  if (!motionPreviewActive) return
+  const now = performance.now()
+  const dt = Math.min(0.05, (now - motionPreviewLastTime) / 1000)
+  motionPreviewLastTime = now
+  for (const entry of motionPreviewScratch) {
+    entry.t += dt
+    const c = state.level.colliders[entry.collIdx]
+    if (!c || !c.kinetic) continue
+    c.vertices = computePreviewVerts(entry.originalVerts, c.kinetic, entry.t)
+  }
+  markDirty(state)
 }
 
 function applyCamera(ctx: CanvasCtx): void {
@@ -591,9 +687,34 @@ function wireInput(ctx: CanvasCtx): void {
     else if (e.key === 'f' || e.key === 'F') {
       frameWorld(ctx)
     }
+    else if ((e.key === 'g' || e.key === 'G') && !motionPreviewActive) {
+      motionPreviewActive = true
+      motionPreviewLastTime = performance.now()
+      motionPreviewScratch = []
+      for (let i = 0; i < state.level.colliders.length; i++) {
+        const c = state.level.colliders[i] as EditorCollider | undefined
+        if (c?.kinetic) {
+          motionPreviewScratch.push({
+            collIdx: i,
+            originalVerts: c.vertices.map(v => [v[0], v[1]] as [number, number]),
+            t: 0,
+          })
+        }
+      }
+      markDirty(state)
+    }
   })
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') { ctx.spaceHeld = false; canvas.style.cursor = '' }
+    if ((e.key === 'g' || e.key === 'G') && motionPreviewActive) {
+      motionPreviewActive = false
+      for (const entry of motionPreviewScratch) {
+        const c = state.level.colliders[entry.collIdx]
+        if (c) c.vertices = entry.originalVerts
+      }
+      motionPreviewScratch = []
+      markDirty(state)
+    }
   })
 }
 

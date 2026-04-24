@@ -413,6 +413,7 @@ function hintSection(opts: { onFrame: () => void }): HTMLElement {
     '<span class="kbd">Del</span>: delete selection',
     '<span class="kbd">Shift</span>+click vertex: delete',
     '<span class="kbd">Alt</span>+click edge: insert vertex',
+    '<span class="kbd">G</span>: motion preview (hold)',
   ].join('<br>')
   s.appendChild(d)
   const frameBtn = document.createElement('button')
