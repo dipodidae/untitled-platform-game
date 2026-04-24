@@ -251,6 +251,12 @@ button.active { background: var(--accent); color: #161820; border-color: var(--a
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
+/* [hidden] attribute sets display:none by default, but our rule above
+   overrides it. Restore hidden behavior so popovers start folded. */
+.topbar-popover[hidden] {
+  display: none;
+}
+
 .topbar-menu-item {
   background: transparent;
   border: none;

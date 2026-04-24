@@ -175,7 +175,8 @@ function selectionSection(state: EditorState): HTMLElement {
     smOn.type = 'checkbox'
     smOn.checked = !!c.surfaceMotion && c.surfaceMotion.vx !== 0
     smOn.onchange = () => {
-      if (smOn.checked) c.surfaceMotion = { vx: 80 }
+      if (smOn.checked)
+        c.surfaceMotion = { vx: 80 }
       else delete c.surfaceMotion
       markDirty(state)
     }
@@ -192,7 +193,8 @@ function selectionSection(state: EditorState): HTMLElement {
     padOn.type = 'checkbox'
     padOn.checked = !!c.launchPad
     padOn.onchange = () => {
-      if (padOn.checked) c.launchPad = { force: 420, angle: 0 }
+      if (padOn.checked)
+        c.launchPad = { force: 420, angle: 0 }
       else delete c.launchPad
       markDirty(state)
     }
@@ -320,8 +322,10 @@ function fsaSupport(): FSASupport {
 // (Open File… flow). The preset route POSTs to the Vite dev middleware at
 // /__editor/save?name=<preset>, which writes src/levels/<preset>.json.
 function overwriteLabel(state: EditorState): string | null {
-  if (state.activeFileName) return state.activeFileName
-  if (state.activePresetName) return `${state.activePresetName}.json`
+  if (state.activeFileName)
+    return state.activeFileName
+  if (state.activePresetName)
+    return `${state.activePresetName}.json`
   return null
 }
 
@@ -359,7 +363,8 @@ function ioSection(state: EditorState): HTMLElement {
   overwrite.className = 'primary'
   overwrite.onclick = async () => {
     const target = overwriteLabel(state)
-    if (!target) return
+    if (!target)
+      return
     if (!confirm(`Overwrite ${target}? This cannot be undone.`))
       return
     try {
@@ -434,4 +439,3 @@ function numberInput(initial: number, onChange: (v: number) => void): HTMLInputE
   }
   return i
 }
-

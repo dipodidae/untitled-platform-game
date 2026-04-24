@@ -58,7 +58,8 @@ function buildFileMenu(state: EditorState): HTMLElement {
   btn.onclick = () => { pop.hidden = !pop.hidden }
 
   const newBlank = menuItem('mdi:file-plus-outline', 'New blank', () => {
-    if (!confirm('Clear the current level and start blank?')) return
+    if (!confirm('Clear the current level and start blank?'))
+      return
     state.level = fromLevelJson({
       spawn: { x: 80, y: 300 },
       worldWidth: 3200,
@@ -90,7 +91,8 @@ function buildFileMenu(state: EditorState): HTMLElement {
         types: [{ description: 'Level JSON', accept: { 'application/json': ['.json'] } }],
         multiple: false,
       })
-      if (!handle) return
+      if (!handle)
+        return
       state.activeFileHandle = handle
       state.activeFileName = handle.name
       state.activePresetName = null
@@ -102,7 +104,8 @@ function buildFileMenu(state: EditorState): HTMLElement {
       markDirty(state)
     }
     catch (e) {
-      if ((e as DOMException)?.name === 'AbortError') return
+      if ((e as DOMException)?.name === 'AbortError')
+        return
       showToast(`Open failed: ${String((e as Error).message ?? e)}`, 'err')
     }
   })
@@ -131,7 +134,8 @@ function buildFileMenu(state: EditorState): HTMLElement {
 
   // Close the popover when clicking outside it.
   document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target as Node)) pop.hidden = true
+    if (!wrap.contains(e.target as Node))
+      pop.hidden = true
   })
 
   return wrap
@@ -181,7 +185,8 @@ function buildViewMenu(state: EditorState): HTMLElement {
   }
 
   document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target as Node)) pop.hidden = true
+    if (!wrap.contains(e.target as Node))
+      pop.hidden = true
   })
 
   return wrap
@@ -233,7 +238,8 @@ function openFallbackLoader(state: EditorState): void {
   input.accept = 'application/json,.json'
   input.onchange = async () => {
     const f = input.files?.[0]
-    if (!f) return
+    if (!f)
+      return
     try {
       state.level = fromLevelJson(JSON.parse(await f.text()))
       state.selection = null
