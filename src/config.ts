@@ -60,11 +60,6 @@ export const CONFIG = {
   JUMP_BUFFER: 0.15, // generous buffer
   CORNER_NUDGE: 5, // max px of head-corner clip to auto-nudge sideways while jumping
 
-  // Camera
-  CAM_DEADZONE_W: 40, // player can drift this wide before cam pans horizontally
-  CAM_DEADZONE_H: 32, // vertical deadzone (taller so jumps don't yo-yo the cam)
-  CAM_LERP: 0.18, // 0 = no follow, 1 = instant snap
-
   // Fixed-timestep main loop
   FIXED_DT: 1 / 60, // physics step
   MAX_FRAME_DT: 0.25, // guard against tab-stall spiral of death

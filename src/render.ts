@@ -4,15 +4,16 @@ import type { FxState } from './fx'
 import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { ParallaxState } from './render/parallax'
-import type { PlayerRenderState } from './render/playerRenderer'
+import type { CharacterBridge } from './render/characterBridge'
 import type { WindState } from './render/wind'
 import type { Level } from './world/level'
 import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
 import { CONFIG } from './config'
-import { flashAlpha, shakeOffset } from './fx'
+import { flashAlpha } from './fx'
 import { PALETTE } from './render/palette'
 import { createParallax, updateParallax } from './render/parallax'
-import { drawPlayer, drawPlayerGhost, resetPlayerRenderer } from './render/playerRenderer'
+import { createCharacterBridge, resetCharacterBridge, syncCharacter } from './render/characterBridge'
+import { drawPlayerGhost, resetPlayerRenderer } from './render/playerRenderer'
 import { drawSky, drawVignette } from './render/post'
 import { drawProwler } from './render/prowlerRenderer'
 import { createWindState, drawWind, tickWind } from './render/wind'
@@ -34,7 +35,8 @@ export interface RenderContext {
   readonly wind: WindState
   readonly worldGfx: Graphics
   readonly auraGfx: Graphics
-  readonly playerGfx: Graphics
+  readonly charBridge: CharacterBridge
+  readonly playerGfx: Graphics // kept for iframe blink / jitter overlay
   readonly eyeGfx: Graphics
   readonly ghostGfx: Graphics
   readonly playerGhostGfx: Graphics
@@ -126,7 +128,12 @@ export function buildScene(app: Application, level: Level): RenderContext {
 
   const playerGhostGfx = new Graphics()
   worldContainer.addChild(playerGhostGfx) // below player
-  const playerGfx = new Graphics()
+
+  // Skeletal character replaces the old procedural pixel mass
+  const charBridge = createCharacterBridge()
+  worldContainer.addChild(charBridge.container)
+
+  const playerGfx = new Graphics() // kept for legacy compat / overlay effects
   worldContainer.addChild(playerGfx)
   const eyeGfx = new Graphics() // unused but kept for interface compat
 
@@ -193,6 +200,7 @@ export function buildScene(app: Application, level: Level): RenderContext {
     wind: createWindState() as WindState,
     worldGfx,
     auraGfx,
+    charBridge,
     playerGfx,
     eyeGfx,
     ghostGfx,
@@ -329,49 +337,54 @@ export function render(
   tickWind(ctx.wind, dt, level)
   drawWind(ctx.windGfx, ctx.wind, camera)
 
-  // Camera + shake + recognition zoom.
-  // During hitstop we briefly scale the world up to amplify the "this
-  // is happening" read. Eases in across the first half of the freeze,
-  // eases out across the second.
-  const off = shakeOffset(fx)
-  const camX = camera.x - off.x
-  const camY = camera.y - off.y
-  let zoom = 1
+  // Camera position with trauma shake baked in
+  const camX = camera.x + camera.shakeX
+  const camY = camera.y + camera.shakeY
+
+  // Zoom: camera speed-zoom + hitstop recognition zoom (additive)
+  let zoom = camera.zoom
   if (fx.hitstopTicks > 0) {
     const frac = fx.hitstopTicks / CONFIG.FRACTURE_HITSTOP_FRAMES
-    // Sin curve peaks at mid-freeze, returns to 1 at end.
-    zoom = 1 + CONFIG.FRACTURE_ZOOM_PEAK * Math.sin(frac * Math.PI)
+    zoom += CONFIG.FRACTURE_ZOOM_PEAK * Math.sin(frac * Math.PI)
   }
   ctx.worldContainer.scale.set(zoom)
-  // Zoom around the screen center: offset accordingly.
+  // Zoom from screen center, not top-left
   const cx0 = CONFIG.LOGICAL_WIDTH / 2
   const cy0 = CONFIG.LOGICAL_HEIGHT / 2
   ctx.worldContainer.x = -camX * zoom + cx0 * (1 - zoom)
   ctx.worldContainer.y = -camY * zoom + cy0 * (1 - zoom)
   updateParallax(ctx.parallax, camX, camY)
 
-  // Visual fragmentation: above the threshold the player's body jitters
-  // sub-pixel-ish. Reads as "not entirely here." Jitter scales with
-  // instability above threshold; zero below.
+  // ─── Skeletal character sync ─────────────────────────────────
   const ratio0 = player.instability.value / CONFIG.INSTABILITY_MAX
+
+  // Instability-driven positional jitter on the character container
   let jx = 0
   let jy = 0
   if (ratio0 > CONFIG.DEGRADE_FRAGMENT_THRESH) {
     const t = (ratio0 - CONFIG.DEGRADE_FRAGMENT_THRESH) / (1 - CONFIG.DEGRADE_FRAGMENT_THRESH)
     const amp = t * CONFIG.DEGRADE_FRAGMENT_JITTER
-    // Multi-frequency noise so the jitter feels organic rather than
-    // regular sine-wave wobble.
     jx = Math.sin(ctx.time * 47 + player.y * 0.3) * amp
       + Math.sin(ctx.time * 83) * amp * 0.4
     jy = Math.cos(ctx.time * 59 + player.x * 0.3) * amp * 0.7
   }
-  // Position the player Graphics at the center of the AABB (playerRenderer draws around 0,0)
-  ctx.playerGfx.x = player.x + CONFIG.PLAYER_W / 2 + jx
-  ctx.playerGfx.y = player.y + CONFIG.PLAYER_H / 2 + jy
-  // Post-fracture flicker. In FAULTLINE this reads as "not fully here yet."
+
+  // Sync skeletal character state + position from Player
+  syncCharacter(ctx.charBridge, player, dt)
+  // Apply instability jitter on top of the synced position
+  ctx.charBridge.container.x += jx
+  ctx.charBridge.container.y += jy
+
+  // Post-fracture flicker
   const iframeBlink
     = player.iframeTimer > 0 ? (Math.floor(ctx.time * 30) % 2 === 0 ? 0.4 : 1.0) : 1.0
-  ctx.playerGfx.alpha = iframeBlink
+  ctx.charBridge.container.alpha = iframeBlink
+
+  // Hide if dead
+  ctx.charBridge.container.visible = player.alive
+
+  // Clear legacy playerGfx (no longer drawn, but kept in scene for ordering)
+  ctx.playerGfx.clear()
 
   // Track rupture / respawn frame counters
   if (!player.alive && ctx.ruptureFrame === -1) {
@@ -385,30 +398,13 @@ export function render(
     ctx.ruptureFrame = -1
     ctx.respawnFrame = 0
     resetPlayerRenderer()
+    resetCharacterBridge(ctx.charBridge)
   }
   if (ctx.respawnFrame >= 0) {
     ctx.respawnFrame++
     if (ctx.respawnFrame > 65)
       ctx.respawnFrame = -1
   }
-
-  const prs: PlayerRenderState = {
-    vx: player.vx,
-    vy: player.vy,
-    grounded: player.grounded,
-    wasGrounded: ctx.wasGrounded,
-    facing: player.facing,
-    containing: player.instability.containing,
-    alive: player.alive,
-    iframeTimer: player.iframeTimer,
-    ruptureFrame: ctx.ruptureFrame,
-    respawnFrame: ctx.respawnFrame,
-    instability: ratio0,
-    djGlowTimer: player.djGlowTimer,
-    djFiredThisTick: player.djFiredThisTick,
-    groundMaterial: player.groundMaterial,
-  }
-  drawPlayer(ctx.playerGfx, prs, ratio0, ctx.time)
   ctx.wasGrounded = player.grounded
 
   // ─── prowlers ─────────────────────────────────────────────

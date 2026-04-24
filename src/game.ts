@@ -5,7 +5,7 @@ import type { Player } from './player'
 import type { Prowler } from './prowler'
 import type { RenderContext } from './render'
 import type { Level, LevelJson } from './world/level'
-import { createCamera, updateCamera } from './camera'
+import { addTrauma, createCamera, updateCamera } from './camera'
 import { CONFIG } from './config'
 import { consumeHitstopTick, createFxState, tickFxRender, tickParticlesPhysics } from './fx'
 import { endFrame, respawnPressed } from './input'
@@ -106,11 +106,21 @@ function fixedUpdate(state: GameState): void {
     respawn(state.player, state.level)
   }
 
+  // Track pre-tick state for landing detection
+  const prevVy = state.player.vy
+  const wasAirborne = !state.player.grounded
+
   state.now += CONFIG.FIXED_DT
   tickEphemeral(state.level, state.now)
   updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.now, CONFIG.FIXED_DT)
   tickParticlesPhysics(state.fx, CONFIG.FIXED_DT)
+
+  // Landing impact → camera trauma (scaled by impact velocity)
+  if (wasAirborne && state.player.grounded && prevVy > CONFIG.INSTABILITY_LAND_MIN_VY) {
+    const impactNorm = Math.min(prevVy / CONFIG.MAX_FALL, 1)
+    addTrauma(state.camera, impactNorm * 0.3) // max 0.3 for terminal velocity landing
+  }
 
   // Update prowlers + check player contact
   for (const pr of state.prowlers) {
@@ -125,6 +135,8 @@ function fixedUpdate(state: GameState): void {
       prowlerReactToRupture(pr, r.center.x, r.center.y)
     }
     kineticReactToRupture(state.level, r.center.x, r.center.y)
+    // Cinematic camera trauma — fracture is the biggest event
+    addTrauma(state.camera, 0.6)
   }
 
   if (checkLevelTransition(state))
