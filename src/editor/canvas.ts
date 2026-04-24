@@ -595,7 +595,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
         const b = polygonBounds(c.vertices)
         const handle = hitHandle(b, w.x, w.y, state.camera.zoom)
         if (handle) {
-          pushUndo(state)
+          pushUndo(state, 'scale selection')
           ctx.dragging = {
             kind: 'scale',
             startX: sx,
@@ -612,7 +612,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
         const b = { minX: z.x, minY: z.y, maxX: z.x + z.w, maxY: z.y + z.h }
         const handle = hitHandle(b, w.x, w.y, state.camera.zoom)
         if (handle) {
-          pushUndo(state)
+          pushUndo(state, 'scale selection')
           ctx.dragging = {
             kind: 'scale',
             startX: sx,
@@ -636,12 +636,12 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
             // Shift+click → delete vertex (keep at least 3).
             const mod = lastMouseEvent
             if (mod?.shiftKey && c.vertices.length > 3) {
-              pushUndo(state)
+              pushUndo(state, 'edit polygon')
               c.vertices.splice(i, 1)
               markDirty(state)
               return
             }
-            pushUndo(state)
+            pushUndo(state, 'edit polygon')
             ctx.dragging = {
               kind: 'vertex',
               startX: sx,
@@ -655,7 +655,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
         if (lastMouseEvent?.altKey) {
           const edgeHit = findEdgeHit(c.vertices, w.x, w.y, 6 / state.camera.zoom)
           if (edgeHit != null) {
-            pushUndo(state)
+            pushUndo(state, 'edit polygon')
             c.vertices.splice(edgeHit.afterIdx + 1, 0, [snap(state, w.x), snap(state, w.y)])
             markDirty(state)
             return
@@ -674,7 +674,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
     if (hit !== -1) {
       state.selection = { kind: 'collider', index: hit }
       markDirty(state)
-      pushUndo(state)
+      pushUndo(state, 'move selection')
       ctx.dragging = {
         kind: 'collider',
         startX: sx,
@@ -687,7 +687,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
     if (zoneHit !== -1) {
       state.selection = { kind: 'zone', index: zoneHit }
       markDirty(state)
-      pushUndo(state)
+      pushUndo(state, 'move selection')
       const z = state.level.zones[zoneHit]!
       ctx.dragging = {
         kind: 'zone-move',
@@ -703,7 +703,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
   }
 
   if (state.tool === 'zone') {
-    pushUndo(state)
+    pushUndo(state, 'create zone')
     ctx.dragging = { kind: 'zone-rect', startX: sx, startY: sy, state0: { worldStart: [snap(state, w.x), snap(state, w.y)] } }
     return
   }
@@ -810,7 +810,7 @@ function finishPolygon(ctx: CanvasCtx): void {
     markDirty(state)
     return
   }
-  pushUndo(state)
+  pushUndo(state, 'create collider')
   const preset = state.pendingPreset
   const collider = {
     id: allocId(state),
@@ -843,7 +843,7 @@ function finishRect(ctx: CanvasCtx): void {
   const y1 = Math.max(wy0, wy1)
   if (x1 - x0 < 1 || y1 - y0 < 1)
     return
-  pushUndo(state)
+  pushUndo(state, 'create collider')
   const verts: [number, number][] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
   const preset = state.pendingPreset
   const collider = {
@@ -875,7 +875,7 @@ function finishZoneRect(ctx: CanvasCtx): void {
   const h = Math.abs(wy1 - wy0)
   if (w < 4 || h < 4)
     return
-  pushUndo(state)
+  pushUndo(state, 'create zone')
   const preset = state.pendingZone ?? { type: 'gravity' as const, gravityScale: 0.5 }
   state.level.zones.push({
     id: allocId(state),
@@ -903,7 +903,7 @@ function deleteSelection(ctx: CanvasCtx): void {
   const sel = state.selection
   if (!sel)
     return
-  pushUndo(state)
+  pushUndo(state, 'delete selection')
   if (sel.kind === 'collider') {
     state.level.colliders.splice(sel.index, 1)
   }

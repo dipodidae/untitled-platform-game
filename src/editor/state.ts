@@ -34,6 +34,11 @@ export interface EditorCollider {
   launchPad?: { force: number, angle?: number }
 }
 
+export interface UndoEntry {
+  snap: string
+  label: string
+}
+
 export type Tool = 'select' | 'polygon' | 'rect' | 'spawn' | 'prowler' | 'dummy' | 'pickup' | 'zone'
 
 export interface Selection {
@@ -71,8 +76,8 @@ export interface EditorState {
   pendingZone: Partial<ZoneJson> & { type: ZoneType } | null
   // Undo/redo stack — snapshots of serialized EditorLevel. Kept small (50
   // entries) to bound memory; levels are typically a few KB each.
-  undoStack: string[]
-  redoStack: string[]
+  undoStack: UndoEntry[]
+  redoStack: UndoEntry[]
   // What "Overwrite" currently targets. Either a File System Access handle
   // (set by Open File…) or a bundled preset name (set by the status-bar
   // dropdown, saved via the dev server). Mutually exclusive — whichever is
@@ -218,9 +223,9 @@ const UNDO_LIMIT = 50
 
 // Snapshot current level state onto the undo stack. Call BEFORE mutating
 // — e.g. on the first pointer-down of a drag, before creating a shape, etc.
-export function pushUndo(state: EditorState): void {
+export function pushUndo(state: EditorState, label: string): void {
   const snap = JSON.stringify(toLevelJson(state.level))
-  state.undoStack.push(snap)
+  state.undoStack.push({ snap, label })
   if (state.undoStack.length > UNDO_LIMIT)
     state.undoStack.shift()
   // Any new edit invalidates the redo history.
@@ -230,9 +235,12 @@ export function pushUndo(state: EditorState): void {
 export function undo(state: EditorState): void {
   const prev = state.undoStack.pop()
   if (!prev) return
-  state.redoStack.push(JSON.stringify(toLevelJson(state.level)))
+  state.redoStack.push({
+    snap: JSON.stringify(toLevelJson(state.level)),
+    label: prev.label,
+  })
   try {
-    state.level = fromLevelJson(JSON.parse(prev) as LevelJson)
+    state.level = fromLevelJson(JSON.parse(prev.snap) as LevelJson)
     state.selection = null
     markDirty(state)
   }
@@ -244,9 +252,12 @@ export function undo(state: EditorState): void {
 export function redo(state: EditorState): void {
   const next = state.redoStack.pop()
   if (!next) return
-  state.undoStack.push(JSON.stringify(toLevelJson(state.level)))
+  state.undoStack.push({
+    snap: JSON.stringify(toLevelJson(state.level)),
+    label: next.label,
+  })
   try {
-    state.level = fromLevelJson(JSON.parse(next) as LevelJson)
+    state.level = fromLevelJson(JSON.parse(next.snap) as LevelJson)
     state.selection = null
     markDirty(state)
   }
