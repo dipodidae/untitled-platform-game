@@ -290,6 +290,26 @@ export const BRUSHES: Brush[] = [
     live: true,
     apply: (s) => { s.pendingPreset = null; setTool(s, 'pickup') },
   },
+  {
+    id: 'zone-goal',
+    label: 'Goal Zone',
+    category: 'guidance',
+    summary: 'Player overlap completes the level.',
+    tool: 'zone',
+    icon: 'mdi:flag-checkered',
+    live: true,
+    apply: (s) => { s.pendingZone = { type: 'goal' }; setTool(s, 'zone') },
+  },
+  {
+    id: 'zone-checkpoint',
+    label: 'Checkpoint',
+    category: 'guidance',
+    summary: 'Player overlap sets the active respawn point.',
+    tool: 'zone',
+    icon: 'mdi:map-marker-check',
+    live: true,
+    apply: (s) => { s.pendingZone = { type: 'spawnPoint' }; setTool(s, 'zone') },
+  },
 
   // ─── Meta ────────────────────────────────────────────────────────────
   {
