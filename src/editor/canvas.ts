@@ -132,9 +132,11 @@ interface CanvasCtx {
   selectionGfx: Graphics
   markersGfx: Graphics
   ghostGfx: Graphics // in-progress polygon + cursor
+  previewGfx: Graphics // ghost placement previews (entity/zone hover)
   vertexGfx: Graphics
   cursorText: Text
   mouseWorld: { x: number, y: number }
+  cursorInCanvas: boolean
   spaceHeld: boolean
   dragging: { kind: 'pan' | 'collider' | 'rect' | 'vertex' | 'scale' | 'zone-rect' | 'zone-move' | 'rotate-gizmo', startX: number, startY: number, state0: unknown } | null
 }
@@ -162,8 +164,9 @@ export async function createCanvas(
   const markersGfx = new Graphics()
   const selectionGfx = new Graphics()
   const ghostGfx = new Graphics()
+  const previewGfx = new Graphics()
   const vertexGfx = new Graphics()
-  worldContainer.addChild(bgGfx, gridGfx, colliderGfx, markersGfx, selectionGfx, ghostGfx, vertexGfx)
+  worldContainer.addChild(bgGfx, gridGfx, colliderGfx, markersGfx, selectionGfx, ghostGfx, previewGfx, vertexGfx)
 
   const cursorText = new Text({
     text: '',
@@ -181,9 +184,11 @@ export async function createCanvas(
     selectionGfx,
     markersGfx,
     ghostGfx,
+    previewGfx,
     vertexGfx,
     cursorText,
     mouseWorld: { x: 0, y: 0 },
+    cursorInCanvas: false,
     spaceHeld: false,
     dragging: null,
   }
@@ -231,7 +236,7 @@ function screenToWorld(ctx: CanvasCtx, sx: number, sy: number): { x: number, y: 
 // ─── drawing ──────────────────────────────────────────────────────────────
 
 function redraw(ctx: CanvasCtx): void {
-  const { state, bgGfx, gridGfx, colliderGfx, selectionGfx, markersGfx, ghostGfx, vertexGfx } = ctx
+  const { state, bgGfx, gridGfx, colliderGfx, selectionGfx, markersGfx, ghostGfx, previewGfx, vertexGfx } = ctx
   const level = state.level
 
   // Background = world bounds.
@@ -379,12 +384,50 @@ function redraw(ctx: CanvasCtx): void {
   // In-progress polygon ghost.
   if (state.polyBuffer && state.polyBuffer.length) {
     const buf = state.polyBuffer
-    ghostGfx.moveTo(buf[0]![0], buf[0]![1])
-    for (let i = 1; i < buf.length; i++) ghostGfx.lineTo(buf[i]![0], buf[i]![1])
-    ghostGfx.lineTo(ctx.mouseWorld.x, ctx.mouseWorld.y)
-    ghostGfx.stroke({ width: 1.25 / state.camera.zoom, color: 0x80FF80, alpha: 0.9 })
+    // Committed edges — full opacity.
+    if (buf.length >= 2) {
+      ghostGfx.moveTo(buf[0]![0], buf[0]![1])
+      for (let i = 1; i < buf.length; i++) ghostGfx.lineTo(buf[i]![0], buf[i]![1])
+      ghostGfx.stroke({ width: 1.25 / state.camera.zoom, color: 0x80FF80, alpha: 0.9 })
+    }
+    // Preview line from last committed point to snapped cursor — lighter.
+    if (ctx.cursorInCanvas) {
+      const last = buf[buf.length - 1]!
+      const sx = snap(state, ctx.mouseWorld.x)
+      const sy = snap(state, ctx.mouseWorld.y)
+      ghostGfx.moveTo(last[0], last[1]).lineTo(sx, sy).stroke({ width: 1.25 / state.camera.zoom, color: 0x666666, alpha: 0.7 })
+    }
+    // Vertex dots for all committed points.
     for (const p of buf) {
       ghostGfx.circle(p[0], p[1], 3 / state.camera.zoom).fill({ color: 0x80FF80 })
+    }
+  }
+
+  // Ghost placement previews — entity tools and zone idle hover.
+  previewGfx.clear()
+  previewGfx.alpha = 0.4
+  if (ctx.cursorInCanvas && !ctx.dragging) {
+    const px = snap(state, ctx.mouseWorld.x)
+    const py = snap(state, ctx.mouseWorld.y)
+    if (state.tool === 'spawn') {
+      markerCircle(previewGfx, px, py, 6, 0x40FF60, state.camera.zoom)
+    }
+    else if (state.tool === 'prowler') {
+      markerCircle(previewGfx, px, py, 8, 0xC040FF, state.camera.zoom)
+    }
+    else if (state.tool === 'dummy') {
+      markerCircle(previewGfx, px, py, 6, 0xFFA040, state.camera.zoom)
+    }
+    else if (state.tool === 'pickup') {
+      markerCircle(previewGfx, px, py, 7, 0xFF6040, state.camera.zoom)
+    }
+    else if (state.tool === 'zone') {
+      const defaultW = 80
+      const defaultH = 80
+      const col = ZONE_COLORS[state.pendingZone?.type ?? 'gravity']
+      previewGfx.rect(px - defaultW / 2, py - defaultH / 2, defaultW, defaultH)
+        .fill({ color: col, alpha: 0.4 })
+        .stroke({ width: 1.25 / state.camera.zoom, color: col, alpha: 1.0 })
     }
   }
 }
@@ -491,12 +534,18 @@ function wireInput(ctx: CanvasCtx): void {
   // Local alias so handlers don't repeatedly walk the ctx.
   const state = ctx.state
 
+  canvas.addEventListener('pointerleave', () => {
+    ctx.cursorInCanvas = false
+    markDirty(state)
+  })
+
   canvas.addEventListener('pointermove', (e) => {
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left
     const sy = e.clientY - rect.top
     const w = screenToWorld(ctx, sx, sy)
     ctx.mouseWorld = w
+    ctx.cursorInCanvas = true
     updateCursorText(ctx, sx, sy)
 
     if (ctx.dragging) {
@@ -601,7 +650,14 @@ function wireInput(ctx: CanvasCtx): void {
         markDirty(state) // preview in ghostGfx handled below
       }
     }
-    else if (state.tool === 'polygon' && state.polyBuffer) {
+    else if (
+      (state.tool === 'polygon' && state.polyBuffer)
+      || state.tool === 'spawn'
+      || state.tool === 'prowler'
+      || state.tool === 'dummy'
+      || state.tool === 'pickup'
+      || state.tool === 'zone'
+    ) {
       markDirty(state)
     }
   })
