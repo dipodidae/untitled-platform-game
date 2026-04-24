@@ -4,26 +4,29 @@
 //
 // Plain mutable record like the rest of this project's state modules. One
 // singleton instance is exported; everyone mutates it in place.
+//
+// Named `GameSession` to avoid colliding with the `GameState` bundle in
+// game.ts (player + level + camera + fx + …).
 
 export type GamePhase = 'gameplay' | 'results' | 'dead'
 
-export interface GameState {
+export interface GameSession {
   phase: GamePhase
   currentLevelId: string
   deaths: number
-  // performance.now() at the start of the current attempt. Reset on respawn?
-  // No — timed runs measure the whole attempt including respawns, so this is
-  // only reset when a fresh level is loaded.
+  // performance.now() at the start of the current attempt. Not reset on
+  // respawn — timed runs measure the whole attempt including deaths.
+  // Reset only by resetForLevel (fresh level load).
   startTime: number
   // The most recent checkpoint the player touched. Falls back to the level's
   // authored spawn when null. Cleared on level load.
   lastSpawnPoint: { x: number, y: number } | null
   // performance.now() timestamp at which the current death freeze ends.
-  // 0 = no freeze active. Input is suppressed until this passes.
+  // 0 = no freeze active. Input is suppressed by game.ts until this passes.
   deathFreezeEndsAt: number
 }
 
-export function createGameState(): GameState {
+export function createGameSession(): GameSession {
   return {
     phase: 'gameplay',
     currentLevelId: '',
@@ -36,7 +39,7 @@ export function createGameState(): GameState {
 
 // Prepare for a new level: fresh attempt, no checkpoint, no deaths, no freeze.
 // Called by LevelManager on loadLevel.
-export function resetForLevel(gs: GameState, levelId: string): void {
+export function resetForLevel(gs: GameSession, levelId: string): void {
   gs.phase = 'gameplay'
   gs.currentLevelId = levelId
   gs.deaths = 0
@@ -46,4 +49,4 @@ export function resetForLevel(gs: GameState, levelId: string): void {
 }
 
 // The singleton. Import and read/mutate directly.
-export const gameState: GameState = createGameState()
+export const gameState: GameSession = createGameSession()

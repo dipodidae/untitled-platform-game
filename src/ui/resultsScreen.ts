@@ -5,9 +5,9 @@
 // The overlay is a fixed-position full-screen panel layered above the Pixi
 // canvas via z-index. All animation is CSS — fade + slide-up over 300ms.
 
-import type { EngineEvents } from '../eventBus'
-import { on } from '../eventBus'
-import { hasNextLevel, levelName } from '../levelManager'
+import type { EngineEvents } from '../session/eventBus'
+import { on } from '../session/eventBus'
+import { hasNextLevel, levelName } from '../session/levelManager'
 
 export interface ResultsHandlers {
   onRetry: () => void

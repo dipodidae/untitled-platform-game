@@ -1,7 +1,7 @@
 import { Application } from 'pixi.js'
 import { gsap } from 'gsap'
 import { CONFIG } from './config'
-import { advanceLevel, createGame, reloadLevel, startLoop } from './game'
+import { advanceLevel, createGame, reloadLevel, startLoop } from './session/game'
 import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
 import { loadSpineboyAssets } from './render/spineboy'

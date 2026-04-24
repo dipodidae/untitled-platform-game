@@ -6,9 +6,9 @@ import type { ParticleSystem } from '../render/particles'
 import type { RuptureResult } from '../combat/rupture'
 import type { Level, MaterialName } from '../world/level'
 import { CONFIG } from '../config'
-import { emit } from '../eventBus'
+import { emit } from '../session/eventBus'
 import { triggerFractureFx } from '../render/fx'
-import { gameState } from '../gameState'
+import { gameState } from '../session/gameState'
 import { emitFractureBurst } from '../render/particles'
 import {
   containHeld,

@@ -7,11 +7,11 @@
 //
 // Persistence key format: `levels:{id}` → serialized LevelJson string.
 
-import type { LevelJson } from './world/level'
+import type { LevelJson } from '../world/level'
 import { emit } from './eventBus'
 import { gameState, resetForLevel } from './gameState'
-import level1Json from './levels/level1.json'
-import level2Json from './levels/level2.json'
+import level1Json from '../levels/level1.json'
+import level2Json from '../levels/level2.json'
 
 // Ordered progression. Add ids here (and bundle the JSON import above) to
 // extend the progression. The name shown on the results screen comes from
