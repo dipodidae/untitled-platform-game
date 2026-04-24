@@ -18,7 +18,7 @@ import type { Collider, Level, MaterialName } from './world/level'
 import { addTrauma } from './camera'
 import { CONFIG } from './config'
 import { damageDummy, dummyAabb, overlapsDummy } from './enemies/dummy'
-import { satAabbPoly } from './math/sat'
+import { satAabbPoly } from './physics/sat'
 import { emitImpactBurst, emitMuzzleFlash } from './render/particles'
 import { applyRupture } from './world/destruction'
 
