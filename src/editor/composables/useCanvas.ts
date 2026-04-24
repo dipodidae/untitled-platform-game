@@ -319,6 +319,40 @@ function redraw(ctx: CanvasCtx): void {
   for (const p of level.prowlers) markerCircle(markersGfx, p.x, p.y, 8, 0xC040FF, camera.zoom)
   for (const d of level.dummies) markerCircle(markersGfx, d.x, d.y, 6, 0xFFA040, camera.zoom)
   for (const p of level.pickups) markerCircle(markersGfx, p.x, p.y, 7, 0xFF6040, camera.zoom)
+
+  // Specials + classics — each kind drawn as a colored marker. Kept
+  // small + color-coded so a dense level stays legible. Click-to-select
+  // UI isn't wired up for these yet; this is editor-visibility only so
+  // save/load round-trips make sense while authoring existing data.
+  for (const p of level.mirrors) markerCircle(markersGfx, p.x, p.y, 5, 0xA0B0C0, camera.zoom)
+  for (const p of level.hushes) markerCircle(markersGfx, p.x, p.y, 6, 0x3A3050, camera.zoom)
+  for (const p of level.candlewicks) markerCircle(markersGfx, p.x, p.y, 5, 0xFFC060, camera.zoom)
+  for (const p of level.knights) markerCircle(markersGfx, p.x, p.y, 7, 0xCC2020, camera.zoom)
+  for (const p of level.blooms) markerCircle(markersGfx, p.x, p.y, 7, 0xC040A0, camera.zoom)
+  for (const p of level.echoes) markerCircle(markersGfx, p.x, p.y, 5, 0x8090FF, camera.zoom)
+  for (const p of level.crows) markerCircle(markersGfx, p.x, p.y, 4, 0x101418, camera.zoom)
+  for (const p of level.carts) markerCircle(markersGfx, p.x, p.y, 5, 0x706050, camera.zoom)
+  for (const p of level.shrines) markerCircle(markersGfx, p.x, p.y, 6, 0xE0D8C8, camera.zoom)
+  for (const p of level.pilgrims) markerCircle(markersGfx, p.x, p.y, 5, 0x4060C0, camera.zoom)
+  for (const p of level.medusas) markerCircle(markersGfx, p.x, p.y, 5, 0x3A2A1A, camera.zoom)
+  for (const p of level.beetles) markerCircle(markersGfx, p.x, p.y, 5, 0x1A2838, camera.zoom)
+  for (const p of level.boos) markerCircle(markersGfx, p.x, p.y, 5, 0xE0D8C8, camera.zoom)
+  for (const p of level.wallmasters) markerCircle(markersGfx, p.x, p.y, 6, 0x2A1818, camera.zoom)
+  for (const p of level.stalkers) markerCircle(markersGfx, p.x, p.y, 7, 0x8A2A1C, camera.zoom)
+  for (const p of level.wizards) markerCircle(markersGfx, p.x, p.y, 6, 0x4A2A60, camera.zoom)
+  for (const p of level.garpedes) {
+    // Draw both endpoints + a hint line along the run path.
+    markerCircle(markersGfx, p.x0, p.y, 5, 0xCC2020, camera.zoom)
+    markerCircle(markersGfx, p.x1, p.y, 5, 0xCC2020, camera.zoom)
+    markersGfx.moveTo(p.x0, p.y).lineTo(p.x1, p.y)
+      .stroke({ width: 1 / camera.zoom, color: 0xCC2020, alpha: 0.4 })
+  }
+  for (const p of level.ironKnuckles) markerCircle(markersGfx, p.x, p.y, 7, 0x304050, camera.zoom)
+  for (const p of level.cagneys) markerCircle(markersGfx, p.x, p.y, 9, 0x2A4A30, camera.zoom)
+  for (const p of level.dryBones) markerCircle(markersGfx, p.x, p.y, 5, 0xC8B89A, camera.zoom)
+  for (const p of level.planteras) markerCircle(markersGfx, p.x, p.y, 8, 0x6A1A20, camera.zoom)
+  for (const p of level.hammerBros) markerCircle(markersGfx, p.x, p.y, 6, 0x304030, camera.zoom)
+  for (const p of level.mantisLords) markerCircle(markersGfx, p.x, p.y, 8, 0x404060, camera.zoom)
   // Zones — translucent rectangles tinted by type.
   if (layers.zones) {
     for (const z of level.zones) {
