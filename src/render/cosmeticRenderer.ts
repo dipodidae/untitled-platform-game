@@ -8,14 +8,14 @@
 
 import type { Level } from '../world/level'
 import type { CosmeticData, PropDef } from './cosmeticAssets'
-import { Container, Sprite, TilingSprite } from 'pixi.js'
+import { Container, Filter, GlProgram, Sprite, TilingSprite } from 'pixi.js'
 import { CONFIG } from '../config'
 
 export interface CosmeticState {
   parallaxContainer: Container
   parallaxSprites: { sprite: TilingSprite | Sprite, depth: number, yDepth: number, baseY: number }[]
   propContainer: Container
-  propSprites: Sprite[]
+  waveFilter: WaveFilter | null
 }
 
 // Seeded RNG matching parallax.ts style
@@ -29,12 +29,73 @@ function makeRng(seed: number): () => number {
   }
 }
 
+// ─── Subtle wave distortion filter ──────────────────────────────────
+// UV-space sine wobble applied to the prop container. Very gentle —
+// reads as heat-haze / ambient shimmer, not underwater.
+
+const WAVE_VERT = /* glsl */ `
+in vec2 aPosition;
+out vec2 vTextureCoord;
+uniform vec4 uInputSize;
+uniform vec4 uOutputFrame;
+uniform vec4 uOutputTexture;
+vec4 filterVertexPosition(void) {
+  vec2 position = aPosition * uOutputFrame.zw + uOutputFrame.xy;
+  position.x = position.x * (2.0 / uOutputTexture.x) - 1.0;
+  position.y = position.y * (2.0*uOutputTexture.z / uOutputTexture.y) - uOutputTexture.z;
+  return vec4(position, 0.0, 1.0);
+}
+vec2 filterTextureCoord(void) {
+  return aPosition * (uOutputFrame.zw * uInputSize.zw);
+}
+void main(void) {
+  gl_Position = filterVertexPosition();
+  vTextureCoord = filterTextureCoord();
+}
+`
+
+const WAVE_FRAG = /* glsl */ `
+in vec2 vTextureCoord;
+out vec4 finalColor;
+uniform sampler2D uTexture;
+uniform float uTime;
+uniform vec4 uInputSize;
+void main(void) {
+  vec2 uv = vTextureCoord;
+  // Horizontal wave — subtle sine distortion
+  float wave = sin(uv.y * 18.0 + uTime * 1.4) * 0.0015
+             + sin(uv.y * 7.0  - uTime * 0.9) * 0.001;
+  uv.x += wave;
+  // Vertical shimmer — even subtler
+  uv.y += sin(uv.x * 12.0 + uTime * 1.1) * 0.001;
+  finalColor = texture(uTexture, uv);
+}
+`
+
+class WaveFilter extends Filter {
+  constructor() {
+    const glProgram = GlProgram.from({
+      vertex: WAVE_VERT,
+      fragment: WAVE_FRAG,
+    })
+    super({ glProgram, resources: { waveUniforms: { uTime: { value: 0, type: 'f32' } } } })
+  }
+
+  get time(): number {
+    return (this.resources as any).waveUniforms.uniforms.uTime as number
+  }
+
+  set time(v: number) {
+    ;(this.resources as any).waveUniforms.uniforms.uTime = v
+  }
+}
+
 export function createCosmeticState(): CosmeticState {
   return {
     parallaxContainer: new Container(),
     parallaxSprites: [],
     propContainer: new Container(),
-    propSprites: [],
+    waveFilter: null,
   }
 }
 
@@ -47,7 +108,8 @@ export function populateCosmetics(
   state.parallaxContainer.removeChildren()
   state.parallaxSprites.length = 0
   state.propContainer.removeChildren()
-  state.propSprites.length = 0
+  state.waveFilter = null
+  state.propContainer.filters = []
 
   const screenW = CONFIG.LOGICAL_WIDTH
   const screenH = CONFIG.LOGICAL_HEIGHT
@@ -86,10 +148,20 @@ export function populateCosmetics(
   if (data.props.length > 0 && data.propDensity > 0) {
     const rng = makeRng(data.propScatterSeed)
 
-    // Scatter props along the world width. Density = average props per 100px.
+    // Find the topmost surface Y from colliders so props sit on the
+    // actual floor, not at worldHeight (which is below the ground).
+    let floorY = level.worldHeight
+    for (const c of level.colliders) {
+      for (const v of c.vertices) {
+        if (v.y < floorY)
+          floorY = v.y
+      }
+    }
+
+    // Scatter props along the world width.
+    // density = probability per 30px slot → high density fills the floor.
     const worldW = level.worldWidth
-    const worldH = level.worldHeight
-    const step = 100
+    const step = 30
     const count = Math.floor(worldW / step)
 
     for (let i = 0; i < count; i++) {
@@ -100,30 +172,34 @@ export function populateCosmetics(
       const s = new Sprite(propDef.texture)
       s.anchor.set(propDef.anchor[0], propDef.anchor[1])
 
-      // Position: random x within this step, y near the bottom of the world
-      // (props sit on or near the ground plane)
+      // Position: random x within this slot, y just above the floor
       s.x = i * step + rng() * step
-      // Place props at worldHeight (ground level) with slight variation
-      s.y = worldH - 2 + rng() * 4
+      s.y = floorY - 1 + rng() * 3
 
-      // Slight scale variation for organic feel
-      const baseScale = 0.8 + rng() * 0.5
+      // Scale variation — keep props small as background decals
+      const baseScale = 0.2 + rng() * 0.25
       s.scale.set(baseScale)
 
-      // Desaturate slightly via alpha for depth
-      s.alpha = 0.4 + rng() * 0.3
+      // Varied alpha for depth layering
+      s.alpha = 0.3 + rng() * 0.4
 
       state.propContainer.addChild(s)
-      state.propSprites.push(s)
     }
+
+    // Apply wave distortion filter to the whole prop layer
+    const wave = new WaveFilter()
+    state.waveFilter = wave
+    state.propContainer.filters = [wave]
   }
 }
 
-export function updateCosmeticParallax(
+export function updateCosmetics(
   state: CosmeticState,
   cameraX: number,
   cameraY: number,
+  time: number,
 ): void {
+  // Parallax
   for (const layer of state.parallaxSprites) {
     if (layer.sprite instanceof TilingSprite) {
       layer.sprite.tilePosition.x = -cameraX * layer.depth
@@ -133,11 +209,16 @@ export function updateCosmeticParallax(
     }
     layer.sprite.y = layer.baseY - cameraY * layer.yDepth
   }
+
+  // Drive wave distortion filter
+  if (state.waveFilter)
+    state.waveFilter.time = time
 }
 
 export function teardownCosmetics(state: CosmeticState): void {
   state.parallaxContainer.removeChildren()
   state.parallaxSprites.length = 0
   state.propContainer.removeChildren()
-  state.propSprites.length = 0
+  state.propContainer.filters = []
+  state.waveFilter = null
 }

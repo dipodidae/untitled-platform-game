@@ -166,16 +166,16 @@
     "props": {
       "file": "/assets/cosmetics/level2/props/props_sheet.png",
       "sprites": [
-        { "name": "glass_shard_wall",   "x": 0,   "y": 0,  "w": 24, "h": 48, "anchor": [0.5, 1.0] },
-        { "name": "bone_column_ruin",   "x": 24,  "y": 0,  "w": 32, "h": 64, "anchor": [0.5, 1.0] },
-        { "name": "resonant_crystal_a", "x": 56,  "y": 0,  "w": 24, "h": 40, "anchor": [0.5, 1.0] },
-        { "name": "resonant_crystal_b", "x": 80,  "y": 0,  "w": 32, "h": 48, "anchor": [0.5, 1.0] },
-        { "name": "floor_crack",        "x": 112, "y": 0,  "w": 48, "h": 16, "anchor": [0.5, 1.0] },
-        { "name": "hanging_glass",      "x": 160, "y": 0,  "w": 16, "h": 48, "anchor": [0.5, 0.0] },
-        { "name": "bone_debris",        "x": 176, "y": 0,  "w": 40, "h": 24, "anchor": [0.5, 1.0] },
-        { "name": "arch_fragment",      "x": 216, "y": 0,  "w": 48, "h": 56, "anchor": [0.5, 1.0] }
+        { "name": "bone_column",    "x": 15,  "y": 6,  "w": 34, "h": 53, "anchor": [0.5, 1.0] },
+        { "name": "crystal_clust",  "x": 75,  "y": 14, "w": 45, "h": 35, "anchor": [0.5, 1.0] },
+        { "name": "crystal_shard",  "x": 145, "y": 17, "w": 31, "h": 27, "anchor": [0.5, 1.0] },
+        { "name": "glass_arch",     "x": 200, "y": 9,  "w": 47, "h": 46, "anchor": [0.5, 1.0] },
+        { "name": "rubble_pile",    "x": 5,   "y": 81, "w": 54, "h": 30, "anchor": [0.5, 1.0] },
+        { "name": "crystal_drop",   "x": 80,  "y": 69, "w": 32, "h": 53, "anchor": [0.5, 1.0] },
+        { "name": "cracked_wall",   "x": 133, "y": 83, "w": 54, "h": 29, "anchor": [0.5, 1.0] },
+        { "name": "bone_scroll",    "x": 203, "y": 73, "w": 42, "h": 47, "anchor": [0.5, 1.0] }
       ],
-      "density": 0.12,
+      "density": 0.85,
       "scatterSeed": 117
     }
   }

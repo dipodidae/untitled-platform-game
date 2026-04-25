@@ -24,7 +24,7 @@ import { shootingDisabled } from '../enemies/classics'
 import { hushIsSilencingPlayer } from '../enemies/specials'
 import { getItemDef } from '../items'
 import { drawClassics } from './classicsRenderer'
-import { createCosmeticState, teardownCosmetics, updateCosmeticParallax } from './cosmeticRenderer'
+import { createCosmeticState, teardownCosmetics, updateCosmetics } from './cosmeticRenderer'
 import { createEnemySpritePool, hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 import { flashAlpha } from './fx'
 import { getItemTexture } from './itemAssets'
@@ -499,7 +499,7 @@ export function render(
   ctx.worldContainer.x = -camX * zoom + cx0 * (1 - zoom)
   ctx.worldContainer.y = -camY * zoom + cy0 * (1 - zoom)
   updateParallax(ctx.parallax, camX, camY)
-  updateCosmeticParallax(ctx.cosmetic, camX, camY)
+  updateCosmetics(ctx.cosmetic, camX, camY, ctx.time)
 
   // ─── Skeletal character sync ─────────────────────────────────
   const ratio0 = player.instability.value / CONFIG.INSTABILITY_MAX

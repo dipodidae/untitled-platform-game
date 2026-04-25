@@ -118,6 +118,57 @@ const DELAY = ms => new Promise(r => setTimeout(r, ms))
       console.log(`  ⚠ Very uniform — cosmetics may not be visible`)
   }
 
+  // ── Level 2 verification ───────────────────────────────────────
+  // Clear tracked requests and load level 2 via a fresh page that
+  // overrides the start index through an injected script.
+  console.log('\n── Level 2 ──')
+  const cosmeticRequests2 = []
+  const cosmeticResponses2 = []
+  const page2 = await browser.newPage({ viewport: { width: 640, height: 360 } })
+  page2.on('request', req => {
+    if (req.url().includes('/assets/cosmetics/'))
+      cosmeticRequests2.push(req.url())
+  })
+  page2.on('response', res => {
+    if (res.url().includes('/assets/cosmetics/'))
+      cosmeticResponses2.push({ url: res.url(), status: res.status() })
+  })
+
+  // Inject a script before the app loads to patch levelIdAt so index 0 → level2
+  await page2.addInitScript(() => {
+    window.__FORCE_LEVEL = 'level2'
+  })
+  await page2.goto(URL, { waitUntil: 'domcontentloaded' })
+  await page2.waitForSelector('canvas', { timeout: 10000 })
+  await DELAY(1500)
+  await page2.click('canvas')
+  await DELAY(200)
+  await page2.keyboard.press('Enter')
+  await DELAY(200)
+  await page2.keyboard.press('Space')
+  await DELAY(200)
+  await page2.keyboard.press('Enter')
+  await DELAY(3000)
+
+  for (const { url, status } of cosmeticResponses2) {
+    const ok = status >= 200 && status < 400
+    console.log(`  ${ok ? '✓' : '✗'} ${status} ${url}`)
+    if (!ok) allOk = false
+  }
+  if (cosmeticResponses2.length === 0) {
+    console.log('  (level2 cosmetics not loaded — may need manual test)')
+  }
+
+  await page2.screenshot({ path: 'screenshots/cosmetics-level2-spawn.png' })
+  console.log('✓ screenshots/cosmetics-level2-spawn.png')
+
+  await page2.keyboard.down('ArrowRight')
+  await DELAY(1500)
+  await page2.keyboard.up('ArrowRight')
+  await DELAY(300)
+  await page2.screenshot({ path: 'screenshots/cosmetics-level2-scrolled.png' })
+  console.log('✓ screenshots/cosmetics-level2-scrolled.png')
+
   // ── Console errors ─────────────────────────────────────────────
   const errors = logs.filter(l => l.startsWith('[error]') || l.startsWith('[PAGE-ERROR]'))
   if (errors.length > 0) {

@@ -19,9 +19,9 @@
   "pickups": [],
   "zones": [],
   "hammerBros": [
-    { "x": 250, "y": 440, "period": 1.8 },
-    { "x": 500, "y": 440, "period": 1.4 },
-    { "x": 750, "y": 440, "period": 1.6 }
+    { "x": 250, "y": 410, "period": 1.8 },
+    { "x": 500, "y": 410, "period": 1.4 },
+    { "x": 750, "y": 410, "period": 1.6 }
   ],
   "cosmetics": {
     "brief": {
@@ -35,14 +35,16 @@
     "props": {
       "file": "/assets/cosmetics/level1/props/props_sheet.png",
       "sprites": [
-        { "name": "bone_shard_a",   "x": 0,   "y": 0, "w": 32, "h": 32, "anchor": [0.5, 1.0] },
-        { "name": "bone_shard_b",   "x": 32,  "y": 0, "w": 32, "h": 32, "anchor": [0.5, 1.0] },
-        { "name": "cracked_pillar", "x": 64,  "y": 0, "w": 32, "h": 64, "anchor": [0.5, 1.0] },
-        { "name": "rib_fragment",   "x": 96,  "y": 0, "w": 48, "h": 32, "anchor": [0.5, 1.0] },
-        { "name": "bone_dust_pile", "x": 144, "y": 0, "w": 32, "h": 16, "anchor": [0.5, 1.0] },
-        { "name": "hanging_chain",  "x": 176, "y": 0, "w": 16, "h": 64, "anchor": [0.5, 0.0] }
+        { "name": "vertebra",       "x": 2,   "y": 1,  "w": 40, "h": 62, "anchor": [0.5, 1.0] },
+        { "name": "ribcage",        "x": 52,  "y": 12, "w": 69, "h": 39, "anchor": [0.5, 1.0] },
+        { "name": "jawbone",        "x": 132, "y": 4,  "w": 68, "h": 56, "anchor": [0.5, 1.0] },
+        { "name": "skull_femur",    "x": 218, "y": 1,  "w": 36, "h": 62, "anchor": [0.5, 1.0] },
+        { "name": "dirt_pile",      "x": 1,   "y": 82, "w": 68, "h": 28, "anchor": [0.5, 1.0] },
+        { "name": "rib_curl",       "x": 85,  "y": 73, "w": 51, "h": 46, "anchor": [0.5, 1.0] },
+        { "name": "pillar_base",    "x": 146, "y": 65, "w": 66, "h": 63, "anchor": [0.5, 1.0] },
+        { "name": "bone_chimes",    "x": 223, "y": 65, "w": 31, "h": 63, "anchor": [0.5, 1.0] }
       ],
-      "density": 0.15,
+      "density": 0.85,
       "scatterSeed": 42
     }
   }
