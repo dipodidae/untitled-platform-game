@@ -5,13 +5,13 @@
 import type { BulletKind } from './types'
 
 export const SLUG: BulletKind = {
-  speed: 380,
-  gravity: 180,
-  lifeSec: 1.0,
-  size: 3,
-  ruptureRadius: 12,
+  speed: 420,
+  gravity: 120,
+  lifeSec: 0.8,
+  size: 2,
+  ruptureRadius: 10,
   damage: 1,
   coreColor: 0xFFD48C,
   haloColor: 0x8A2A1C,
-  fireCooldownSec: 0.14,
+  fireCooldownSec: 0.055,
 }

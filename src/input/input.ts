@@ -93,5 +93,5 @@ export const jumpPressed = (): boolean => justPressed('Space', 'KeyZ', 'ArrowUp'
 export const jumpReleased = (): boolean => justReleased('Space', 'KeyZ', 'ArrowUp', 'KeyW')
 export const containHeld = (): boolean => isDown('KeyV', 'ShiftLeft', 'ShiftRight')
 export const respawnPressed = (): boolean => justPressed('KeyR')
-export const shootPressed = (): boolean => justPressed('KeyX')
+export const shootPressed = (): boolean => isDown('KeyX')
 export const stanceCyclePressed = (): boolean => justPressed('KeyC')
