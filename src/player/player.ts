@@ -6,10 +6,8 @@ import type { ParticleSystem } from '../render/particles'
 import type { Vec2 } from '../shared-kernel/vec2'
 import type { Level, MaterialName } from '../world/level'
 import type { InstabilityState } from './instability'
-import { performRupture } from '../combat/rupture'
 import { CONFIG } from '../config'
 import {
-  containHeld,
   downDown,
   jumpPressed,
   jumpReleased,
@@ -17,15 +15,12 @@ import {
   rightDown,
 } from '../input/input'
 import { applySlopeProjection, moveAndCollide, overlapsLethal, tryStickToGround } from '../physics'
-import { triggerFractureFx } from '../render/fx'
-import { emitFractureBurst } from '../render/particles'
 import { emit } from '../session/eventBus'
 import { gameState } from '../session/gameState'
 import { resetLevel } from '../world/level'
 import {
   addInstability,
   createInstabilityState,
-  onFractured,
   resetInstability,
   updateInstability,
 } from './instability'
@@ -121,11 +116,8 @@ export function createPlayer(level: Level): Player {
   }
 }
 
-function handleInput(p: Player, dt: number, locked: boolean): void {
-  // "locked" = containment is active OR post-containment stun. No
-  // input-driven movement, no jump firing. Gravity + current vx decay
-  // still apply below.
-  let inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
+function handleInput(p: Player, dt: number): void {
+  let inputX = (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
 
   // Wall-jump input lock: suppress input TOWARD the wall we just jumped from.
   // This prevents immediately re-sticking and makes wall-jumps feel decisive.
@@ -139,7 +131,7 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     p.facing = inputX === 1 ? 1 : -1
 
   // Buffer a jump press even if we're not yet grounded — it fires on touchdown.
-  if (!locked && jumpPressed())
+  if (jumpPressed())
     p.bufferTimer = CONFIG.JUMP_BUFFER
 
   // Degradation modifiers (post-controller). Base numbers unchanged —
@@ -202,8 +194,8 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
     p.vx = Math.max(p.vx - dv, targetVx)
 
   // ─── jump: ground, coyote, OR wall ───────────────────────────────
-  const canGroundJump = !locked && (p.grounded || p.coyoteTimer > 0)
-  const canWallJump = !locked && !p.grounded
+  const canGroundJump = p.grounded || p.coyoteTimer > 0
+  const canWallJump = !p.grounded
     && (p.touchingWall || p.wallStickTimer > 0) && p.wallSide !== 0
   let firedJump = false
 
@@ -244,7 +236,7 @@ function handleInput(p: Player, dt: number, locked: boolean): void {
   // Fires when: airborne, no ground/wall jump was available, DJ not consumed.
   // "A deliberate correction or escape, not a second chance float."
   p.djFiredThisTick = false
-  if (!firedJump && p.bufferTimer > 0 && !locked
+  if (!firedJump && p.bufferTimer > 0
     && !p.grounded && p.doubleJumpAvailable) {
     // Preserve horizontal momentum with slight directional influence
     p.vx = p.vx * CONFIG.DJ_MOMENTUM_KEEP + inputX * CONFIG.DJ_HORIZONTAL_INFLUENCE
@@ -373,8 +365,8 @@ export function updatePlayer(
   level: Level,
   fx: FxState,
   broadphase: BroadphaseGrid,
-  particles: ParticleSystem,
-  now: number,
+  _particles: ParticleSystem,
+  _now: number,
   dt: number,
 ): void {
   if (!p.alive)
@@ -384,32 +376,6 @@ export function updatePlayer(
   // i-frame window closes — by then flash/shake/debris are all finished.
   if (p.lastRupture && p.iframeTimer <= 0)
     p.lastRupture = null
-
-  // ─── deferred fracture ──────────────────────────────────────
-  // Fires at the top of the tick AFTER instability hit max, so the
-  // renderer got one guaranteed frame to show the preview at peak.
-  // Hitstop is triggered inside triggerFractureFx — game.ts skips the
-  // next few ticks based on fx.hitstopTicks.
-  if (p.instability.fractureQueued) {
-    const cx = p.x + p.w / 2
-    const cy = p.y + p.h / 2
-    const rupture = performRupture(level, cx, cy, p.vx, p.vy, now)
-    p.vx = rupture.impulse.x
-    p.vy = rupture.impulse.y
-    p.iframeTimer = CONFIG.FRACTURE_IFRAMES
-    p.grounded = false // launch clears ground contact for the next tick
-    p.lastRupture = rupture
-    onFractured(p.instability)
-    triggerFractureFx(fx)
-    // Dominant material of the break drives debris tinting. Fall back to bone
-    // if we carved empty air.
-    const firstDestroyed = rupture.affected.find(a => a.destroyed)
-    const mat = firstDestroyed?.prevMaterial ?? 'bone'
-    const dom = mat === 'glass' || mat === 'soft' || mat === 'resonant' ? mat : 'bone'
-    emitFractureBurst(particles, cx, cy, dom, p.vx, p.vy)
-    // Consume the rest of this tick — the rupture IS the tick's action.
-    return
-  }
 
   // Timers
   if (p.coyoteTimer > 0)
@@ -432,14 +398,7 @@ export function updatePlayer(
   if (downDown() && jumpPressed() && p.grounded)
     p.dropThroughTimer = CONFIG.ONE_WAY_DROPTHROUGH_TIME
 
-  // Containment state: holding V/Shift with no stun and not fracturing
-  // locks movement this tick. The instability module decides the
-  // authoritative state + draining; we just need to know up-front to
-  // gate input.
-  const locked
-    = containHeld() && p.instability.containmentStunTimer <= 0 && !p.instability.fractureQueued
-
-  handleInput(p, dt, locked)
+  handleInput(p, dt)
 
   // Slope projection: if grounded on a slope, re-express horizontal intent
   // as tangent-aligned velocity so we walk up at full input speed.
@@ -546,7 +505,7 @@ export function updatePlayer(
 
   // "Pressed into a wall while moving" — input direction must match the
   // wall side we just collided with.
-  const inputX = locked ? 0 : (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
+  const inputX = (rightDown() ? 1 : 0) - (leftDown() ? 1 : 0)
   const wallMoving = p.touchingWall && inputX !== 0
 
   updateInstability(
@@ -557,7 +516,6 @@ export function updatePlayer(
       jumpedThisTick: p.jumpedThisTick,
       landedImpactVy,
       touchingWallMoving: wallMoving,
-      containHeld: containHeld(),
       iframes: p.iframeTimer > 0,
     },
     dt,

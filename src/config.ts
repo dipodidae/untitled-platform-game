@@ -107,8 +107,6 @@ export const CONFIG = {
   INSTABILITY_IDLE_BLEED_PER_SEC: 6, // stand still on ground → this much drains per second
   INSTABILITY_IDLE_VX_MAX: 8, // |vx| must be under this to count as "standing still"
   INSTABILITY_AIR_BLEED_PER_SEC: 1.5, // slow drain while airborne — skilled movement is rewarded
-  INSTABILITY_CONTAIN_DRAIN_PER_SEC: 40, // active containment drain rate
-  CONTAINMENT_STUN: 0.15, // post-containment stun: no jump or re-contain during this window
 
   // ───────────────────────── RUPTURE (shape) ─────────────────────
   RUPTURE_BASE_RADIUS: 32, // symmetric radius at zero velocity

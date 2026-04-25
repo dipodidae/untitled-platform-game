@@ -11,7 +11,6 @@ export interface PlayerRenderState {
   grounded: boolean
   wasGrounded: boolean // caller tracks: was grounded last frame
   facing: 1 | -1
-  containing: boolean
   alive: boolean
   iframeTimer: number
   ruptureFrame: number // -1 = no rupture; 0,1,2,3… = frames since rupture fired
@@ -83,21 +82,6 @@ function insetVerts(verts: V[], normals: V[], amount: number): V[] {
     y: v.y + normals[i]!.y * amount,
   }))
 }
-
-// Circle of same area as the base polygon (~10×14 → area ≈ ~120 px²)
-const BASE_AREA = 120
-const CIRCLE_R = Math.sqrt(BASE_AREA / Math.PI)
-
-function circleVerts(count: number): V[] {
-  const out: V[] = []
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 - Math.PI / 2
-    out.push({ x: Math.cos(a) * CIRCLE_R, y: Math.sin(a) * CIRCLE_R })
-  }
-  return out
-}
-
-const CIRCLE_TARGET = circleVerts(BASE_VERTICES.length)
 
 // ─── module state ────────────────────────────────────────────────────
 let _lastTickTime = 0
@@ -213,14 +197,6 @@ let _lagFrames = 0
 let _lagDir = 0
 let _prevFacing: 1 | -1 = 1
 
-// Containment lerp
-let _containLerp = 0 // 0 = base shape, 1 = circle
-let _containRing = 0 // pull ring radius offset (4..0)
-
-// Rebound after contain release
-let _reboundFrames = 0 // 3,2,1,0
-let _wasContaining = false
-
 // Double jump afterimages
 interface DJAfterimage {
   x: number // offset from current player pos at spawn time
@@ -300,37 +276,6 @@ export function drawPlayer(
     tickDecisions(instability)
   }
 
-  // ─── containment ──────────────────────────────────────────
-  const containTarget = state.containing ? 1 : 0
-  const containSpeed = 0.30 / 4 // 30% over 4 frames ≈ lerp factor per frame
-  _containLerp += (containTarget - _containLerp) * (containSpeed * 60) * (1 / 60)
-  _containLerp = Math.max(0, Math.min(1, _containLerp))
-
-  if (state.containing) {
-    if (_containRing < 4)
-      _containRing = 4
-    _containRing = Math.max(0, _containRing - 0.5)
-    _wasContaining = true
-  }
-  else {
-    _containRing = 0
-    if (_wasContaining) {
-      _reboundFrames = 3
-      _wasContaining = false
-    }
-  }
-
-  // ─── rebound after contain release ─────────────────────────
-  let reboundOffset = 0
-  if (_reboundFrames > 0) {
-    if (_reboundFrames === 3)
-      reboundOffset = 2
-    else if (_reboundFrames === 2)
-      reboundOffset = 0.5
-    else reboundOffset = 0
-    _reboundFrames--
-  }
-
   // ─── movement deformation ──────────────────────────────────
   let scaleX = 1.0
   let scaleY = 1.0
@@ -376,16 +321,8 @@ export function drawPlayer(
 
   // ─── build transformed vertices ────────────────────────────
   let verts = BASE_VERTICES.map((v, i) => {
-    // Containment: lerp toward circle
-    const ct = CIRCLE_TARGET[i]!
-    let bx = v.x + (ct.x - v.x) * _containLerp
-    let by = v.y + (ct.y - v.y) * _containLerp
-
-    // Rebound overshoot
-    if (reboundOffset > 0) {
-      bx += BASE_NORMALS[i]!.x * reboundOffset
-      by += BASE_NORMALS[i]!.y * reboundOffset
-    }
+    let bx = v.x
+    let by = v.y
 
     // Squash asymmetry (left vs right half)
     if (_squashFrames > 0 && instability > 0.6) {
@@ -397,13 +334,11 @@ export function drawPlayer(
     bx *= scaleX
     by *= scaleY
 
-    // Edge jitter (unless containing)
-    if (!state.containing) {
-      const jit = _decisions.edgeJitter[i] || 0
-      const birth = _birthJitter > 0 && Math.random() < _birthJitter ? rndInt(-1, 1) : 0
-      bx += jit + birth
-      by += jit + birth
-    }
+    // Edge jitter
+    const jit = _decisions.edgeJitter[i] || 0
+    const birth = _birthJitter > 0 && Math.random() < _birthJitter ? rndInt(-1, 1) : 0
+    bx += jit + birth
+    by += jit + birth
 
     return { x: bx + lagOffsetX, y: by }
   })
@@ -461,7 +396,7 @@ export function drawPlayer(
   // ─── stage 4: alternating silhouettes ──────────────────────
   if (instability > 0.8 && _decisions.alternateFrame && _frameCount % 2 === 0) {
     const altVerts = verts.map(v => ({ x: v.x + 1, y: v.y }))
-    drawBody(g, altVerts, instability, time, state.containing, _decisions.coreSpike)
+    drawBody(g, altVerts, instability, time, _decisions.coreSpike)
     return
   }
 
@@ -471,10 +406,10 @@ export function drawPlayer(
     const topHalf = verts.slice(0, half).map(v => ({ x: v.x, y: v.y - 1 }))
     const botHalf = verts.slice(half).map(v => ({ x: v.x, y: v.y + 1 }))
     if (topHalf.length >= 3) {
-      drawBody(g, topHalf, instability, time, state.containing, _decisions.coreSpike)
+      drawBody(g, topHalf, instability, time, _decisions.coreSpike)
     }
     if (botHalf.length >= 3) {
-      drawBody(g, botHalf, instability, time, state.containing, false)
+      drawBody(g, botHalf, instability, time, false)
     }
     return
   }
@@ -575,23 +510,15 @@ export function drawPlayer(
   }
 
   // ─── normal body draw ──────────────────────────────────────
-  drawBody(g, verts, instability, time, state.containing, _decisions.coreSpike)
-
-  // ─── containment pull ring ─────────────────────────────────
-  if (state.containing && _containRing > 0) {
-    const ringVerts = insetVerts(verts, computeNormals(verts), -(4 + _containRing))
-    pathPoly(g, ringVerts)
-    g.stroke({ width: 1, color: COL_OUTER, alpha: 0.10 })
-  }
+  drawBody(g, verts, instability, time, _decisions.coreSpike)
 }
 
 // ─── body layers ─────────────────────────────────────────────────────
 function drawBody(
   g: Graphics,
   verts: V[],
-  instability: number,
-  time: number,
-  containing: boolean,
+  _instability: number,
+  _time: number,
   coreSpike: boolean,
 ): void {
   if (verts.length < 3)
@@ -612,11 +539,7 @@ function drawBody(
 
   // Layer 3: core glow (inset 5px)
   const coreVerts = insetVerts(verts, normals, 5)
-  if (containing) {
-    // Tighter, brighter core during containment
-    g.circle(0, 0, 3).fill({ color: 0xFFB060, alpha: 0.95 })
-  }
-  else if (coreSpike) {
+  if (coreSpike) {
     // White spike flash (stage 4)
     if (coreVerts.length >= 3) {
       pathPoly(g, coreVerts)
@@ -628,10 +551,7 @@ function drawBody(
     g.fill({ color: COL_CORE, alpha: 0.8 })
   }
 
-  // Internal heat blobs (skip if containing — frozen)
-  if (!containing) {
-    drawHeatBlobs(g, instability, time)
-  }
+  drawHeatBlobs(g, _instability, _time)
 }
 
 // ─── heat blobs ──────────────────────────────────────────────────────
@@ -731,10 +651,6 @@ export function resetPlayerRenderer(): void {
   _squashFactor = 1.0
   _lagFrames = 0
   _lagDir = 0
-  _containLerp = 0
-  _containRing = 0
-  _reboundFrames = 0
-  _wasContaining = false
   _birthJitter = 0
   _frameCount = 0
   _djAfterimages = []

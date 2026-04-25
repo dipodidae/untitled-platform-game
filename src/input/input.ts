@@ -23,7 +23,6 @@ const GAME_KEYS: ReadonlySet<string> = new Set([
   'KeyS',
   'KeyD',
   'KeyZ',
-  'KeyV',
   'KeyR',
   'KeyX',
   'KeyC',
@@ -91,7 +90,6 @@ export const rightDown = (): boolean => isDown('ArrowRight', 'KeyD')
 export const downDown = (): boolean => isDown('ArrowDown', 'KeyS')
 export const jumpPressed = (): boolean => justPressed('Space', 'KeyZ', 'ArrowUp', 'KeyW')
 export const jumpReleased = (): boolean => justReleased('Space', 'KeyZ', 'ArrowUp', 'KeyW')
-export const containHeld = (): boolean => isDown('KeyV', 'ShiftLeft', 'ShiftRight')
 export const respawnPressed = (): boolean => justPressed('KeyR')
 export const shootPressed = (): boolean => isDown('KeyX')
 export const stanceCyclePressed = (): boolean => justPressed('KeyC')
