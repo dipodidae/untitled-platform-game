@@ -66,9 +66,9 @@ export function positionEnemySprite(
   s.x = x + w / 2
   s.y = y + h / 2 + anim.offsetY
 
-  // Scale sprite to fill the enemy's AABB with 1.6× overshoot so the art
-  // reads clearly at small game-world sizes.
-  const SPRITE_OVERSHOOT = 1.6
+  // Scale sprite well beyond the AABB so the art reads clearly — hitboxes
+  // are small game-world units while textures are 128×128.
+  const SPRITE_OVERSHOOT = 3.0
   if (tex.width > 0 && tex.height > 0) {
     const baseScaleX = (w / tex.width) * SPRITE_OVERSHOOT
     const baseScaleY = (h / tex.height) * SPRITE_OVERSHOOT
