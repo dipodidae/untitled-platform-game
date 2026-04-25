@@ -13,7 +13,7 @@ import { CONFIG } from '../config'
 
 export interface CosmeticState {
   parallaxContainer: Container
-  parallaxSprites: { sprite: TilingSprite | Sprite, depth: number, yDepth: number }[]
+  parallaxSprites: { sprite: TilingSprite | Sprite, depth: number, yDepth: number, baseY: number }[]
   propContainer: Container
   propSprites: Sprite[]
 }
@@ -78,6 +78,7 @@ export function populateCosmetics(
       sprite: ts,
       depth: layer.depth,
       yDepth: layer.yDepth,
+      baseY: screenH * layer.baseY,
     })
   }
 
@@ -125,14 +126,12 @@ export function updateCosmeticParallax(
 ): void {
   for (const layer of state.parallaxSprites) {
     if (layer.sprite instanceof TilingSprite) {
-      // Offset the tiling position rather than moving the sprite
       layer.sprite.tilePosition.x = -cameraX * layer.depth
-      layer.sprite.y = CONFIG.LOGICAL_HEIGHT * (1 - layer.sprite.height * layer.sprite.scale.y / CONFIG.LOGICAL_HEIGHT) - cameraY * layer.yDepth
     }
     else {
       layer.sprite.x = -cameraX * layer.depth
-      layer.sprite.y += -cameraY * layer.yDepth
     }
+    layer.sprite.y = layer.baseY - cameraY * layer.yDepth
   }
 }
 

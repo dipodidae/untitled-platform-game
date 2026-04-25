@@ -74,7 +74,8 @@ export function createGame(app: Application): GameState {
   const id = levelIdAt(0)
   if (!id)
     throw new Error('Level catalog is empty')
-  const level = fromJson(loadLevel(id)!)
+  const levelJson = loadLevel(id)!
+  const level = fromJson(levelJson)
   const player = createPlayer(level)
   const camera = createCamera(player)
   const fx = createFxState()
@@ -143,6 +144,13 @@ export function createGame(app: Application): GameState {
       ctx.pickupFlashTimer = 0.25
       ctx.pickupFlashColor = 0xFFA030
     }
+  })
+
+  // Load cosmetic assets async — they populate the already-built scene
+  // containers when ready. No gameplay dependency.
+  void loadCosmeticAssets(levelJson.cosmetics).then((data) => {
+    if (data)
+      populateCosmetics(state.renderCtx.cosmetic, data, state.level)
   })
 
   return state

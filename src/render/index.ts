@@ -123,12 +123,13 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   drawSky(skyGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
   bgContainer.addChild(skyGfx)
 
-  // Cosmetic parallax layers (populated async after buildScene returns)
-  const cosmetic = createCosmeticState()
-  bgContainer.addChild(cosmetic.parallaxContainer)
-
   const parallax = createParallax(level.worldWidth, level.worldHeight)
   bgContainer.addChild(parallax.container)
+
+  // Cosmetic parallax layers — on top of procedural silhouettes so they
+  // aren't occluded by the opaque fills. Populated async after buildScene.
+  const cosmetic = createCosmeticState()
+  bgContainer.addChild(cosmetic.parallaxContainer)
 
   // Parallax dither: 2x2 checkerboard for unresolved-signal look
   const ditherCanvas = document.createElement('canvas')
