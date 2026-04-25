@@ -17,7 +17,7 @@ import { gameState, resetForLevel } from './gameState'
 // extend the progression. The name shown on the results screen comes from
 // this map.
 const LEVEL_CATALOG: { id: string, name: string, bundled: LevelJson }[] = [
-  { id: 'level1', name: 'Bone Gardens', bundled: level1Json as LevelJson },
+  { id: 'level1', name: 'Hammer Arena', bundled: level1Json as unknown as LevelJson },
   { id: 'level2', name: 'Resonance Hall', bundled: level2Json as LevelJson },
 ]
 
