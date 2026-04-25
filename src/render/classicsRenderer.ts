@@ -5,7 +5,7 @@ import type { Graphics } from 'pixi.js'
 import type { ClassicsState } from '../enemies/classics'
 import type { EnemySpritePool } from './enemySpritePool'
 import { mantisIsVulnerable } from '../enemies/classics'
-import { positionEnemySprite, hideExcessSprites } from './enemySpritePool'
+import { hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 
 const COLOR_BONE = 0xC8B89A
 const COLOR_OXBLOOD = 0x8A2A1C
@@ -35,7 +35,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const m of s.medusas) {
     positionEnemySprite(pool, si, 'medusa', m.x, m.y, m.w, m.h, m.alive, m.hitFlashTimer > 0, 0.95, m.facing === -1, time, si)
     si++
-    if (!m.alive) continue
+    if (!m.alive)
+      continue
     pip(g, m.x, m.y, m.w, m)
   }
 
@@ -43,7 +44,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const b of s.beetles) {
     positionEnemySprite(pool, si, 'beetle', b.x, b.y, b.w, b.h, b.alive, b.hitFlashTimer > 0, 0.95, b.facing === -1, time, si)
     si++
-    if (!b.alive) continue
+    if (!b.alive)
+      continue
     pip(g, b.x, b.y, b.w, b)
   }
 
@@ -52,7 +54,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
     const alpha = b.hiding ? 0.35 : 0.9
     positionEnemySprite(pool, si, 'boo', b.x, b.y, b.w, b.h, b.alive, b.hitFlashTimer > 0, alpha, b.facing === -1, time, si)
     si++
-    if (!b.alive) continue
+    if (!b.alive)
+      continue
     pip(g, b.x, b.y, b.w, b)
   }
 
@@ -60,10 +63,10 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const w of s.wallmasters) {
     positionEnemySprite(pool, si, 'wallmaster', w.x, w.y, w.w, w.h, w.alive, w.hitFlashTimer > 0, 1, false, time, si)
     si++
-    if (!w.alive) continue
+    if (!w.alive)
+      continue
     // Tether line back to ceiling.
-    g.moveTo(w.x + w.w / 2, w.ceilingY).lineTo(w.x + w.w / 2, w.y)
-      .stroke({ width: 1, color: COLOR_EDGE, alpha: 0.7 })
+    g.moveTo(w.x + w.w / 2, w.ceilingY).lineTo(w.x + w.w / 2, w.y).stroke({ width: 1, color: COLOR_EDGE, alpha: 0.7 })
     pip(g, w.x, w.y, w.w, w)
   }
 
@@ -71,7 +74,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const st of s.stalkers) {
     positionEnemySprite(pool, si, 'stalker', st.x, st.y, st.w, st.h, st.alive, st.hitFlashTimer > 0, 1, st.facing === -1, time, si)
     si++
-    if (!st.alive) continue
+    if (!st.alive)
+      continue
     pip(g, st.x, st.y, st.w, st)
   }
 
@@ -79,7 +83,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const w of s.wizards) {
     positionEnemySprite(pool, si, 'wizard', w.x, w.y, w.w, w.h, w.alive, w.hitFlashTimer > 0, 1, w.facing === -1, time, si)
     si++
-    if (!w.alive) continue
+    if (!w.alive)
+      continue
     pip(g, w.x, w.y, w.w, w)
   }
 
@@ -94,7 +99,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const k of s.ironKnuckles) {
     positionEnemySprite(pool, si, 'ironknuckle', k.x, k.y, k.w, k.h, k.alive, k.hitFlashTimer > 0, 0.95, k.facing === -1, time, si)
     si++
-    if (!k.alive) continue
+    if (!k.alive)
+      continue
     // Block flash indicator.
     if (k.blockFlashTimer > 0) {
       const shieldX = k.facing === 1 ? k.x + k.w : k.x - 2
@@ -108,7 +114,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const c of s.cagneys) {
     positionEnemySprite(pool, si, 'cagney', c.x, c.y, c.w, c.h, c.alive, c.hitFlashTimer > 0, 1, false, time, si)
     si++
-    if (!c.alive) continue
+    if (!c.alive)
+      continue
     // Petals around the face.
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + time * 0.3
@@ -135,7 +142,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const p of s.planteras) {
     positionEnemySprite(pool, si, 'plantera', p.x, p.y, p.w, p.h, p.alive, p.hitFlashTimer > 0, 1, p.facing === -1, time, si)
     si++
-    if (!p.alive) continue
+    if (!p.alive)
+      continue
     // Leash ring.
     g.circle(p.x + p.w / 2, p.y + p.h / 2, p.leash)
       .stroke({ width: 1, color: p.enraged ? COLOR_HOT : COLOR_COLD, alpha: 0.15 })
@@ -146,7 +154,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
   for (const b of s.hammerBros) {
     positionEnemySprite(pool, si, 'hammerbro', b.x, b.y, b.w, b.h, b.alive, b.hitFlashTimer > 0, 0.95, b.facing === -1, time, si)
     si++
-    if (!b.alive) continue
+    if (!b.alive)
+      continue
     pip(g, b.x, b.y, b.w, b)
   }
 
@@ -155,7 +164,8 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
     const vuln = mantisIsVulnerable(m)
     positionEnemySprite(pool, si, 'mantislord', m.x, m.y, m.w, m.h, m.alive, m.hitFlashTimer > 0, vuln ? 0.8 : 0.95, m.facing === -1, time, si)
     si++
-    if (!m.alive) continue
+    if (!m.alive)
+      continue
     // Vulnerable glow outline.
     if (vuln) {
       g.rect(m.x - 1, m.y - 1, m.w + 2, m.h + 2)

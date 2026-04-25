@@ -79,6 +79,6 @@ export function springReactToRupture(k: SpringState, falloff: number): void {
   k.velocityY += falloff * 80
 }
 
+export type { Polygon } from '../../shared-kernel/polygon'
 // Exported so the destruction pass can remap carved vertices back to base.
 export { translateVertices } from './shared'
-export type { Polygon } from '../../shared-kernel/polygon'

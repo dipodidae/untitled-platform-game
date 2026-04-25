@@ -13,8 +13,8 @@ const SHORTCUTS: { key: string, desc: string }[] = [
 </script>
 
 <template>
-  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
-    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+  <div class="flex flex-col gap-2 p-3 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-0.5 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       Shortcuts
     </h3>
     <div class="flex flex-col gap-1 text-[var(--dim)] text-[11px]">

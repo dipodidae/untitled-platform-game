@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useEditorStore } from '../stores/editor'
-import WorldSettings from './rightpanel/WorldSettings.vue'
 import ColliderInspector from './rightpanel/ColliderInspector.vue'
-import ZoneInspector from './rightpanel/ZoneInspector.vue'
 import EntityInspector from './rightpanel/EntityInspector.vue'
 import SaveLoadActions from './rightpanel/SaveLoadActions.vue'
 import ShortcutsHint from './rightpanel/ShortcutsHint.vue'
+import WorldSettings from './rightpanel/WorldSettings.vue'
+import ZoneInspector from './rightpanel/ZoneInspector.vue'
 
 const store = useEditorStore()
 
@@ -47,8 +47,8 @@ function deleteSelection() {
   <WorldSettings />
 
   <!-- Selection inspector -->
-  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
-    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+  <div class="flex flex-col gap-2 p-3 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-0.5 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       Selection
     </h3>
 

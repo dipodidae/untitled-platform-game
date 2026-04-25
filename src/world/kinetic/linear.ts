@@ -116,8 +116,10 @@ export function updateLinear(c: Collider, k: LinearState, _player: PlayerLike, d
   const from = k.path[Math.max(0, Math.min(k.path.length - 1, fromIdx))]!
   const to = k.path[Math.max(0, Math.min(k.path.length - 1, toIdx))] ?? from
   let t = k.progress
-  if (k.easing === 'sine') t = 0.5 - 0.5 * Math.cos(t * Math.PI)
-  else if (k.easing === 'stop-start') t = t * t * (3 - 2 * t) // smoothstep
+  if (k.easing === 'sine')
+    t = 0.5 - 0.5 * Math.cos(t * Math.PI)
+  else if (k.easing === 'stop-start')
+    t = t * t * (3 - 2 * t) // smoothstep
   k.offsetX = from.x + (to.x - from.x) * t
   k.offsetY = from.y + (to.y - from.y) * t
 

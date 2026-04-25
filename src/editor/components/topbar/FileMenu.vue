@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useEditorStore } from '../../stores/editor'
 import type { LevelJson } from '../../../world/level'
+import { useEditorStore } from '../../stores/editor'
 
 const store = useEditorStore()
 const toast = useToast()

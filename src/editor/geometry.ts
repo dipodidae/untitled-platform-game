@@ -25,10 +25,14 @@ export function polygonBounds(verts: [number, number][]): { minX: number, minY: 
   let maxX = -Infinity
   let maxY = -Infinity
   for (const [x, y] of verts) {
-    if (x < minX) minX = x
-    if (x > maxX) maxX = x
-    if (y < minY) minY = y
-    if (y > maxY) maxY = y
+    if (x < minX)
+      minX = x
+    if (x > maxX)
+      maxX = x
+    if (y < minY)
+      minY = y
+    if (y > maxY)
+      maxY = y
   }
   return { minX, minY, maxX, maxY }
 }

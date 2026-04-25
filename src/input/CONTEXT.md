@@ -23,14 +23,14 @@ export function justReleased(...codes: string[]): boolean
 export function endFrame(): void
 
 // Gameplay aliases
-export const leftDown: () => boolean       // ArrowLeft | KeyA
-export const rightDown: () => boolean      // ArrowRight | KeyD
-export const downDown: () => boolean       // ArrowDown | KeyS
-export const jumpPressed: () => boolean    // Space | KeyZ | ArrowUp | KeyW
-export const jumpReleased: () => boolean   // same codes
-export const containHeld: () => boolean    // KeyV | ShiftLeft | ShiftRight
+export const leftDown: () => boolean // ArrowLeft | KeyA
+export const rightDown: () => boolean // ArrowRight | KeyD
+export const downDown: () => boolean // ArrowDown | KeyS
+export const jumpPressed: () => boolean // Space | KeyZ | ArrowUp | KeyW
+export const jumpReleased: () => boolean // same codes
+export const containHeld: () => boolean // KeyV | ShiftLeft | ShiftRight
 export const respawnPressed: () => boolean // KeyR
-export const shootPressed: () => boolean   // KeyX
+export const shootPressed: () => boolean // KeyX
 export const stanceCyclePressed: () => boolean // KeyC
 ```
 

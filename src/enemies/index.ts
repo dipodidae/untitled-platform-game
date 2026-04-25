@@ -3,7 +3,7 @@
 // than reaching into individual files. Add a new enemy by creating a file
 // here and adding a re-export below.
 
+export * from './classics'
 export * from './dummy'
 export * from './prowler'
 export * from './specials'
-export * from './classics'

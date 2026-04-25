@@ -3,21 +3,40 @@
 
 import { Assets, Texture } from 'pixi.js'
 
-export type EnemyKind =
-  | 'dummy' | 'prowler'
-  | 'mirror' | 'hush' | 'candlewick' | 'knight' | 'bloomrot'
-  | 'echo' | 'huskcrow' | 'cartographer' | 'shrine' | 'pilgrim'
-  | 'medusa' | 'beetle' | 'boo' | 'wallmaster' | 'stalker'
-  | 'wizard' | 'garpede' | 'ironknuckle' | 'cagney' | 'drybones'
-  | 'plantera' | 'hammerbro' | 'mantislord'
+export type EnemyKind
+  = | 'dummy' | 'prowler'
+    | 'mirror' | 'hush' | 'candlewick' | 'knight' | 'bloomrot'
+    | 'echo' | 'huskcrow' | 'cartographer' | 'shrine' | 'pilgrim'
+    | 'medusa' | 'beetle' | 'boo' | 'wallmaster' | 'stalker'
+    | 'wizard' | 'garpede' | 'ironknuckle' | 'cagney' | 'drybones'
+    | 'plantera' | 'hammerbro' | 'mantislord'
 
 const ENEMY_KINDS: EnemyKind[] = [
-  'dummy', 'prowler',
-  'mirror', 'hush', 'candlewick', 'knight', 'bloomrot',
-  'echo', 'huskcrow', 'cartographer', 'shrine', 'pilgrim',
-  'medusa', 'beetle', 'boo', 'wallmaster', 'stalker',
-  'wizard', 'garpede', 'ironknuckle', 'cagney', 'drybones',
-  'plantera', 'hammerbro', 'mantislord',
+  'dummy',
+  'prowler',
+  'mirror',
+  'hush',
+  'candlewick',
+  'knight',
+  'bloomrot',
+  'echo',
+  'huskcrow',
+  'cartographer',
+  'shrine',
+  'pilgrim',
+  'medusa',
+  'beetle',
+  'boo',
+  'wallmaster',
+  'stalker',
+  'wizard',
+  'garpede',
+  'ironknuckle',
+  'cagney',
+  'drybones',
+  'plantera',
+  'hammerbro',
+  'mantislord',
 ]
 
 const texturesA = new Map<EnemyKind, Texture>()
@@ -50,7 +69,8 @@ export async function loadEnemyAssets(): Promise<void> {
 export function getEnemyTexture(kind: EnemyKind, frameB = false): Texture {
   if (frameB) {
     const b = texturesB.get(kind)
-    if (b && b !== Texture.EMPTY) return b
+    if (b && b !== Texture.EMPTY)
+      return b
   }
   return texturesA.get(kind) ?? Texture.EMPTY
 }

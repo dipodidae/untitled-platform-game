@@ -1,7 +1,9 @@
 import type { Application } from 'pixi.js'
 import type { BulletState } from '../combat/bullet'
+import type { ClassicsState } from '../enemies/classics'
 import type { Dummy } from '../enemies/dummy'
 import type { Prowler } from '../enemies/prowler'
+import type { SpecialsState } from '../enemies/specials'
 import type { Pickup } from '../items'
 import type { Player } from '../player/player'
 import type { RenderContext } from '../render'
@@ -13,12 +15,10 @@ import type { Level } from '../world/level'
 import { Container } from 'pixi.js'
 import { createBulletState, resetBulletState, spawnBullet, updateBullets } from '../combat/bullet'
 import { CONFIG } from '../config'
+import { createClassicsFromSpawns, shootingDisabled, updateClassics } from '../enemies/classics'
 import { createDummy, updateDummy } from '../enemies/dummy'
 import { checkProwlerPlayerContact, createProwler, prowlerReactToRupture, updateProwler } from '../enemies/prowler'
 import { createSpecialsFromSpawns, updateSpecials } from '../enemies/specials'
-import type { SpecialsState } from '../enemies/specials'
-import { createClassicsFromSpawns, shootingDisabled, updateClassics } from '../enemies/classics'
-import type { ClassicsState } from '../enemies/classics'
 import { endFrame, respawnPressed, shootPressed, stanceCyclePressed } from '../input/input'
 import { createPickupsFromSpawns, getItemDef, pickupOverlapsPlayer, tickPickups } from '../items'
 import { BroadphaseGrid } from '../physics'
@@ -127,14 +127,17 @@ export function createGame(app: Application): GameState {
       ctx.hpGlowTimer = 0.4
       ctx.pickupFlashTimer = 0.2
       ctx.pickupFlashColor = 0x30FF50
-    } else if (e.kind === 'armor') {
+    }
+    else if (e.kind === 'armor') {
       ctx.armorGlowTimer = 0.4
       ctx.pickupFlashTimer = 0.2
       ctx.pickupFlashColor = 0x4080FF
-    } else if (e.kind === 'coin') {
+    }
+    else if (e.kind === 'coin') {
       ctx.pickupFlashTimer = 0.15
       ctx.pickupFlashColor = 0xFFD700
-    } else {
+    }
+    else {
       ctx.pickupFlashTimer = 0.25
       ctx.pickupFlashColor = 0xFFA030
     }
@@ -260,10 +263,14 @@ function fixedUpdate(state: GameState): void {
     if (pickupOverlapsPlayer(pk, state.player)) {
       const def = getItemDef(pk.kind)
       pk.alive = false
-      if (def.grantsWeapon) state.player.currentWeapon = def.grantsWeapon
-      if (def.heals) state.player.hp = Math.min(state.player.maxHp, state.player.hp + def.heals)
-      if (def.grantsArmor) state.player.armor = Math.min(100, state.player.armor + def.grantsArmor)
-      if (def.grantsCoin) state.player.coins += def.grantsCoin
+      if (def.grantsWeapon)
+        state.player.currentWeapon = def.grantsWeapon
+      if (def.heals)
+        state.player.hp = Math.min(state.player.maxHp, state.player.hp + def.heals)
+      if (def.grantsArmor)
+        state.player.armor = Math.min(100, state.player.armor + def.grantsArmor)
+      if (def.grantsCoin)
+        state.player.coins += def.grantsCoin
       const claimKind = def.grantsCoin ? 'coin' : def.heals ? 'health' : def.grantsArmor ? 'armor' : 'weapon'
       const tint = claimKind === 'health' ? 0x30FF50 : claimKind === 'armor' ? 0x4080FF : claimKind === 'coin' ? 0xFFD700 : 0xFFA030
       emitPickupClaim(state.particles, pk.x + pk.w / 2, pk.y + pk.h / 2, tint)

@@ -22,15 +22,15 @@
 // `tilemapToPolygons` converts legacy tile-string levels into a collider
 // list via greedy rectangle meshing; kept so old test layouts still load.
 
-import type { KineticJson, KineticState } from './kinetic'
 import type { Polygon } from '../shared-kernel/polygon'
+import type { ItemKind, LevelJson, MaterialName, ZoneJson } from '../shared-kernel/types'
 import type { Vec2 } from '../shared-kernel/vec2'
+import type { KineticJson, KineticState } from './kinetic'
 import { CONFIG } from '../config'
-import { createKineticState } from './kinetic'
 import { bounds, decompose } from '../shared-kernel/polygon'
+import { createKineticState } from './kinetic'
 
 export type { LevelJson, MaterialName, ZoneJson, ZoneType } from '../shared-kernel/types'
-import type { ItemKind, LevelJson, MaterialName, ZoneJson } from '../shared-kernel/types'
 
 export interface Collider {
   id: number

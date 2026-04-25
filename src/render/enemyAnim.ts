@@ -11,28 +11,34 @@
 import type { EnemyKind } from './enemyAssets'
 
 export interface AnimProfile {
-  bobAmp: number        // pixels of vertical bob
-  bobHz: number         // cycles per second
-  breatheAmp: number    // scale multiplier amplitude (0.05 = ±5%)
-  breatheHz: number     // cycles per second
-  wobbleAmp: number     // radians of rotation wobble
-  wobbleHz: number      // cycles per second
-  leanAmp: number       // skewX lean amplitude (radians)
-  leanHz: number        // lean frequency
-  squashAmp: number     // squash-stretch amplitude
-  squashHz: number      // squash-stretch frequency
-  flickerAmp: number    // alpha flicker amplitude (0-1)
-  flickerHz: number     // flicker frequency
-  framePeriod: number   // seconds between frame A/B swap (0 = static)
+  bobAmp: number // pixels of vertical bob
+  bobHz: number // cycles per second
+  breatheAmp: number // scale multiplier amplitude (0.05 = ±5%)
+  breatheHz: number // cycles per second
+  wobbleAmp: number // radians of rotation wobble
+  wobbleHz: number // cycles per second
+  leanAmp: number // skewX lean amplitude (radians)
+  leanHz: number // lean frequency
+  squashAmp: number // squash-stretch amplitude
+  squashHz: number // squash-stretch frequency
+  flickerAmp: number // alpha flicker amplitude (0-1)
+  flickerHz: number // flicker frequency
+  framePeriod: number // seconds between frame A/B swap (0 = static)
 }
 
 const ZERO: AnimProfile = {
-  bobAmp: 0, bobHz: 0,
-  breatheAmp: 0, breatheHz: 0,
-  wobbleAmp: 0, wobbleHz: 0,
-  leanAmp: 0, leanHz: 0,
-  squashAmp: 0, squashHz: 0,
-  flickerAmp: 0, flickerHz: 0,
+  bobAmp: 0,
+  bobHz: 0,
+  breatheAmp: 0,
+  breatheHz: 0,
+  wobbleAmp: 0,
+  wobbleHz: 0,
+  leanAmp: 0,
+  leanHz: 0,
+  squashAmp: 0,
+  squashHz: 0,
+  flickerAmp: 0,
+  flickerHz: 0,
   framePeriod: 0,
 }
 

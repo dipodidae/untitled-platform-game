@@ -26,8 +26,8 @@
 ```ts
 // bullet.ts
 export interface BulletKind { speed, gravity, lifeSec, size, ruptureRadius, damage, coreColor, haloColor, fireCooldownSec }
-export const BULLET_KINDS: { slug: BulletKind, bigShot: BulletKind }   // ⚠ see Invariants
-export type BulletKindName = 'slug' | 'bigShot'                         // ⚠ see Invariants
+export const BULLET_KINDS: { slug: BulletKind, bigShot: BulletKind } // ⚠ see Invariants
+export type BulletKindName = 'slug' | 'bigShot' // ⚠ see Invariants
 export interface Bullet { x, y, vx, vy, life, alive, kind }
 export interface BulletState { bullets, fireCooldown, fireEdge }
 export function createBulletState(): BulletState

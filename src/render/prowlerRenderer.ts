@@ -3,7 +3,7 @@
 import type { Graphics } from 'pixi.js'
 import type { Prowler } from '../enemies/prowler'
 import type { EnemySpritePool } from './enemySpritePool'
-import { positionEnemySprite, hideExcessSprites } from './enemySpritePool'
+import { hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 
 export function drawProwlers(
   g: Graphics,
@@ -33,12 +33,19 @@ export function drawProwlers(
     }
 
     positionEnemySprite(
-      pool, i, 'prowler',
-      pr.x + jx, pr.y + jy, pr.w, pr.h,
-      true, stunFlash,
+      pool,
+      i,
+      'prowler',
+      pr.x + jx,
+      pr.y + jy,
+      pr.w,
+      pr.h,
+      true,
+      stunFlash,
       0.7 + inst * 0.3,
       pr.facing === -1,
-      time, i,
+      time,
+      i,
     )
   }
 

@@ -17,8 +17,8 @@
 //   - Freelist reuse — no `new Particle()` in the hot path
 //   - All rendering inside a single `root` Container added to worldContainer
 
-import type { Renderer } from 'pixi.js'
-import { Container, Graphics, Particle, ParticleContainer, RenderTexture, Texture } from 'pixi.js'
+import type { Renderer, Texture } from 'pixi.js'
+import { Container, Graphics, Particle, ParticleContainer, RenderTexture } from 'pixi.js'
 
 // ─── textures ───────────────────────────────────────────────────────────────
 // Procedural small textures so we don't need an asset file for particles.

@@ -1,16 +1,13 @@
-import type { FxState } from '../render/fx'
-import type { InstabilityState } from './instability'
-import type { Vec2 } from '../shared-kernel/vec2'
-import type { BroadphaseGrid } from '../physics/broadphase'
-import type { ParticleSystem } from '../render/particles'
-import type { RuptureResult } from '../combat/rupture'
-import type { Level, MaterialName } from '../world/level'
 import type { BulletKindName } from '../combat/bullet'
+import type { RuptureResult } from '../combat/rupture'
+import type { BroadphaseGrid } from '../physics/broadphase'
+import type { FxState } from '../render/fx'
+import type { ParticleSystem } from '../render/particles'
+import type { Vec2 } from '../shared-kernel/vec2'
+import type { Level, MaterialName } from '../world/level'
+import type { InstabilityState } from './instability'
+import { performRupture } from '../combat/rupture'
 import { CONFIG } from '../config'
-import { emit } from '../session/eventBus'
-import { triggerFractureFx } from '../render/fx'
-import { gameState } from '../session/gameState'
-import { emitFractureBurst } from '../render/particles'
 import {
   containHeld,
   downDown,
@@ -19,6 +16,12 @@ import {
   leftDown,
   rightDown,
 } from '../input/input'
+import { applySlopeProjection, moveAndCollide, overlapsLethal, tryStickToGround } from '../physics'
+import { triggerFractureFx } from '../render/fx'
+import { emitFractureBurst } from '../render/particles'
+import { emit } from '../session/eventBus'
+import { gameState } from '../session/gameState'
+import { resetLevel } from '../world/level'
 import {
   addInstability,
   createInstabilityState,
@@ -26,9 +29,6 @@ import {
   resetInstability,
   updateInstability,
 } from './instability'
-import { applySlopeProjection, moveAndCollide, overlapsLethal, tryStickToGround } from '../physics'
-import { performRupture } from '../combat/rupture'
-import { resetLevel } from '../world/level'
 
 export interface Player {
   x: number

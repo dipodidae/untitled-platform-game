@@ -10,6 +10,7 @@
 // Adding a brush: append to BRUSHES, give it a category, apply semantics
 // in `applyBrushTo` if it touches existing state.
 
+import type { ItemKind } from '../shared-kernel/types'
 import type { KineticJson } from '../world/kinetic'
 import type { MaterialName, ZoneJson, ZoneType } from '../world/level'
 
@@ -28,9 +29,10 @@ interface BrushTarget {
   createMaterial: MaterialName
   pendingPreset: PendingColliderPreset | null
   pendingZone: (Partial<ZoneJson> & { type: ZoneType }) | null
+  pendingPickupKind: ItemKind
 }
 
-export type BrushCategory = 'movement' | 'hazard' | 'timing' | 'guidance' | 'meta'
+export type BrushCategory = 'movement' | 'hazard' | 'timing' | 'guidance' | 'pickups' | 'meta'
 
 export interface Brush {
   id: string
@@ -47,7 +49,9 @@ export interface Brush {
   apply: (target: BrushTarget) => void
 }
 
-const setTool = (target: BrushTarget, tool: Tool) => { target.tool = tool }
+function setTool(target: BrushTarget, tool: Tool) {
+  target.tool = tool
+}
 
 export const BRUSHES: Brush[] = [
   // ─── Core movement ───────────────────────────────────────────────────
@@ -59,7 +63,11 @@ export const BRUSHES: Brush[] = [
     tool: 'rect',
     icon: 'mdi:rectangle-outline',
     live: true,
-    apply: (s) => { s.createMaterial = 'bone'; s.pendingPreset = null; setTool(s, 'rect') },
+    apply: (s) => {
+      s.createMaterial = 'bone'
+      s.pendingPreset = null
+      setTool(s, 'rect')
+    },
   },
   {
     id: 'platform-linear',
@@ -153,7 +161,11 @@ export const BRUSHES: Brush[] = [
     tool: 'rect',
     icon: 'mdi:image-broken-variant',
     live: true,
-    apply: (s) => { s.createMaterial = 'bone_fragile'; s.pendingPreset = null; setTool(s, 'rect') },
+    apply: (s) => {
+      s.createMaterial = 'bone_fragile'
+      s.pendingPreset = null
+      setTool(s, 'rect')
+    },
   },
   {
     id: 'platform-oneway',
@@ -205,7 +217,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:weather-windy',
     live: true,
-    apply: (s) => { s.pendingZone = { type: 'wind', windVx: 200, windVy: 0, windTurbulence: 0.1 }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'wind', windVx: 200, windVy: 0, windTurbulence: 0.1 }
+      setTool(s, 'zone')
+    },
   },
   {
     id: 'gravity-zone',
@@ -215,7 +230,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:arrow-collapse-down',
     live: true,
-    apply: (s) => { s.pendingZone = { type: 'gravity', gravityScale: 0.4, airControlScale: 1.2 }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'gravity', gravityScale: 0.4, airControlScale: 1.2 }
+      setTool(s, 'zone')
+    },
   },
 
   // ─── Hazards ─────────────────────────────────────────────────────────
@@ -227,7 +245,11 @@ export const BRUSHES: Brush[] = [
     tool: 'rect',
     icon: 'mdi:triangle-outline',
     live: true,
-    apply: (s) => { s.createMaterial = 'shard' as never; s.pendingPreset = null; setTool(s, 'rect') },
+    apply: (s) => {
+      s.createMaterial = 'shard' as never
+      s.pendingPreset = null
+      setTool(s, 'rect')
+    },
   },
   {
     id: 'hazard-sweeping',
@@ -251,7 +273,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:skull-outline',
     live: true,
-    apply: (s) => { s.pendingZone = { type: 'hazard', hazardDamage: 2 }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'hazard', hazardDamage: 2 }
+      setTool(s, 'zone')
+    },
   },
 
   // ─── Timing / control ────────────────────────────────────────────────
@@ -263,7 +288,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:lightning-bolt-outline',
     live: false,
-    apply: (s) => { s.pendingZone = { type: 'trigger', triggerId: 'trigger-a' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'trigger', triggerId: 'trigger-a' }
+      setTool(s, 'zone')
+    },
   },
   {
     id: 'toggle-state',
@@ -273,7 +301,10 @@ export const BRUSHES: Brush[] = [
     tool: 'rect',
     icon: 'mdi:toggle-switch-outline',
     live: false,
-    apply: (s) => { s.pendingPreset = { note: 'toggle:default-off' }; setTool(s, 'rect') },
+    apply: (s) => {
+      s.pendingPreset = { note: 'toggle:default-off' }
+      setTool(s, 'rect')
+    },
   },
   {
     id: 'timer-rhythm',
@@ -283,7 +314,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:metronome',
     live: false,
-    apply: (s) => { s.pendingZone = { type: 'trigger', triggerId: 'rhythm-track' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'trigger', triggerId: 'rhythm-track' }
+      setTool(s, 'zone')
+    },
   },
 
   // ─── Guidance ────────────────────────────────────────────────────────
@@ -295,17 +329,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:vector-curve',
     live: false,
-    apply: (s) => { s.pendingZone = { type: 'trigger', triggerId: 'arc-hint' }; setTool(s, 'zone') },
-  },
-  {
-    id: 'collectible-trail',
-    label: 'Collectible / Trail',
-    category: 'guidance',
-    summary: 'Pickup marker — place in curves to teach movement.',
-    tool: 'pickup',
-    icon: 'mdi:dots-horizontal',
-    live: true,
-    apply: (s) => { s.pendingPreset = null; setTool(s, 'pickup') },
+    apply: (s) => {
+      s.pendingZone = { type: 'trigger', triggerId: 'arc-hint' }
+      setTool(s, 'zone')
+    },
   },
   {
     id: 'zone-goal',
@@ -315,7 +342,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:flag-checkered',
     live: true,
-    apply: (s) => { s.pendingZone = { type: 'goal' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'goal' }
+      setTool(s, 'zone')
+    },
   },
   {
     id: 'zone-checkpoint',
@@ -325,7 +355,90 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:map-marker-check',
     live: true,
-    apply: (s) => { s.pendingZone = { type: 'spawnPoint' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'spawnPoint' }
+      setTool(s, 'zone')
+    },
+  },
+
+  // ─── Pickups ──────────────────────────────────────────────────────────
+  {
+    id: 'pickup-coin',
+    label: 'Coin',
+    category: 'pickups',
+    summary: 'Gold coin — worth 1. Common collectible.',
+    tool: 'pickup',
+    icon: 'mdi:circle-medium',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'coin'
+      setTool(s, 'pickup')
+    },
+  },
+  {
+    id: 'pickup-platinum-coin',
+    label: 'Platinum Coin',
+    category: 'pickups',
+    summary: 'Platinum coin — worth 10. Rarer collectible.',
+    tool: 'pickup',
+    icon: 'mdi:circle-double',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'platinumCoin'
+      setTool(s, 'pickup')
+    },
+  },
+  {
+    id: 'pickup-crown',
+    label: 'Diamond Crown',
+    category: 'pickups',
+    summary: 'Diamond-crested crown — worth 30. Ultra-rare treasure.',
+    tool: 'pickup',
+    icon: 'mdi:crown',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'crown'
+      setTool(s, 'pickup')
+    },
+  },
+  {
+    id: 'pickup-health',
+    label: 'Health Pack',
+    category: 'pickups',
+    summary: 'Heals 1 HP on pickup.',
+    tool: 'pickup',
+    icon: 'mdi:heart-plus',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'healthPack'
+      setTool(s, 'pickup')
+    },
+  },
+  {
+    id: 'pickup-armor',
+    label: 'Armor Shard',
+    category: 'pickups',
+    summary: 'Grants 25 armor (shadow HP).',
+    tool: 'pickup',
+    icon: 'mdi:shield-plus',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'armorShard'
+      setTool(s, 'pickup')
+    },
+  },
+  {
+    id: 'pickup-bigshot',
+    label: 'Big Shot',
+    category: 'pickups',
+    summary: 'Heavy ammo weapon pickup.',
+    tool: 'pickup',
+    icon: 'mdi:ammunition',
+    live: true,
+    apply: (s) => {
+      s.pendingPickupKind = 'bigShot'
+      setTool(s, 'pickup')
+    },
   },
 
   // ─── Meta ────────────────────────────────────────────────────────────
@@ -337,7 +450,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:tune-variant',
     live: false,
-    apply: (s) => { s.pendingZone = { type: 'trigger', triggerId: 'modifier' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'trigger', triggerId: 'modifier' }
+      setTool(s, 'zone')
+    },
   },
   {
     id: 'group-link',
@@ -347,7 +463,9 @@ export const BRUSHES: Brush[] = [
     tool: 'select',
     icon: 'mdi:link-variant',
     live: false,
-    apply: (s) => { setTool(s, 'select') },
+    apply: (s) => {
+      setTool(s, 'select')
+    },
   },
   {
     id: 'state-stack',
@@ -357,7 +475,10 @@ export const BRUSHES: Brush[] = [
     tool: 'zone',
     icon: 'mdi:layers-outline',
     live: false,
-    apply: (s) => { s.pendingZone = { type: 'trigger', triggerId: 'state-stack' }; setTool(s, 'zone') },
+    apply: (s) => {
+      s.pendingZone = { type: 'trigger', triggerId: 'state-stack' }
+      setTool(s, 'zone')
+    },
   },
 ]
 
@@ -366,5 +487,6 @@ export const BRUSH_CATEGORY_LABEL: Record<BrushCategory, string> = {
   hazard: 'Hazards',
   timing: 'Timing',
   guidance: 'Guidance',
+  pickups: 'Pickups',
   meta: 'Meta',
 }

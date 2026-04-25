@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FileMenu from './topbar/FileMenu.vue'
-import ViewMenu from './topbar/ViewMenu.vue'
 import PresetSelect from './topbar/PresetSelect.vue'
+import ViewMenu from './topbar/ViewMenu.vue'
 </script>
 
 <template>

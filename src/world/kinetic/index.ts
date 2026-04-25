@@ -7,11 +7,12 @@
 // the unions + dispatchers.
 
 import type { Polygon } from '../../shared-kernel/polygon'
+import type { KineticJson } from '../../shared-kernel/types'
 import type { Level } from '../level'
-import type { PlayerLike } from './shared'
 import type { BreatherJson, BreatherState } from './breather'
 import type { LinearJson, LinearState } from './linear'
 import type { RotorJson, RotorState } from './rotor'
+import type { PlayerLike } from './shared'
 import type { SpringJson, SpringState } from './spring'
 import { breatherReactToRupture, createBreather, updateBreather } from './breather'
 import { createLinear, updateLinear } from './linear'
@@ -31,7 +32,6 @@ export type {
 }
 
 export type { KineticJson } from '../../shared-kernel/types'
-import type { KineticJson } from '../../shared-kernel/types'
 export type KineticState = RotorState | BreatherState | SpringState | LinearState
 
 export function createKineticState(baseVertices: Polygon, json: KineticJson): KineticState {

@@ -1,8 +1,8 @@
 // Narrowphase collision: AABB vs. convex polygon via SAT. Narrowphase only
 // computes the collision data; `resolve.ts` applies it to the player.
 
-import type { AABB, SatHit } from './sat'
 import type { Collider } from '../world/level'
+import type { AABB, SatHit } from './sat'
 import { satAabbPoly } from './sat'
 
 export interface ContactHit extends SatHit {
@@ -32,4 +32,3 @@ export function deepestContact(box: AABB, candidates: readonly Collider[]): Cont
   }
   return best
 }
-

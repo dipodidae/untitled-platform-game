@@ -22,14 +22,36 @@
 ```ts
 // player.ts
 export interface Player {
-  x, y, vx, vy, w, h
-  grounded, coyoteTimer, bufferTimer, facing
+  x
+  y
+  vx
+  vy
+  w
+  h
+  grounded
+  coyoteTimer
+  bufferTimer
+  facing
   instability: InstabilityState
-  touchingWall, wallSide, wallSliding, wallStickTimer
-  wallJumpInputLock, airSnapTimer, jumpedThisTick
-  iframeTimer, hazardIframe, hp, maxHp, alive
-  groundNormal, groundMaterial, resonantChain, dropThroughTimer
-  doubleJumpAvailable, djGlowTimer, djFiredThisTick
+  touchingWall
+  wallSide
+  wallSliding
+  wallStickTimer
+  wallJumpInputLock
+  airSnapTimer
+  jumpedThisTick
+  iframeTimer
+  hazardIframe
+  hp
+  maxHp
+  alive
+  groundNormal
+  groundMaterial
+  resonantChain
+  dropThroughTimer
+  doubleJumpAvailable
+  djGlowTimer
+  djFiredThisTick
   lastRupture: RuptureResult | null
 }
 export function createPlayer(level: Level): Player

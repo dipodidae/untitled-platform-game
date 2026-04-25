@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useEditorStore } from '../../stores/editor'
 import type { Tool } from '../../brushes'
+import { useEditorStore } from '../../stores/editor'
 
 const store = useEditorStore()
 
@@ -22,11 +22,11 @@ function setTool(t: Tool) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-[6px] p-2 bg-[var(--panel-2)] border border-[var(--border)] rounded">
-    <h3 class="m-0 mb-1 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
+  <div class="flex flex-col gap-2 p-3 bg-[var(--panel-2)] border border-[var(--border)] rounded">
+    <h3 class="m-0 mb-0.5 text-[11px] tracking-[0.08em] text-[var(--dim)] uppercase font-semibold">
       Tools
     </h3>
-    <div class="grid grid-cols-2 gap-1">
+    <div class="grid grid-cols-2 gap-1.5">
       <UButton
         v-for="t in TOOLS"
         :key="t.id"
@@ -36,7 +36,7 @@ function setTool(t: Tool) {
         :label="t.label"
         :title="t.hint ? `${t.label} — shortcut ${t.hint}` : t.label"
         size="sm"
-        class="justify-start !px-2 !gap-1.5"
+        class="justify-start !px-2.5 !py-1.5 !gap-1.5"
         @click="setTool(t.id)"
       />
     </div>

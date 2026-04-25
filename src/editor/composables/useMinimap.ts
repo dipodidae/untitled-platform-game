@@ -3,9 +3,9 @@
 // framed in the main editor. Clicking on the minimap teleports the camera
 // there. This matters for BIG levels where scrolling with a mouse alone is slow.
 
+import type { useEditorStore } from '../stores/editor'
 import { storeToRefs } from 'pinia'
 import { watchEffect } from 'vue'
-import { useEditorStore } from '../stores/editor'
 
 const MATERIAL_COLORS: Record<string, string> = {
   bone: '#C8B080',

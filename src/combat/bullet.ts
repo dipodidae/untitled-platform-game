@@ -10,29 +10,29 @@
 //   2) Terrain SAT via the existing broadphase + collider pieces.
 // On any impact we spawn a material-tinted debris burst and despawn the bullet.
 
-import type { Camera } from '../render/camera'
+import type { ClassicsState } from '../enemies/classics'
 import type { Dummy } from '../enemies/dummy'
+import type { SpecialsState } from '../enemies/specials'
 import type { BroadphaseGrid } from '../physics/broadphase'
+import type { Camera } from '../render/camera'
 import type { ParticleSystem } from '../render/particles'
 import type { Collider, Level, MaterialName } from '../world/level'
-import { addTrauma } from '../render/camera'
+import type { BulletKindName } from './weapons'
+import type { BulletKind } from './weapons/types'
 import { CONFIG } from '../config'
+import { checkBulletHitClassics } from '../enemies/classics'
 import { damageDummy, dummyAabb, overlapsDummy } from '../enemies/dummy'
 import { checkBulletHitSpecials } from '../enemies/specials'
-import type { SpecialsState } from '../enemies/specials'
-import { checkBulletHitClassics } from '../enemies/classics'
-import type { ClassicsState } from '../enemies/classics'
 import { satAabbPoly } from '../physics/sat'
-import { emit } from '../session/eventBus'
+import { addTrauma } from '../render/camera'
 import { emitImpactBurst, emitMuzzleFlash } from '../render/particles'
-import { applyRupture } from '../world/destruction'
 
+import { emit } from '../session/eventBus'
+import { applyRupture } from '../world/destruction'
 // ─── bullet kinds (weapon profiles) ──────────────────────────────────────────
 // Single source of truth lives in ./weapons — import from there so the
 // per-weapon files own their values and bullet.ts doesn't drift out of sync.
 import { BULLET_KINDS } from './weapons'
-import type { BulletKindName } from './weapons'
-import type { BulletKind } from './weapons/types'
 
 export type { BulletKind, BulletKindName }
 export { BULLET_KINDS }

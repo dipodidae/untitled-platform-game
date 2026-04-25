@@ -12,13 +12,22 @@
 //   - Rect tool: drag to draw.
 //   - Spawn/prowler/dummy/pickup/zone tools: click or drag to place.
 
-import type { EditorCollider, Tool } from '../stores/editor'
+import type { ItemKind } from '../../shared-kernel/types'
 import type { KineticJson } from '../../world/kinetic'
+import type { EditorCollider, Tool, useEditorStore } from '../stores/editor'
 import { storeToRefs } from 'pinia'
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js'
 import { watchEffect } from 'vue'
-import { Application, Container, Graphics, Text } from 'pixi.js'
-import { useEditorStore } from '../stores/editor'
 import { polygonBounds, polygonCenter, rotatePolygon, scalePolygon, snap } from '../geometry'
+
+const PICKUP_COLORS: Record<string, number> = {
+  coin: 0xFFD700,
+  platinumCoin: 0xC0C0E0,
+  crown: 0xFFE880,
+  healthPack: 0x30FF50,
+  armorShard: 0x4080FF,
+  bigShot: 0xFFA030,
+}
 
 const ZONE_COLORS: Record<string, number> = {
   gravity: 0x5080FF,
@@ -93,7 +102,8 @@ function computePreviewVerts(
       const path = k.path
       const speed = k.speed ?? 40
       const mode = k.mode ?? 'pingpong'
-      if (!path || path.length < 2) return base
+      if (!path || path.length < 2)
+        return base
       const segs: { len: number, dx: number, dy: number }[] = []
       let totalLen = 0
       for (let i = 0; i < path.length - 1; i++) {
@@ -105,9 +115,11 @@ function computePreviewVerts(
         segs.push({ len, dx, dy })
         totalLen += len
       }
-      if (totalLen < 0.001) return base
+      if (totalLen < 0.001)
+        return base
       let dist = (speed * t) % (mode === 'pingpong' ? totalLen * 2 : totalLen)
-      if (mode === 'pingpong' && dist > totalLen) dist = totalLen * 2 - dist
+      if (mode === 'pingpong' && dist > totalLen)
+        dist = totalLen * 2 - dist
       let accum = 0
       let offX = path[0]![0]
       let offY = path[0]![1]
@@ -154,6 +166,9 @@ export interface CanvasCtx {
   ghostGfx: Graphics // in-progress polygon + cursor
   previewGfx: Graphics // ghost placement previews (entity/zone hover)
   vertexGfx: Graphics
+  pickupSpriteContainer: Container
+  pickupSpritePool: Sprite[]
+  itemTextures: Map<string, Texture>
   cursorText: Text
   mouseWorld: { x: number, y: number }
   cursorInCanvas: boolean
@@ -192,7 +207,20 @@ export async function useCanvas(
   const ghostGfx = new Graphics()
   const previewGfx = new Graphics()
   const vertexGfx = new Graphics()
-  worldContainer.addChild(bgGfx, gridGfx, colliderGfx, markersGfx, selectionGfx, ghostGfx, previewGfx, vertexGfx)
+  const pickupSpriteContainer = new Container()
+  const pickupSpritePool: Sprite[] = []
+  worldContainer.addChild(bgGfx, gridGfx, colliderGfx, markersGfx, pickupSpriteContainer, selectionGfx, ghostGfx, previewGfx, vertexGfx)
+
+  // Pre-load item sprites for canvas rendering.
+  const ITEM_KINDS: ItemKind[] = ['coin', 'platinumCoin', 'crown', 'healthPack', 'armorShard', 'bigShot']
+  const itemTextures = new Map<string, Texture>()
+  for (const kind of ITEM_KINDS) {
+    try {
+      const tex = await Assets.load<Texture>(`/assets/items/${kind}.png`)
+      itemTextures.set(kind, tex)
+    }
+    catch { /* sprite missing — will fall back to circle */ }
+  }
 
   const cursorText = new Text({
     text: '',
@@ -212,6 +240,9 @@ export async function useCanvas(
     ghostGfx,
     previewGfx,
     vertexGfx,
+    pickupSpriteContainer,
+    pickupSpritePool,
+    itemTextures,
     cursorText,
     mouseWorld: { x: 0, y: 0 },
     cursorInCanvas: false,
@@ -234,14 +265,16 @@ export async function useCanvas(
 }
 
 function tickMotionPreview(cs: CanvasStore): void {
-  if (!motionPreviewActive) return
+  if (!motionPreviewActive)
+    return
   const now = performance.now()
   const dt = Math.min(0.05, (now - motionPreviewLastTime) / 1000)
   motionPreviewLastTime = now
   for (const entry of motionPreviewScratch) {
     entry.t += dt
     const c = cs.refs.level.value.colliders[entry.collIdx]
-    if (!c || !c.kinetic) continue
+    if (!c || !c.kinetic)
+      continue
     c.vertices = computePreviewVerts(entry.originalVerts, c.kinetic, entry.t)
   }
   // Vue reactivity picks up the mutation automatically — no markDirty needed.
@@ -265,7 +298,7 @@ function screenToWorld(ctx: CanvasCtx, sx: number, sy: number): { x: number, y: 
 // ─── drawing ──────────────────────────────────────────────────────────────
 
 function redraw(ctx: CanvasCtx): void {
-  const { bgGfx, gridGfx, colliderGfx, selectionGfx, markersGfx, ghostGfx, previewGfx, vertexGfx } = ctx
+  const { bgGfx, gridGfx, colliderGfx, selectionGfx, markersGfx, ghostGfx, previewGfx, vertexGfx, pickupSpriteContainer, pickupSpritePool, itemTextures } = ctx
   const { refs } = ctx.cs
   const level = refs.level.value
   const camera = refs.camera.value
@@ -318,7 +351,35 @@ function redraw(ctx: CanvasCtx): void {
   markerCircle(markersGfx, level.spawn.x, level.spawn.y, 6, 0x40FF60, camera.zoom)
   for (const p of level.prowlers) markerCircle(markersGfx, p.x, p.y, 8, 0xC040FF, camera.zoom)
   for (const d of level.dummies) markerCircle(markersGfx, d.x, d.y, 6, 0xFFA040, camera.zoom)
-  for (const p of level.pickups) markerCircle(markersGfx, p.x, p.y, 7, 0xFF6040, camera.zoom)
+  // Pickups — render sprites from the pool; fall back to colored dot when no sprite.
+  let pidx = 0
+  for (const p of level.pickups) {
+    const col = PICKUP_COLORS[p.kind] ?? 0xFF6040
+    // Tinted glow ring behind the sprite.
+    markersGfx.circle(p.x, p.y, 9 / camera.zoom).fill({ color: col, alpha: 0.25 })
+    markersGfx.circle(p.x, p.y, 9 / camera.zoom).stroke({ width: 1 / camera.zoom, color: col, alpha: 0.6 })
+    const tex = itemTextures.get(p.kind)
+    if (tex) {
+      while (pickupSpritePool.length <= pidx) {
+        const s = new Sprite({ texture: Texture.EMPTY })
+        s.anchor.set(0.5)
+        pickupSpriteContainer.addChild(s)
+        pickupSpritePool.push(s)
+      }
+      const s = pickupSpritePool[pidx]!
+      s.texture = tex
+      s.x = p.x
+      s.y = p.y
+      s.scale.set(20 / (tex.width * camera.zoom))
+      s.visible = true
+      pidx++
+    }
+    else {
+      markerCircle(markersGfx, p.x, p.y, 7, col, camera.zoom)
+    }
+  }
+  for (let i = pidx; i < pickupSpritePool.length; i++)
+    pickupSpritePool[i]!.visible = false
 
   // Specials + classics — each kind drawn as a colored marker. Kept
   // small + color-coded so a dense level stays legible. Click-to-select
@@ -344,8 +405,7 @@ function redraw(ctx: CanvasCtx): void {
     // Draw both endpoints + a hint line along the run path.
     markerCircle(markersGfx, p.x0, p.y, 5, 0xCC2020, camera.zoom)
     markerCircle(markersGfx, p.x1, p.y, 5, 0xCC2020, camera.zoom)
-    markersGfx.moveTo(p.x0, p.y).lineTo(p.x1, p.y)
-      .stroke({ width: 1 / camera.zoom, color: 0xCC2020, alpha: 0.4 })
+    markersGfx.moveTo(p.x0, p.y).lineTo(p.x1, p.y).stroke({ width: 1 / camera.zoom, color: 0xCC2020, alpha: 0.4 })
   }
   for (const p of level.ironKnuckles) markerCircle(markersGfx, p.x, p.y, 7, 0x304050, camera.zoom)
   for (const p of level.cagneys) markerCircle(markersGfx, p.x, p.y, 9, 0x2A4A30, camera.zoom)
@@ -399,8 +459,7 @@ function redraw(ctx: CanvasCtx): void {
         const rotMidX = (b.minX + b.maxX) / 2
         const rotMidY = b.minY
         const rotHandleY = rotMidY - rotHandleOffset
-        vertexGfx.moveTo(rotMidX, rotMidY).lineTo(rotMidX, rotHandleY)
-          .stroke({ width: 1 / camera.zoom, color: 0xFFFF80, alpha: 0.6 })
+        vertexGfx.moveTo(rotMidX, rotMidY).lineTo(rotMidX, rotHandleY).stroke({ width: 1 / camera.zoom, color: 0xFFFF80, alpha: 0.6 })
         vertexGfx.circle(rotMidX, rotHandleY, rotHandleRadius)
           .fill({ color: 0xFFFF80 })
           .stroke({ width: 1 / camera.zoom, color: 0x161820 })
@@ -489,7 +548,7 @@ function redraw(ctx: CanvasCtx): void {
       markerCircle(previewGfx, px, py, 6, 0xFFA040, camera.zoom)
     }
     else if (tool === 'pickup') {
-      markerCircle(previewGfx, px, py, 7, 0xFF6040, camera.zoom)
+      markerCircle(previewGfx, px, py, 7, PICKUP_COLORS[refs.pendingPickupKind.value] ?? 0xFF6040, camera.zoom)
     }
     else if (tool === 'zone') {
       const defaultW = 80
@@ -551,7 +610,8 @@ function selectionMarker(
 function avg(arr: number[]): number {
   if (!arr.length)
     return 0
-  let s = 0; for (const n of arr) s += n
+  let s = 0
+  for (const n of arr) s += n
   return s / arr.length
 }
 
@@ -665,10 +725,14 @@ function wireInput(ctx: CanvasCtx): () => void {
         let newMaxX = b.maxX
         let newMinY = b.minY
         let newMaxY = b.maxY
-        if (axes.sx === 1) newMaxX = Math.max(b.minX + 1, snap(snapStep, b.maxX + dxWorld))
-        else if (axes.sx === -1) newMinX = Math.min(b.maxX - 1, snap(snapStep, b.minX + dxWorld))
-        if (axes.sy === 1) newMaxY = Math.max(b.minY + 1, snap(snapStep, b.maxY + dyWorld))
-        else if (axes.sy === -1) newMinY = Math.min(b.maxY - 1, snap(snapStep, b.minY + dyWorld))
+        if (axes.sx === 1)
+          newMaxX = Math.max(b.minX + 1, snap(snapStep, b.maxX + dxWorld))
+        else if (axes.sx === -1)
+          newMinX = Math.min(b.maxX - 1, snap(snapStep, b.minX + dxWorld))
+        if (axes.sy === 1)
+          newMaxY = Math.max(b.minY + 1, snap(snapStep, b.maxY + dyWorld))
+        else if (axes.sy === -1)
+          newMinY = Math.min(b.maxY - 1, snap(snapStep, b.minY + dyWorld))
 
         if (s0.selKind === 'collider') {
           const c = refs.level.value.colliders[s0.index]
@@ -787,12 +851,19 @@ function wireInput(ctx: CanvasCtx): () => void {
       return
     const mod = e.ctrlKey || e.metaKey
     if (mod && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
-      store.undo(); e.preventDefault(); return
+      store.undo()
+      e.preventDefault()
+      return
     }
     if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y' || e.key === 'Y')) {
-      store.redo(); e.preventDefault(); return
+      store.redo()
+      e.preventDefault()
+      return
     }
-    if (e.code === 'Space') { ctx.spaceHeld = true; canvas.style.cursor = 'grab' }
+    if (e.code === 'Space') {
+      ctx.spaceHeld = true
+      canvas.style.cursor = 'grab'
+    }
     else if (e.key === 'Enter' && refs.tool.value === 'polygon' && refs.polyBuffer.value && refs.polyBuffer.value.length >= 3) {
       finishPolygon(ctx)
     }
@@ -825,12 +896,16 @@ function wireInput(ctx: CanvasCtx): () => void {
     }
   }
   const onKeyUp = (e: KeyboardEvent) => {
-    if (e.code === 'Space') { ctx.spaceHeld = false; canvas.style.cursor = '' }
+    if (e.code === 'Space') {
+      ctx.spaceHeld = false
+      canvas.style.cursor = ''
+    }
     if ((e.key === 'g' || e.key === 'G') && motionPreviewActive) {
       motionPreviewActive = false
       for (const entry of motionPreviewScratch) {
         const c = refs.level.value.colliders[entry.collIdx]
-        if (c) c.vertices = entry.originalVerts
+        if (c)
+          c.vertices = entry.originalVerts
       }
       motionPreviewScratch = []
     }
@@ -1028,7 +1103,7 @@ function onLeftDown(ctx: CanvasCtx, sx: number, sy: number, w: { x: number, y: n
     refs.selection.value = { kind: 'dummy', index: refs.level.value.dummies.length - 1 }
   }
   else if (refs.tool.value === 'pickup') {
-    refs.level.value.pickups.push({ x: snap(snapStep, w.x), y: snap(snapStep, w.y), kind: 'bigShot' })
+    refs.level.value.pickups.push({ x: snap(snapStep, w.x), y: snap(snapStep, w.y), kind: refs.pendingPickupKind.value })
     refs.selection.value = { kind: 'pickup', index: refs.level.value.pickups.length - 1 }
   }
 }

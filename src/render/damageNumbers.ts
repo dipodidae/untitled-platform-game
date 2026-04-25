@@ -39,7 +39,8 @@ export function createDamageNumbers(): DamageNumbers {
 
 function acquireText(dn: DamageNumbers): Text {
   const pooled = dn.free.pop()
-  if (pooled) return pooled
+  if (pooled)
+    return pooled
   const t = new Text({
     text: '',
     style: {
@@ -47,7 +48,7 @@ function acquireText(dn: DamageNumbers): Text {
       fontSize: 13,
       fontWeight: 'bold',
       fill: 0xFFD48C,
-      stroke: { color: 0x1a0e08, width: 3, join: 'round' },
+      stroke: { color: 0x1A0E08, width: 3, join: 'round' },
       align: 'center',
     },
   })

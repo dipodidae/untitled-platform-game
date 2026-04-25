@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useEditorStore } from '../stores/editor'
 import { useMinimap } from '../composables/useMinimap'
+import { useEditorStore } from '../stores/editor'
 
 const hostRef = ref<HTMLDivElement>()
 const store = useEditorStore()
 
 onMounted(() => {
-  if (!hostRef.value) return
+  if (!hostRef.value)
+    return
   const host = hostRef.value
   useMinimap(host, store, () => ({ w: host.clientWidth, h: host.clientHeight }))
 })

@@ -18,11 +18,11 @@
 //   HammerBro        — throws arcing projectiles on a rhythm.
 //   MantisLord       — armored skill-gate boss w/ telegraphed windows.
 
+import type { BulletKindName } from '../combat/bullet'
 import type { BroadphaseGrid } from '../physics/broadphase'
 import type { Player } from '../player/player'
 import type { Level } from '../world/level'
-import type { BulletKindName } from '../combat/bullet'
-import { takeHit, respawn } from '../player/player'
+import { respawn, takeHit } from '../player/player'
 import { emit } from '../session/eventBus'
 
 // ─── shared helpers ──────────────────────────────────────────────────
@@ -107,19 +107,35 @@ function updateProjectiles(
 
 // ─── 1) Medusa Head ──────────────────────────────────────────────────
 export interface MedusaHead {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  spawnX: number, spawnY: number
-  phase: number, facing: 1 | -1
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  spawnX: number
+  spawnY: number
+  phase: number
+  facing: 1 | -1
   respawnTimer: number
 }
 
 export function createMedusaHead(x: number, y: number): MedusaHead {
   return {
-    x, y, w: 12, h: 12,
-    hp: 2, maxHp: 2, alive: true, hitFlashTimer: 0,
-    spawnX: x, spawnY: y,
-    phase: Math.random() * Math.PI * 2, facing: -1,
+    x,
+    y,
+    w: 12,
+    h: 12,
+    hp: 2,
+    maxHp: 2,
+    alive: true,
+    hitFlashTimer: 0,
+    spawnX: x,
+    spawnY: y,
+    phase: Math.random() * Math.PI * 2,
+    facing: -1,
     respawnTimer: 0,
   }
 }
@@ -143,8 +159,10 @@ function updateMedusa(m: MedusaHead, player: Player, level: Level, dt: number): 
   m.x += m.facing * 35 * dt
   m.y = m.spawnY + Math.sin(m.phase) * 24
   // Wrap around the patrol band.
-  if (m.x < m.spawnX - 160) m.facing = 1
-  else if (m.x > m.spawnX + 160) m.facing = -1
+  if (m.x < m.spawnX - 160)
+    m.facing = 1
+  else if (m.x > m.spawnX + 160)
+    m.facing = -1
   if (player.alive && overlapsAabb(m.x, m.y, m.w, m.h, player.x, player.y, player.w, player.h)) {
     takeHit(player, level, m.x + m.w / 2, m.y + m.h / 2, 1)
     // Extra horizontal knockback — the Castlevania trademark.
@@ -158,18 +176,34 @@ function updateMedusa(m: MedusaHead, player: Player, level: Level, dt: number): 
 // ─── 2) Buzzy Beetle ─────────────────────────────────────────────────
 // Immune to 'slug'. Vulnerable to 'bigShot' (anything non-slug).
 export interface BuzzyBeetle {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  spawnX: number, facing: 1 | -1, patrolHalfWidth: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  spawnX: number
+  facing: 1 | -1
+  patrolHalfWidth: number
   // Weapon kind that can damage it. 'slug' → immune, anything else → hit.
   immuneWeapon: BulletKindName
 }
 
 export function createBuzzyBeetle(x: number, y: number): BuzzyBeetle {
   return {
-    x, y, w: 14, h: 14,
-    hp: 1, maxHp: 1, alive: true, hitFlashTimer: 0,
-    spawnX: x, facing: -1, patrolHalfWidth: 48,
+    x,
+    y,
+    w: 14,
+    h: 14,
+    hp: 1,
+    maxHp: 1,
+    alive: true,
+    hitFlashTimer: 0,
+    spawnX: x,
+    facing: -1,
+    patrolHalfWidth: 48,
     immuneWeapon: 'slug',
   }
 }
@@ -197,8 +231,14 @@ function updateBeetle(b: BuzzyBeetle, player: Player, level: Level, dt: number):
 // Only advances toward the player when facing away. Visually "covers its
 // face" when looked at.
 export interface Boo {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
   facing: 1 | -1
   // True when the player is facing this Boo (it hides).
   hiding: boolean
@@ -206,9 +246,16 @@ export interface Boo {
 
 export function createBoo(x: number, y: number): Boo {
   return {
-    x, y, w: 16, h: 16,
-    hp: 2, maxHp: 2, alive: true, hitFlashTimer: 0,
-    facing: -1, hiding: false,
+    x,
+    y,
+    w: 16,
+    h: 16,
+    hp: 2,
+    maxHp: 2,
+    alive: true,
+    hitFlashTimer: 0,
+    facing: -1,
+    hiding: false,
   }
 }
 
@@ -246,8 +293,14 @@ const WALLMASTER_TRIGGER_HALF_W = 36
 const WALLMASTER_DESCEND_SPEED = 260
 
 export interface Wallmaster {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
   ceilingY: number
   mode: 'idle' | 'descend' | 'retract'
   retractTimer: number
@@ -255,10 +308,17 @@ export interface Wallmaster {
 
 export function createWallmaster(x: number, y: number): Wallmaster {
   return {
-    x, y, w: 16, h: 16,
-    hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
+    x,
+    y,
+    w: 16,
+    h: 16,
+    hp: 3,
+    maxHp: 3,
+    alive: true,
+    hitFlashTimer: 0,
     ceilingY: y,
-    mode: 'idle', retractTimer: 0,
+    mode: 'idle',
+    retractTimer: 0,
   }
 }
 
@@ -303,19 +363,34 @@ function updateWallmaster(w: Wallmaster, player: Player, level: Level, dt: numbe
 // Persistent slow chaser. Tracks player horizontally across the full
 // level. Not deflected by terrain — mostly floats, with a little sink.
 export interface Stalker {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  spawnX: number, spawnY: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  spawnX: number
+  spawnY: number
   respawnTimer: number
   facing: 1 | -1
 }
 
 export function createStalker(x: number, y: number): Stalker {
   return {
-    x, y, w: 20, h: 20,
-    hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
-    spawnX: x, spawnY: y,
-    respawnTimer: 0, facing: -1,
+    x,
+    y,
+    w: 20,
+    h: 20,
+    hp: 3,
+    maxHp: 3,
+    alive: true,
+    hitFlashTimer: 0,
+    spawnX: x,
+    spawnY: y,
+    respawnTimer: 0,
+    facing: -1,
   }
 }
 
@@ -339,7 +414,8 @@ function updateStalker(s: Stalker, player: Player, level: Level, dt: number): vo
   const dx = (player.x + player.w / 2) - (s.x + s.w / 2)
   const dy = (player.y + player.h / 2) - (s.y + s.h / 2)
   const d = Math.hypot(dx, dy)
-  if (Math.abs(dx) > 0.5) s.facing = dx > 0 ? 1 : -1
+  if (Math.abs(dx) > 0.5)
+    s.facing = dx > 0 ? 1 : -1
   const speed = 42
   if (d > 1) {
     s.x += (dx / d) * speed * dt
@@ -355,17 +431,30 @@ function updateStalker(s: Stalker, player: Player, level: Level, dt: number): vo
 // timer. Wizard projectiles don't damage — they disable shooting for
 // SHOOT_DISABLE_SECS seconds.
 export interface EggplantWizard {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
   fireTimer: number
   facing: 1 | -1
 }
 
 export function createWizard(x: number, y: number): EggplantWizard {
   return {
-    x, y, w: 20, h: 20,
-    hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
-    fireTimer: 2.0, facing: -1,
+    x,
+    y,
+    w: 20,
+    h: 20,
+    hp: 3,
+    maxHp: 3,
+    alive: true,
+    hitFlashTimer: 0,
+    fireTimer: 2.0,
+    facing: -1,
   }
 }
 
@@ -396,21 +485,41 @@ function updateWizard(w: EggplantWizard, state: ClassicsState, player: Player, d
 // Scheduled hazard. Periodically traverses from (x0, y) to (x1, y) at
 // high speed; instant-kill on overlap. Cooldown between runs.
 export interface Garpede {
-  x: number, y: number, w: number, h: number
-  alive: boolean, hitFlashTimer: number // hp-less — unkillable hazard
-  hp: 0, maxHp: 0
-  x0: number, x1: number, baseY: number
+  x: number
+  y: number
+  w: number
+  h: number
+  alive: boolean
+  hitFlashTimer: number // hp-less — unkillable hazard
+  hp: 0
+  maxHp: 0
+  x0: number
+  x1: number
+  baseY: number
   phase: 'idle' | 'run'
-  timer: number, period: number, runSpeed: number
+  timer: number
+  period: number
+  runSpeed: number
   facing: 1 | -1
 }
 
 export function createGarpede(x0: number, y: number, x1: number, period: number): Garpede {
   return {
-    x: x0, y, w: 20, h: 20,
-    alive: true, hitFlashTimer: 0, hp: 0, maxHp: 0,
-    x0, x1, baseY: y,
-    phase: 'idle', timer: period * 0.5, period, runSpeed: 320,
+    x: x0,
+    y,
+    w: 20,
+    h: 20,
+    alive: true,
+    hitFlashTimer: 0,
+    hp: 0,
+    maxHp: 0,
+    x0,
+    x1,
+    baseY: y,
+    phase: 'idle',
+    timer: period * 0.5,
+    period,
+    runSpeed: 320,
     facing: 1,
   }
 }
@@ -441,16 +550,30 @@ function updateGarpede(g: Garpede, player: Player, level: Level, dt: number): vo
 // Stationary. Faces a direction. Bullets from the facing side bounce off
 // (absorbed + flash, no damage). Bullets from behind deal damage.
 export interface IronKnuckle {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  facing: 1 | -1, blockFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  facing: 1 | -1
+  blockFlashTimer: number
 }
 
 export function createIronKnuckle(x: number, y: number, facing: 1 | -1 = 1): IronKnuckle {
   return {
-    x, y, w: 22, h: 22,
-    hp: 5, maxHp: 5, alive: true, hitFlashTimer: 0,
-    facing, blockFlashTimer: 0,
+    x,
+    y,
+    w: 22,
+    h: 22,
+    hp: 5,
+    maxHp: 5,
+    alive: true,
+    hitFlashTimer: 0,
+    facing,
+    blockFlashTimer: 0,
   }
 }
 
@@ -471,23 +594,37 @@ function updateIronKnuckle(k: IronKnuckle, player: Player, level: Level, dt: num
 // Stationary. Cycles through 3 phases as HP drains. Each phase has a
 // different attack cadence + projectile pattern.
 export interface Cagney {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
   fireTimer: number
 }
 
 export function createCagney(x: number, y: number): Cagney {
   return {
-    x, y, w: 34, h: 34,
-    hp: 12, maxHp: 12, alive: true, hitFlashTimer: 0,
+    x,
+    y,
+    w: 34,
+    h: 34,
+    hp: 12,
+    maxHp: 12,
+    alive: true,
+    hitFlashTimer: 0,
     fireTimer: 1.5,
   }
 }
 
 function cagneyPhase(c: Cagney): 0 | 1 | 2 {
   const r = c.hp / c.maxHp
-  if (r > 0.66) return 0
-  if (r > 0.33) return 1
+  if (r > 0.66)
+    return 0
+  if (r > 0.33)
+    return 1
   return 2
 }
 
@@ -532,17 +669,33 @@ function updateCagney(c: Cagney, state: ClassicsState, player: Player, dt: numbe
 // ─── 10) Dry Bones ───────────────────────────────────────────────────
 // Walker. On "death" crumbles, goes dormant, then reassembles.
 export interface DryBones {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  spawnX: number, facing: 1 | -1, patrolHalfWidth: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  spawnX: number
+  facing: 1 | -1
+  patrolHalfWidth: number
   reviveTimer: number // 0 = active; >0 = dormant
 }
 
 export function createDryBones(x: number, y: number): DryBones {
   return {
-    x, y, w: 16, h: 16,
-    hp: 1, maxHp: 1, alive: true, hitFlashTimer: 0,
-    spawnX: x, facing: -1, patrolHalfWidth: 60,
+    x,
+    y,
+    w: 16,
+    h: 16,
+    hp: 1,
+    maxHp: 1,
+    alive: true,
+    hitFlashTimer: 0,
+    spawnX: x,
+    facing: -1,
+    patrolHalfWidth: 60,
     reviveTimer: 0,
   }
 }
@@ -576,18 +729,34 @@ function updateDryBones(d: DryBones, player: Player, level: Level, dt: number): 
 // Stationary. Passive while player is within leash radius; enraged when
 // player leaves, flinging tendril projectiles.
 export interface Plantera {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  leash: number, fireTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  leash: number
+  fireTimer: number
   enraged: boolean
   facing: 1 | -1
 }
 
 export function createPlantera(x: number, y: number): Plantera {
   return {
-    x, y, w: 28, h: 28,
-    hp: 10, maxHp: 10, alive: true, hitFlashTimer: 0,
-    leash: 220, fireTimer: 1.0, enraged: false, facing: -1,
+    x,
+    y,
+    w: 28,
+    h: 28,
+    hp: 10,
+    maxHp: 10,
+    alive: true,
+    hitFlashTimer: 0,
+    leash: 220,
+    fireTimer: 1.0,
+    enraged: false,
+    facing: -1,
   }
 }
 
@@ -601,7 +770,8 @@ function updatePlantera(p: Plantera, state: ClassicsState, player: Player, dt: n
   const dx = (player.x + player.w / 2) - cx
   const dy = (player.y + player.h / 2) - cy
   const dist = Math.hypot(dx, dy)
-  if (player.alive && Math.abs(dx) > 0.5) p.facing = dx > 0 ? 1 : -1
+  if (player.alive && Math.abs(dx) > 0.5)
+    p.facing = dx > 0 ? 1 : -1
   p.enraged = dist > p.leash && player.alive
   if (!p.enraged)
     return
@@ -618,17 +788,31 @@ function updatePlantera(p: Plantera, state: ClassicsState, player: Player, dt: n
 // Stationary. Throws an arcing projectile on a rhythm — projectile has
 // gravity, falling back toward the player's lane.
 export interface HammerBro {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
-  throwTimer: number, period: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
+  throwTimer: number
+  period: number
   facing: 1 | -1
 }
 
 export function createHammerBro(x: number, y: number, period = 1.6): HammerBro {
   return {
-    x, y, w: 18, h: 18,
-    hp: 4, maxHp: 4, alive: true, hitFlashTimer: 0,
-    throwTimer: period * Math.random(), period,
+    x,
+    y,
+    w: 18,
+    h: 18,
+    hp: 4,
+    maxHp: 4,
+    alive: true,
+    hitFlashTimer: 0,
+    throwTimer: period * Math.random(),
+    period,
     facing: -1,
   }
 }
@@ -654,17 +838,30 @@ function updateHammerBro(b: HammerBro, state: ClassicsState, player: Player, dt:
 // which a nearby AABB is lethal. Bullets only damage during vulnerable
 // windows (between dashes).
 export interface MantisLord {
-  x: number, y: number, w: number, h: number
-  hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
+  x: number
+  y: number
+  w: number
+  h: number
+  hp: number
+  maxHp: number
+  alive: boolean
+  hitFlashTimer: number
   phase: number
   facing: 1 | -1
 }
 
 export function createMantisLord(x: number, y: number): MantisLord {
   return {
-    x, y, w: 26, h: 26,
-    hp: 14, maxHp: 14, alive: true, hitFlashTimer: 0,
-    phase: 0, facing: -1,
+    x,
+    y,
+    w: 26,
+    h: 26,
+    hp: 14,
+    maxHp: 14,
+    alive: true,
+    hitFlashTimer: 0,
+    phase: 0,
+    facing: -1,
   }
 }
 

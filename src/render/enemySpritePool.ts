@@ -3,10 +3,10 @@
 // Each pool manages sprites for one category; sprites are shown/hidden and
 // repositioned each frame with procedural animation applied.
 
-import { Container, Sprite } from 'pixi.js'
 import type { EnemyKind } from './enemyAssets'
-import { getEnemyTexture } from './enemyAssets'
+import { Container, Sprite } from 'pixi.js'
 import { computeAnim } from './enemyAnim'
+import { getEnemyTexture } from './enemyAssets'
 
 export interface EnemySpritePool {
   readonly container: Container

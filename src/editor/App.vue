@@ -39,8 +39,8 @@ import TopBar from './components/TopBar.vue'
 
 .editor-grid {
   display: grid;
-  grid-template-columns: 14rem 1fr 16rem;
-  grid-template-rows: 32px 1fr 28px;
+  grid-template-columns: 18rem 1fr 20rem;
+  grid-template-rows: 38px 1fr 28px;
   height: 100%;
 }
 
@@ -49,30 +49,30 @@ import TopBar from './components/TopBar.vue'
   background: var(--panel-2);
   border-bottom: 1px solid var(--border);
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: center;
-  padding: 0 10px;
-  font-size: 11px;
+  padding: 0 14px;
+  font-size: 12px;
 }
 
 #vue-left-panel {
   background: var(--panel);
   border-right: 1px solid var(--border);
-  padding: 10px;
+  padding: 14px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 #vue-right-panel {
   background: var(--panel);
   border-left: 1px solid var(--border);
-  padding: 10px;
+  padding: 14px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 #vue-bottom-bar {

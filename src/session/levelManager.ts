@@ -8,10 +8,10 @@
 // Persistence key format: `levels:{id}` → serialized LevelJson string.
 
 import type { LevelJson } from '../world/level'
-import { emit } from './eventBus'
-import { gameState, resetForLevel } from './gameState'
 import level1Json from '../levels/level1.json'
 import level2Json from '../levels/level2.json'
+import { emit } from './eventBus'
+import { gameState, resetForLevel } from './gameState'
 
 // Ordered progression. Add ids here (and bundle the JSON import above) to
 // extend the progression. The name shown on the results screen comes from
@@ -40,7 +40,8 @@ export function hasNextLevel(id: string): boolean {
 // Returns null if the id isn't in the catalog (and nothing's stored either).
 export function loadLevel(id: string): LevelJson | null {
   const stored = readStored(id)
-  if (stored) return stored
+  if (stored)
+    return stored
   const entry = LEVEL_CATALOG.find(l => l.id === id)
   return entry ? entry.bundled : null
 }
@@ -55,7 +56,8 @@ export function saveLevel(id: string, data: LevelJson): void {
 // Which id comes after `id`? null if this is the last level.
 export function nextLevelId(id: string): string | null {
   const i = LEVEL_CATALOG.findIndex(l => l.id === id)
-  if (i < 0 || i + 1 >= LEVEL_CATALOG.length) return null
+  if (i < 0 || i + 1 >= LEVEL_CATALOG.length)
+    return null
   return LEVEL_CATALOG[i + 1]!.id
 }
 
@@ -77,7 +79,8 @@ export function levelIdAt(index: number): string | null {
 function readStored(id: string): LevelJson | null {
   try {
     const raw = localStorage.getItem(STORAGE_PREFIX + id)
-    if (!raw) return null
+    if (!raw)
+      return null
     return JSON.parse(raw) as LevelJson
   }
   catch {

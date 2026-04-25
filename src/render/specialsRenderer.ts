@@ -11,7 +11,7 @@ import type {
   SpecialsState,
 } from '../enemies/specials'
 import type { EnemySpritePool } from './enemySpritePool'
-import { positionEnemySprite, hideExcessSprites } from './enemySpritePool'
+import { hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 
 const COLOR_OXBLOOD = 0x8A2A1C
 const COLOR_COLD = 0x4060C0
@@ -49,7 +49,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const m of state.mirrors) {
     positionEnemySprite(pool, si, 'mirror', m.x, m.y, m.w, m.h, m.alive, m.hitFlashTimer > 0, 1, m.facing === -1, time, si)
     si++
-    if (!m.alive) continue
+    if (!m.alive)
+      continue
     drawHpPip(g, m.x, m.y, m.w, m, m.hitFlashTimer > 0 ? COLOR_WARM : undefined)
   }
 
@@ -57,7 +58,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const h of state.hushes) {
     positionEnemySprite(pool, si, 'hush', h.x, h.y, h.w, h.h, h.alive, h.hitFlashTimer > 0, 1, false, time, si)
     si++
-    if (!h.alive) continue
+    if (!h.alive)
+      continue
     // Radius field — dashed ring.
     const hcx = h.x + h.w / 2
     const hcy = h.y + h.h / 2
@@ -70,7 +72,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const c of state.candlewicks) {
     positionEnemySprite(pool, si, 'candlewick', c.x, c.y, c.w, c.h, c.alive, c.hitFlashTimer > 0, 1, c.facing === -1, time, si)
     si++
-    if (!c.alive) continue
+    if (!c.alive)
+      continue
     // Lantern glow above.
     const gx = c.x + c.w / 2
     const gy = c.y - 2
@@ -83,7 +86,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const k of state.knights as PendulumKnight[]) {
     positionEnemySprite(pool, si, 'knight', k.x, k.y, k.w, k.h, k.alive, k.hitFlashTimer > 0, 0.95, k.facing === -1, time, si)
     si++
-    if (!k.alive) continue
+    if (!k.alive)
+      continue
     // Arc telegraph.
     const phase = k.phase
     const knightW = 1.2
@@ -116,7 +120,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
     const breath = 1 + Math.sin(b.pulse) * 0.08
     positionEnemySprite(pool, si, 'bloomrot', b.x, b.y, b.w * breath, b.h * breath, b.alive, b.hitFlashTimer > 0, 1, false, time, si)
     si++
-    if (!b.alive) continue
+    if (!b.alive)
+      continue
     // Spore ring (active during burst).
     if (b.burstTimer > 0) {
       const bcx = b.x + b.w / 2
@@ -134,7 +139,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
     const alpha = 0.45 + Math.sin(e.hoverPhase * 3) * 0.12
     positionEnemySprite(pool, si, 'echo', e.x, e.y, e.w, e.h, e.alive, e.hitFlashTimer > 0, alpha, false, time, si)
     si++
-    if (!e.alive) continue
+    if (!e.alive)
+      continue
     // Memory dot — colored by currently-memorized weapon.
     if (e.lastWeapon) {
       const dotCol = e.lastWeapon === 'slug' ? 0xFFD48C : 0xFF6040
@@ -148,7 +154,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   // Chain wires first (drawn behind sprites).
   for (let i = 0; i < crows.length; i++) {
     const c = crows[i]
-    if (!c || !c.alive) continue
+    if (!c || !c.alive)
+      continue
     if (c.linkIdx >= 0 && c.linkIdx < crows.length) {
       const o = crows[c.linkIdx]
       if (o && o.alive) {
@@ -156,10 +163,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
         const ay = c.y + c.h / 2
         const bx = o.x + o.w / 2
         const by = o.y + o.h / 2
-        g.moveTo(ax, ay).lineTo(bx, by)
-          .stroke({ width: 3, color: 0x202632, alpha: 0.7 })
-        g.moveTo(ax, ay).lineTo(bx, by)
-          .stroke({ width: 1, color: COLOR_OXBLOOD, alpha: 0.9 })
+        g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 3, color: 0x202632, alpha: 0.7 })
+        g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 1, color: COLOR_OXBLOOD, alpha: 0.9 })
       }
     }
   }
@@ -173,7 +178,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const c of state.carts) {
     positionEnemySprite(pool, si, 'cartographer', c.x, c.y, c.w, c.h, c.alive, c.hitFlashTimer > 0, 0.9, c.facing === -1, time, si)
     si++
-    if (!c.alive) continue
+    if (!c.alive)
+      continue
     drawHpPip(g, c.x, c.y, c.w, c)
   }
 
@@ -181,7 +187,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const m of state.shrines as MimicShrine[]) {
     positionEnemySprite(pool, si, 'shrine', m.x, m.y, m.w, m.h, m.alive, m.hitFlashTimer > 0, 1, false, time, si)
     si++
-    if (!m.alive) continue
+    if (!m.alive)
+      continue
     // Flame — wrong-colored cold-red, irregular flicker.
     const fx0 = m.x + m.w / 2 + Math.sin(m.flickerPhase * 3) * 2
     const fy0 = m.y - 3
@@ -194,7 +201,8 @@ export function drawSpecials(g: Graphics, state: SpecialsState, time: number, po
   for (const p of state.pilgrims) {
     positionEnemySprite(pool, si, 'pilgrim', p.x, p.y, p.w, p.h, p.alive, p.hitFlashTimer > 0, 1, p.facing === -1, time, si)
     si++
-    if (!p.alive) continue
+    if (!p.alive)
+      continue
     drawHpPip(g, p.x, p.y, p.w, p)
   }
 

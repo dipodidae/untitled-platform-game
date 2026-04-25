@@ -41,7 +41,9 @@ export function on<K extends keyof EngineEvents>(
     listeners[event] = set as Listeners[K]
   }
   set.add(handler)
-  return () => { set?.delete(handler) }
+  return () => {
+    set?.delete(handler)
+  }
 }
 
 export function off<K extends keyof EngineEvents>(
@@ -56,6 +58,7 @@ export function emit<K extends keyof EngineEvents>(
   payload: EngineEvents[K],
 ): void {
   const set = listeners[event] as Set<Handler<EngineEvents[K]>> | undefined
-  if (!set) return
+  if (!set)
+    return
   for (const h of set) h(payload)
 }

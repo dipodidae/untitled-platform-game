@@ -1,7 +1,7 @@
 // Load and cache pickup item textures (128×128 PNGs in public/assets/items/).
 
-import { Assets, Texture } from 'pixi.js'
 import type { ItemKind } from '../shared-kernel/types'
+import { Assets, Texture } from 'pixi.js'
 
 const textures = new Map<ItemKind, Texture>()
 
@@ -13,7 +13,8 @@ export async function loadItemAssets(): Promise<void> {
     try {
       const tex = await Assets.load<Texture>(url)
       textures.set(kind, tex)
-    } catch {
+    }
+    catch {
       console.warn(`[itemAssets] missing sprite: ${url}`)
     }
   })

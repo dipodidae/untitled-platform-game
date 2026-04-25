@@ -1,40 +1,40 @@
 import type { Application } from 'pixi.js'
 import type { BulletState } from '../combat/bullet'
-import type { Camera } from './camera'
+import type { ClassicsState } from '../enemies/classics'
 import type { Dummy } from '../enemies/dummy'
-import type { FxState } from './fx'
+import type { Prowler } from '../enemies/prowler'
+import type { SpecialsState } from '../enemies/specials'
+import type { Pickup } from '../items'
 import type { BroadphaseGrid } from '../physics'
 import type { Player } from '../player/player'
-import type { Prowler } from '../enemies/prowler'
+import type { Level } from '../world/level'
+import type { Camera } from './camera'
+import type { EnemySpritePool } from './enemySpritePool'
+import type { FxState } from './fx'
 import type { ParallaxState } from './parallax'
 import type { ParticleSystem } from './particles'
 import type { SpineboyBridge } from './spineboy'
 import type { WindState } from './wind'
-import type { Level } from '../world/level'
-import type { Pickup } from '../items'
-import type { SpecialsState } from '../enemies/specials'
-import type { ClassicsState } from '../enemies/classics'
-import { hushIsSilencingPlayer } from '../enemies/specials'
-import { shootingDisabled } from '../enemies/classics'
-import { drawSpecials } from './specialsRenderer'
-import { drawClassics } from './classicsRenderer'
 import { Container, Graphics, Sprite, Text, Texture, TilingSprite } from 'pixi.js'
 import { predictBulletImpact } from '../combat/bullet'
+import { computeRuptureShape } from '../combat/rupture'
 import { CONFIG } from '../config'
+import { shootingDisabled } from '../enemies/classics'
+import { hushIsSilencingPlayer } from '../enemies/specials'
+import { getItemDef } from '../items'
+import { drawClassics } from './classicsRenderer'
+import { createEnemySpritePool, hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 import { flashAlpha } from './fx'
+import { getItemTexture } from './itemAssets'
 import { PALETTE } from './palette'
 import { createParallax, updateParallax } from './parallax'
 import { drawPlayerGhost, resetPlayerRenderer } from './playerRenderer'
 import { drawSky, drawVignette } from './post'
 import { drawProwlers } from './prowlerRenderer'
-import type { EnemySpritePool } from './enemySpritePool'
-import { createEnemySpritePool, positionEnemySprite, hideExcessSprites } from './enemySpritePool'
+import { drawSpecials } from './specialsRenderer'
 import { createSpineboyBridge, resetSpineboyBridge, triggerShootOverlay, updateSpineboyVisual } from './spineboy'
 import { createWindState, drawWind, tickWind } from './wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './world'
-import { getItemTexture } from './itemAssets'
-import { computeRuptureShape } from '../combat/rupture'
-import { getItemDef } from '../items'
 
 // Scene graph:
 //   bgContainer      (screen-fixed): sky gradient + parallax layers
@@ -341,10 +341,16 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
 }
 
 // Remove scene containers from stage so a fresh buildScene can rebuild them.
+// We only detach (removeFromParent) instead of calling destroy() because
+// destroy() nullifies the children array immediately, and if the PixiJS
+// filter/bounds pipeline still references the old render-group in the same
+// frame it crashes with "Cannot read properties of null (reading 'length')"
+// inside _getGlobalBoundsRecursive. Detaching is enough — the old tree
+// becomes unreachable and GC reclaims it.
 export function teardownScene(ctx: RenderContext): void {
-  ctx.bgContainer.destroy({ children: true })
-  ctx.worldContainer.destroy({ children: true })
-  ctx.uiContainer.destroy({ children: true })
+  ctx.bgContainer.removeFromParent()
+  ctx.worldContainer.removeFromParent()
+  ctx.uiContainer.removeFromParent()
 }
 
 // Instability-driven aura color. Single family (cool → warm → hot), no
@@ -526,7 +532,8 @@ export function render(
   // ─── prowlers ─────────────────────────────────────────────
   if (prowlers) {
     drawProwlers(ctx.prowlerGfx, prowlers, ctx.time, ctx.prowlerSpritePool)
-  } else {
+  }
+  else {
     ctx.prowlerGfx.clear()
     hideExcessSprites(ctx.prowlerSpritePool, 0)
   }
@@ -633,7 +640,8 @@ export function render(
       const d = dummies[di]!
       const flash = d.hitFlashTimer > 0
       positionEnemySprite(ctx.dummySpritePool, di, 'dummy', d.x, d.y, d.w, d.h, d.alive, flash, 1, false, ctx.time, di)
-      if (!d.alive) continue
+      if (!d.alive)
+        continue
       // HP pip bar.
       const pipW = d.w - 2
       const pipRatio = d.hp / d.maxHp
@@ -647,16 +655,18 @@ export function render(
   }
 
   // ─── specials ────────────────────────────────────────────
-  if (specials)
+  if (specials) {
     drawSpecials(ctx.specialsGfx, specials, ctx.time, ctx.specialsSpritePool)
+  }
   else {
     ctx.specialsGfx.clear()
     hideExcessSprites(ctx.specialsSpritePool, 0)
   }
 
   // ─── classics ────────────────────────────────────────────
-  if (classics)
+  if (classics) {
     drawClassics(ctx.classicsGfx, classics, ctx.time, ctx.classicsSpritePool)
+  }
   else {
     ctx.classicsGfx.clear()
     hideExcessSprites(ctx.classicsSpritePool, 0)
@@ -715,10 +725,8 @@ export function render(
         const tr = 0.6 + twinkleAlpha * 0.8
         ctx.pickupGfx.circle(tx, ty, tr).fill({ color: 0xFFFFFF, alpha: twinkleAlpha * 0.9 })
         // Cross flare
-        ctx.pickupGfx.moveTo(tx - tr * 2, ty).lineTo(tx + tr * 2, ty)
-          .stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
-        ctx.pickupGfx.moveTo(tx, ty - tr * 2).lineTo(tx, ty + tr * 2)
-          .stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
+        ctx.pickupGfx.moveTo(tx - tr * 2, ty).lineTo(tx + tr * 2, ty).stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
+        ctx.pickupGfx.moveTo(tx, ty - tr * 2).lineTo(tx, ty + tr * 2).stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
       }
 
       // Sprite body.
@@ -741,7 +749,8 @@ export function render(
         s.scale.set(scale)
         s.alpha = 1
         pickupIdx++
-      } else {
+      }
+      else {
         // Fallback: procedural circles.
         const r = pk.w / 2 - 2
         ctx.pickupGfx.circle(cx, cy, r).fill({ color: def.bodyColor })
@@ -835,7 +844,8 @@ export function render(
   if (fillW > 0.5) {
     let meterCol = meterColorForRatio(ratio)
     // Flash the fg white during the flash window for extra pop.
-    if (ctx.meterFlashTimer > 0.1) meterCol = 0xFFFFFF
+    if (ctx.meterFlashTimer > 0.1)
+      meterCol = 0xFFFFFF
     ctx.meterFg
       .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H)
       .fill({ color: meterCol })
@@ -843,9 +853,12 @@ export function render(
 
   // ─── HP display (top-right, fat pips) ─────────────────
   // Decay glow timers.
-  if (ctx.hpGlowTimer > 0) ctx.hpGlowTimer = Math.max(0, ctx.hpGlowTimer - dt)
-  if (ctx.armorGlowTimer > 0) ctx.armorGlowTimer = Math.max(0, ctx.armorGlowTimer - dt)
-  if (ctx.pickupFlashTimer > 0) ctx.pickupFlashTimer = Math.max(0, ctx.pickupFlashTimer - dt)
+  if (ctx.hpGlowTimer > 0)
+    ctx.hpGlowTimer = Math.max(0, ctx.hpGlowTimer - dt)
+  if (ctx.armorGlowTimer > 0)
+    ctx.armorGlowTimer = Math.max(0, ctx.armorGlowTimer - dt)
+  if (ctx.pickupFlashTimer > 0)
+    ctx.pickupFlashTimer = Math.max(0, ctx.pickupFlashTimer - dt)
 
   ctx.hpGfx.clear()
   {

@@ -4,6 +4,8 @@ import LabeledRow from '../shared/LabeledRow.vue'
 
 const props = defineProps<{ collider: EditorCollider }>()
 
+const emit = defineEmits<{ delete: [] }>()
+
 const MATERIAL_ITEMS = [
   { label: 'bone', value: 'bone' },
   { label: 'bone_fragile', value: 'bone_fragile' },
@@ -48,9 +50,9 @@ function getKineticEntries(): [string, unknown][] {
 
 function setKineticField(key: string, val: unknown) {
   const c = props.collider
-  if (!c.kinetic)
+  if (!c.kinetic) {
     return
-  ;(c.kinetic as unknown as Record<string, unknown>)[key] = val
+  }(c.kinetic as unknown as Record<string, unknown>)[key] = val
 }
 
 function getConveyor(): boolean {
@@ -82,8 +84,6 @@ function parsePathJson(val: string): [number, number][] | null {
     return null
   }
 }
-
-const emit = defineEmits<{ delete: [] }>()
 </script>
 
 <template>

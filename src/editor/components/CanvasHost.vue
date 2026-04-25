@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useEditorStore } from '../stores/editor'
 import { useCanvas } from '../composables/useCanvas'
+import { useEditorStore } from '../stores/editor'
 import MinimapHost from './MinimapHost.vue'
 
 const hostRef = ref<HTMLDivElement>()
@@ -9,7 +9,8 @@ const store = useEditorStore()
 let canvas: Awaited<ReturnType<typeof useCanvas>> | null = null
 
 onMounted(async () => {
-  if (!hostRef.value) return
+  if (!hostRef.value)
+    return
   canvas = await useCanvas(hostRef.value, store)
   // Frame the world once initial size is known.
   requestAnimationFrame(() => canvas?.frameWorldViewport?.())
@@ -22,7 +23,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="hostRef" class="canvas-host" id="vue-canvas-host">
+  <div id="vue-canvas-host" ref="hostRef" class="canvas-host">
     <MinimapHost />
   </div>
 </template>

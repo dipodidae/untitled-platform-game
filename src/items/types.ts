@@ -6,9 +6,9 @@
 // level JSON lists spawn points, createPickupsFromSpawns hydrates them.
 
 import type { BulletKindName } from '../combat/bullet'
+import type { ItemKind } from '../shared-kernel/types'
 
 export type { ItemKind } from '../shared-kernel/types'
-import type { ItemKind } from '../shared-kernel/types'
 
 export interface ItemDef {
   readonly id: ItemKind

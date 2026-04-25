@@ -4,11 +4,11 @@
 // Vue-based editor shell (Phase 3+). The legacy vanilla editor still uses
 // src/editor/state.ts directly and is untouched by this module.
 
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import type { ItemKind } from '../../items/types'
+import type { ItemKind } from '../../shared-kernel/types'
 import type { KineticJson } from '../../world/kinetic'
 import type { LevelJson, MaterialName, ZoneJson, ZoneType } from '../../world/level'
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
 
 // ---------------------------------------------------------------------------
 // Types (mirrored from state.ts — kept here so the store is self-contained)
@@ -225,29 +225,52 @@ function toLevelJson(level: EditorLevel): LevelJson {
     out.zones = level.zones.map(z => ({ ...z }))
   // Special + classic enemies — emit only when present so an empty editor
   // level still produces a tidy JSON payload.
-  if (level.mirrors.length) out.mirrors = level.mirrors.map(p => ({ x: p.x, y: p.y }))
-  if (level.hushes.length) out.hushes = level.hushes.map(p => ({ x: p.x, y: p.y }))
-  if (level.candlewicks.length) out.candlewicks = level.candlewicks.map(p => ({ x: p.x, y: p.y }))
-  if (level.knights.length) out.knights = level.knights.map(p => ({ x: p.x, y: p.y }))
-  if (level.blooms.length) out.blooms = level.blooms.map(p => ({ x: p.x, y: p.y }))
-  if (level.echoes.length) out.echoes = level.echoes.map(p => ({ x: p.x, y: p.y }))
-  if (level.crows.length) out.crows = level.crows.map(p => p.linkIdx !== undefined ? { x: p.x, y: p.y, linkIdx: p.linkIdx } : { x: p.x, y: p.y })
-  if (level.carts.length) out.carts = level.carts.map(p => ({ x: p.x, y: p.y }))
-  if (level.shrines.length) out.shrines = level.shrines.map(p => ({ x: p.x, y: p.y }))
-  if (level.pilgrims.length) out.pilgrims = level.pilgrims.map(p => p.toggles?.length ? { x: p.x, y: p.y, toggles: [...p.toggles] } : { x: p.x, y: p.y })
-  if (level.medusas.length) out.medusas = level.medusas.map(p => ({ x: p.x, y: p.y }))
-  if (level.beetles.length) out.beetles = level.beetles.map(p => ({ x: p.x, y: p.y }))
-  if (level.boos.length) out.boos = level.boos.map(p => ({ x: p.x, y: p.y }))
-  if (level.wallmasters.length) out.wallmasters = level.wallmasters.map(p => ({ x: p.x, y: p.y }))
-  if (level.stalkers.length) out.stalkers = level.stalkers.map(p => ({ x: p.x, y: p.y }))
-  if (level.wizards.length) out.wizards = level.wizards.map(p => ({ x: p.x, y: p.y }))
-  if (level.garpedes.length) out.garpedes = level.garpedes.map(p => p.period !== undefined ? { x0: p.x0, y: p.y, x1: p.x1, period: p.period } : { x0: p.x0, y: p.y, x1: p.x1 })
-  if (level.ironKnuckles.length) out.ironKnuckles = level.ironKnuckles.map(p => p.facing !== undefined ? { x: p.x, y: p.y, facing: p.facing } : { x: p.x, y: p.y })
-  if (level.cagneys.length) out.cagneys = level.cagneys.map(p => ({ x: p.x, y: p.y }))
-  if (level.dryBones.length) out.dryBones = level.dryBones.map(p => ({ x: p.x, y: p.y }))
-  if (level.planteras.length) out.planteras = level.planteras.map(p => ({ x: p.x, y: p.y }))
-  if (level.hammerBros.length) out.hammerBros = level.hammerBros.map(p => p.period !== undefined ? { x: p.x, y: p.y, period: p.period } : { x: p.x, y: p.y })
-  if (level.mantisLords.length) out.mantisLords = level.mantisLords.map(p => ({ x: p.x, y: p.y }))
+  if (level.mirrors.length)
+    out.mirrors = level.mirrors.map(p => ({ x: p.x, y: p.y }))
+  if (level.hushes.length)
+    out.hushes = level.hushes.map(p => ({ x: p.x, y: p.y }))
+  if (level.candlewicks.length)
+    out.candlewicks = level.candlewicks.map(p => ({ x: p.x, y: p.y }))
+  if (level.knights.length)
+    out.knights = level.knights.map(p => ({ x: p.x, y: p.y }))
+  if (level.blooms.length)
+    out.blooms = level.blooms.map(p => ({ x: p.x, y: p.y }))
+  if (level.echoes.length)
+    out.echoes = level.echoes.map(p => ({ x: p.x, y: p.y }))
+  if (level.crows.length)
+    out.crows = level.crows.map(p => p.linkIdx !== undefined ? { x: p.x, y: p.y, linkIdx: p.linkIdx } : { x: p.x, y: p.y })
+  if (level.carts.length)
+    out.carts = level.carts.map(p => ({ x: p.x, y: p.y }))
+  if (level.shrines.length)
+    out.shrines = level.shrines.map(p => ({ x: p.x, y: p.y }))
+  if (level.pilgrims.length)
+    out.pilgrims = level.pilgrims.map(p => p.toggles?.length ? { x: p.x, y: p.y, toggles: [...p.toggles] } : { x: p.x, y: p.y })
+  if (level.medusas.length)
+    out.medusas = level.medusas.map(p => ({ x: p.x, y: p.y }))
+  if (level.beetles.length)
+    out.beetles = level.beetles.map(p => ({ x: p.x, y: p.y }))
+  if (level.boos.length)
+    out.boos = level.boos.map(p => ({ x: p.x, y: p.y }))
+  if (level.wallmasters.length)
+    out.wallmasters = level.wallmasters.map(p => ({ x: p.x, y: p.y }))
+  if (level.stalkers.length)
+    out.stalkers = level.stalkers.map(p => ({ x: p.x, y: p.y }))
+  if (level.wizards.length)
+    out.wizards = level.wizards.map(p => ({ x: p.x, y: p.y }))
+  if (level.garpedes.length)
+    out.garpedes = level.garpedes.map(p => p.period !== undefined ? { x0: p.x0, y: p.y, x1: p.x1, period: p.period } : { x0: p.x0, y: p.y, x1: p.x1 })
+  if (level.ironKnuckles.length)
+    out.ironKnuckles = level.ironKnuckles.map(p => p.facing !== undefined ? { x: p.x, y: p.y, facing: p.facing } : { x: p.x, y: p.y })
+  if (level.cagneys.length)
+    out.cagneys = level.cagneys.map(p => ({ x: p.x, y: p.y }))
+  if (level.dryBones.length)
+    out.dryBones = level.dryBones.map(p => ({ x: p.x, y: p.y }))
+  if (level.planteras.length)
+    out.planteras = level.planteras.map(p => ({ x: p.x, y: p.y }))
+  if (level.hammerBros.length)
+    out.hammerBros = level.hammerBros.map(p => p.period !== undefined ? { x: p.x, y: p.y, period: p.period } : { x: p.x, y: p.y })
+  if (level.mantisLords.length)
+    out.mantisLords = level.mantisLords.map(p => ({ x: p.x, y: p.y }))
   return out
 }
 
@@ -277,6 +300,8 @@ export const useEditorStore = defineStore('editor', () => {
   /** Brush arming — applied on the next shape/zone the user creates. */
   const pendingPreset = ref<PendingColliderPreset | null>(null)
   const pendingZone = ref<(Partial<ZoneJson> & { type: ZoneType }) | null>(null)
+  /** Which item kind the pickup tool will place next. */
+  const pendingPickupKind = ref<ItemKind>('coin')
   /**
    * Undo/redo stacks — snapshots of serialized EditorLevel. Kept small (50
    * entries) to bound memory; levels are typically a few KB each.
@@ -388,6 +413,7 @@ export const useEditorStore = defineStore('editor', () => {
     polyBuffer,
     pendingPreset,
     pendingZone,
+    pendingPickupKind,
     undoStack,
     redoStack,
     activeFileHandle,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useEditorStore } from '../../stores/editor'
 import { listLevels, loadLevel } from '../../../session/levelManager'
+import { useEditorStore } from '../../stores/editor'
 
 const store = useEditorStore()
 const toast = useToast()

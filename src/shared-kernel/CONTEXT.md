@@ -36,8 +36,8 @@ export function signedArea(poly): number
 export function area(poly): number
 export function centroid(poly): Vec2
 export function bounds(poly): { minX, minY, maxX, maxY }
-export function decompose(poly): Polygon[]           // convex decomposition (CCW enforced)
-export function polygonDifference(subject, clips): Polygon[]   // boolean subtraction
+export function decompose(poly): Polygon[] // convex decomposition (CCW enforced)
+export function polygonDifference(subject, clips): Polygon[] // boolean subtraction
 export function circleToPolygon(cx, cy, rx, ry, angle): Polygon
 ```
 

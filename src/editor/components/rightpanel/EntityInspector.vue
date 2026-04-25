@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { ItemKind } from '../../../shared-kernel/types'
 import { useEditorStore } from '../../stores/editor'
-import type { ItemKind } from '../../../items/types'
 import LabeledRow from '../shared/LabeledRow.vue'
 
 // Receives the selection kind so the parent doesn't need to re-derive entity refs.
@@ -13,7 +13,7 @@ const emit = defineEmits<{ delete: [] }>()
 
 const store = useEditorStore()
 
-const ITEM_KINDS: ItemKind[] = ['bigShot']
+const ITEM_KINDS: ItemKind[] = ['coin', 'platinumCoin', 'crown', 'healthPack', 'armorShard', 'bigShot']
 const itemKindItems = ITEM_KINDS.map(k => ({ label: k, value: k }))
 </script>
 

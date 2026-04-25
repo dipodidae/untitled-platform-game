@@ -6,13 +6,13 @@
 //   - stick-to-ground probe to keep descent smooth on bumpy terrain
 //   - grounded / touchingWall / groundNormal flags
 
-import type { AABB } from './sat'
 import type { Player } from '../player/player'
 import type { Collider, Level } from '../world/level'
 import type { BroadphaseGrid } from './broadphase'
+import type { AABB } from './sat'
 import { CONFIG } from '../config'
-import { satAabbPoly } from './sat'
 import { deepestContact } from './narrowphase'
+import { satAabbPoly } from './sat'
 
 const MAX_MTV_ITERS = 4
 // cos(MAX_SLOPE_ANGLE). normal.y < -this ⇒ surface walkable. A 50° slope

@@ -10,10 +10,10 @@
 // via checkBulletHitSpecials — returns whether a bullet was absorbed so the
 // caller can despawn it.
 
+import type { BulletKindName } from '../combat/bullet'
 import type { BroadphaseGrid } from '../physics/broadphase'
 import type { Player } from '../player/player'
 import type { Level } from '../world/level'
-import type { BulletKindName } from '../combat/bullet'
 import { takeHit } from '../player/player'
 import { emit } from '../session/eventBus'
 
@@ -118,7 +118,8 @@ function updateMirror(m: Mirror, player: Player, level: Level, dt: number, speed
     const step = Math.min(dist, maxStep)
     m.x += (dx2 / dist) * step
     m.y += (dy2 / dist) * step
-    if (Math.abs(dx2) > 0.5) m.facing = dx2 > 0 ? 1 : -1
+    if (Math.abs(dx2) > 0.5)
+      m.facing = dx2 > 0 ? 1 : -1
   }
 
   // Contact — damages player.
@@ -514,8 +515,14 @@ export function createHuskCrow(x: number, y: number, linkIdx: number): HuskCrow 
 }
 
 function segmentHitsAabb(
-  ax: number, ay: number, bx: number, by: number,
-  rx: number, ry: number, rw: number, rh: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  rx: number,
+  ry: number,
+  rw: number,
+  rh: number,
 ): boolean {
   // Coarse: chain = AABB bounding the segment inflated by thickness.
   const minX = Math.min(ax, bx) - CROW_CHAIN_THICK
