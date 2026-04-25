@@ -121,4 +121,22 @@ export interface LevelJson {
   planteras?: { x: number, y: number }[]
   hammerBros?: { x: number, y: number, period?: number }[]
   mantisLords?: { x: number, y: number }[]
+  // ─── cosmetic dressing (purely visual, no gameplay effect) ───────
+  cosmetics?: CosmeticJson
+}
+
+export interface CosmeticJson {
+  brief?: { place: string, impression: string }
+  parallax?: {
+    file: string
+    depth: number
+    yDepth: number
+    baseY: number
+  }[]
+  props?: {
+    file: string
+    sprites: { name: string, x: number, y: number, w: number, h: number, anchor: [number, number] }[]
+    density: number
+    scatterSeed: number
+  }
 }

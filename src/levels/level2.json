@@ -153,5 +153,30 @@
       "material": "bone",
       "vertices": [[2030, 430], [2280, 430], [2280, 460], [2030, 460]]
     }
-  ]
+  ],
+  "cosmetics": {
+    "brief": {
+      "place": "A long ceremonial corridor of bone foundations laced with glass partitions and resonant crystalline pillars — a passage between two states of the world.",
+      "impression": "Cold, formal, reverberant — the glass catches light that shouldn't exist, the resonant structures hum with implied authority."
+    },
+    "parallax": [
+      { "file": "/assets/cosmetics/level2/parallax/far.png", "depth": 0.10, "yDepth": 0.14, "baseY": 0.60 },
+      { "file": "/assets/cosmetics/level2/parallax/mid.png", "depth": 0.25, "yDepth": 0.22, "baseY": 0.72 }
+    ],
+    "props": {
+      "file": "/assets/cosmetics/level2/props/props_sheet.png",
+      "sprites": [
+        { "name": "glass_shard_wall",   "x": 0,   "y": 0,  "w": 24, "h": 48, "anchor": [0.5, 1.0] },
+        { "name": "bone_column_ruin",   "x": 24,  "y": 0,  "w": 32, "h": 64, "anchor": [0.5, 1.0] },
+        { "name": "resonant_crystal_a", "x": 56,  "y": 0,  "w": 24, "h": 40, "anchor": [0.5, 1.0] },
+        { "name": "resonant_crystal_b", "x": 80,  "y": 0,  "w": 32, "h": 48, "anchor": [0.5, 1.0] },
+        { "name": "floor_crack",        "x": 112, "y": 0,  "w": 48, "h": 16, "anchor": [0.5, 1.0] },
+        { "name": "hanging_glass",      "x": 160, "y": 0,  "w": 16, "h": 48, "anchor": [0.5, 0.0] },
+        { "name": "bone_debris",        "x": 176, "y": 0,  "w": 40, "h": 24, "anchor": [0.5, 1.0] },
+        { "name": "arch_fragment",      "x": 216, "y": 0,  "w": 48, "h": 56, "anchor": [0.5, 1.0] }
+      ],
+      "density": 0.12,
+      "scatterSeed": 117
+    }
+  }
 }

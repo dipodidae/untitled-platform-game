@@ -25,6 +25,8 @@ import { BroadphaseGrid } from '../physics'
 import { createPlayer, respawn, updatePlayer } from '../player/player'
 import { buildScene, render, teardownScene } from '../render'
 import { addTrauma, createCamera, updateCamera } from '../render/camera'
+import { loadCosmeticAssets } from '../render/cosmeticAssets'
+import { populateCosmetics } from '../render/cosmeticRenderer'
 import { CRTFilter } from '../render/CRTFilter'
 import { createDamageNumbers, resetDamageNumbers, spawnDamageNumber, tickDamageNumbers } from '../render/damageNumbers'
 import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
@@ -153,7 +155,8 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   if (!id)
     throw new Error(`No level at index ${index}`)
   state.levelIndex = index
-  state.level = fromJson(loadLevel(id)!)
+  const levelJson = loadLevel(id)!
+  state.level = fromJson(levelJson)
   state.player = createPlayer(state.level)
   state.camera = createCamera(state.player)
   state.now = 0
@@ -184,6 +187,13 @@ function loadLevelAtIndex(state: GameState, index: number): void {
   scatterMotes(state.particles, state.level.worldWidth, state.level.worldHeight, 200)
 
   markLevelLoaded(id)
+
+  // Load cosmetic assets async — they populate the already-built scene
+  // containers when ready. No gameplay dependency.
+  void loadCosmeticAssets(levelJson.cosmetics).then((data) => {
+    if (data)
+      populateCosmetics(state.renderCtx.cosmetic, data, state.level)
+  })
 }
 
 // Transition to the next level. Wraps back to level 1 after the last.

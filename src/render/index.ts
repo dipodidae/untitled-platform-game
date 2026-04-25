@@ -9,6 +9,7 @@ import type { BroadphaseGrid } from '../physics'
 import type { Player } from '../player/player'
 import type { Level } from '../world/level'
 import type { Camera } from './camera'
+import type { CosmeticState } from './cosmeticRenderer'
 import type { EnemySpritePool } from './enemySpritePool'
 import type { FxState } from './fx'
 import type { ParallaxState } from './parallax'
@@ -23,6 +24,7 @@ import { shootingDisabled } from '../enemies/classics'
 import { hushIsSilencingPlayer } from '../enemies/specials'
 import { getItemDef } from '../items'
 import { drawClassics } from './classicsRenderer'
+import { createCosmeticState, teardownCosmetics, updateCosmeticParallax } from './cosmeticRenderer'
 import { createEnemySpritePool, hideExcessSprites, positionEnemySprite } from './enemySpritePool'
 import { flashAlpha } from './fx'
 import { getItemTexture } from './itemAssets'
@@ -106,6 +108,7 @@ export interface RenderContext {
   armorGlowTimer: number
   pickupFlashTimer: number
   pickupFlashColor: number
+  cosmetic: CosmeticState
 }
 
 export function buildScene(app: Application, level: Level, particles: ParticleSystem): RenderContext {
@@ -119,6 +122,10 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   const skyGfx = new Graphics()
   drawSky(skyGfx, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
   bgContainer.addChild(skyGfx)
+
+  // Cosmetic parallax layers (populated async after buildScene returns)
+  const cosmetic = createCosmeticState()
+  bgContainer.addChild(cosmetic.parallaxContainer)
 
   const parallax = createParallax(level.worldWidth, level.worldHeight)
   bgContainer.addChild(parallax.container)
@@ -136,6 +143,9 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   const ditherMask = new TilingSprite({ texture: ditherTex, width: CONFIG.LOGICAL_WIDTH * 2, height: CONFIG.LOGICAL_HEIGHT })
   ditherMask.alpha = 0.5
   parallax.container.addChild(ditherMask)
+
+  // Cosmetic prop sprites — behind wind, behind colliders
+  worldContainer.addChild(cosmetic.propContainer)
 
   const windGfx = new Graphics()
   worldContainer.addChild(windGfx) // behind colliders — occluded by ground
@@ -345,6 +355,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     armorGlowTimer: 0,
     pickupFlashTimer: 0,
     pickupFlashColor: 0,
+    cosmetic,
   }
 }
 
@@ -356,6 +367,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
 // inside _getGlobalBoundsRecursive. Detaching is enough — the old tree
 // becomes unreachable and GC reclaims it.
 export function teardownScene(ctx: RenderContext): void {
+  teardownCosmetics(ctx.cosmetic)
   ctx.bgContainer.removeFromParent()
   ctx.worldContainer.removeFromParent()
   ctx.uiContainer.removeFromParent()
@@ -486,6 +498,7 @@ export function render(
   ctx.worldContainer.x = -camX * zoom + cx0 * (1 - zoom)
   ctx.worldContainer.y = -camY * zoom + cy0 * (1 - zoom)
   updateParallax(ctx.parallax, camX, camY)
+  updateCosmeticParallax(ctx.cosmetic, camX, camY)
 
   // ─── Skeletal character sync ─────────────────────────────────
   const ratio0 = player.instability.value / CONFIG.INSTABILITY_MAX

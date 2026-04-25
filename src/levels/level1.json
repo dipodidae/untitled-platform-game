@@ -19,8 +19,31 @@
   "pickups": [],
   "zones": [],
   "hammerBros": [
-    { "x": 250, "y": 420, "period": 1.8 },
-    { "x": 500, "y": 420, "period": 1.4 },
-    { "x": 750, "y": 420, "period": 1.6 }
-  ]
+    { "x": 250, "y": 440, "period": 1.8 },
+    { "x": 500, "y": 440, "period": 1.4 },
+    { "x": 750, "y": 440, "period": 1.6 }
+  ],
+  "cosmetics": {
+    "brief": {
+      "place": "A compact bone courtyard — a martial proving ground built from compacted skeletal material, open to the bruised sky above.",
+      "impression": "Contained, exposed, utilitarian — nowhere to hide, the floor itself is a weapon."
+    },
+    "parallax": [
+      { "file": "/assets/cosmetics/level1/parallax/far.png", "depth": 0.08, "yDepth": 0.12, "baseY": 0.65 },
+      { "file": "/assets/cosmetics/level1/parallax/mid.png", "depth": 0.22, "yDepth": 0.20, "baseY": 0.75 }
+    ],
+    "props": {
+      "file": "/assets/cosmetics/level1/props/props_sheet.png",
+      "sprites": [
+        { "name": "bone_shard_a",   "x": 0,   "y": 0, "w": 32, "h": 32, "anchor": [0.5, 1.0] },
+        { "name": "bone_shard_b",   "x": 32,  "y": 0, "w": 32, "h": 32, "anchor": [0.5, 1.0] },
+        { "name": "cracked_pillar", "x": 64,  "y": 0, "w": 32, "h": 64, "anchor": [0.5, 1.0] },
+        { "name": "rib_fragment",   "x": 96,  "y": 0, "w": 48, "h": 32, "anchor": [0.5, 1.0] },
+        { "name": "bone_dust_pile", "x": 144, "y": 0, "w": 32, "h": 16, "anchor": [0.5, 1.0] },
+        { "name": "hanging_chain",  "x": 176, "y": 0, "w": 16, "h": 64, "anchor": [0.5, 0.0] }
+      ],
+      "density": 0.15,
+      "scatterSeed": 42
+    }
+  }
 }
