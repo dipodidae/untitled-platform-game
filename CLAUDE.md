@@ -37,9 +37,9 @@ Top-level folders under `src/` are bounded contexts:
 
 ```
 session/    game loop + lifecycle + EventBus + level sequencing
-player/     Player record + behavior + instability
+player/     Player record + behavior
 enemies/    prowler, dummy
-combat/     bullets, ruptures, weapons (per-weapon profiles in weapons/)
+combat/     bullets, ruptures (bullet carving), weapons (per-weapon profiles in weapons/)
 world/      level data, destruction, kinetic platforms (kinetic/), materials
 items/      pickups
 physics/    collision pipeline + SAT
@@ -73,7 +73,7 @@ Camera smoothing and FX timers (shake, flash) run at **render** cadence, not phy
 Data flows through plain records mutated in place — no classes, no ECS, no aggregates with invariants. Each module owns a slice and exports update functions that mutate that slice. See [ADR-0004](docs/adr/0004-mutable-records-not-aggregates.md).
 
 Examples:
-- `Player` (`src/player/player.ts`) — AABB + jump timers + instability + state flags
+- `Player` (`src/player/player.ts`) — AABB + jump timers + state flags
 - `Level` (`src/world/level.ts`) — colliders + zones + pristine snapshot for `resetLevel`
 - `FxState` (`src/render/fx.ts`) — hitstop / shake / flash timers
 - `Camera` (`src/render/camera.ts`) — deadzone follow + trauma decay
@@ -90,7 +90,7 @@ Examples:
 
 ### Axis-separated AABB collision (`src/physics/`)
 
-`moveAndCollideX` then `tryCornerCorrection` then `moveAndCollideY`. Resolving X first, then Y (with a head-corner nudge in between capped by `CORNER_NUDGE` px) avoids the classic "stuck on a tile corner seam" bug that single-pass swept collisions hit. `moveAndCollideX` also sets `player.touchingWall` — instability + wall-jump logic read it.
+`moveAndCollideX` then `tryCornerCorrection` then `moveAndCollideY`. Resolving X first, then Y (with a head-corner nudge in between capped by `CORNER_NUDGE` px) avoids the classic "stuck on a tile corner seam" bug that single-pass swept collisions hit. `moveAndCollideX` also sets `player.touchingWall` — wall-jump logic reads it.
 
 ### Materials (in `src/world/level.ts`)
 

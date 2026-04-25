@@ -6,7 +6,7 @@
 ## What this context owns
 
 - `dummy.ts` — `Dummy` interface + `DUMMY_CONFIG`; `createDummy`, `updateDummy` (drains hit-flash timer only), `overlapsDummy`, `damageDummy`, `dummyAabb`.
-- `prowler.ts` — `Prowler` interface; `createProwler`, `updateProwler` (movement, instability, glass-break, shatter/respawn), `prowlerReactToRupture`, `checkProwlerPlayerContact`. Owns all per-kind config constants (speed, accel, instability thresholds) internally as module-level `const`.
+- `prowler.ts` — `Prowler` interface; `createProwler`, `updateProwler` (movement, glass-break, shatter/respawn), `prowlerReactToRupture`, `checkProwlerPlayerContact`. Owns all per-kind config constants (speed, accel) internally as module-level `const`.
 - `index.ts` — barrel that re-exports everything from both files.
 
 ## What it does NOT own (and where to look)
@@ -29,7 +29,7 @@ export function damageDummy(d, dmg): void
 export function dummyAabb(d): { x, y, w, h }
 
 // prowler.ts
-export interface Prowler { x, y, vx, vy, w, h, grounded, groundMaterial, facing, instability, alive, stunTimer, shatterTimer, spawnX, spawnY }
+export interface Prowler { x, y, vx, vy, w, h, grounded, groundMaterial, facing, alive, stunTimer, shatterTimer, spawnX, spawnY }
 export function createProwler(x, y): Prowler
 export function updateProwler(p, player, level, broadphase, dt): void
 export function prowlerReactToRupture(p, ruptureX, ruptureY): void
@@ -56,4 +56,4 @@ export function checkProwlerPlayerContact(p, player): boolean
 
 ## Why this context exists as its own thing
 
-Enemy actors are discrete runtime entities that need their own update loops, instability models, and contact resolution — none of which belongs in the world data layer or the player module. Keeping them together (rather than merging with `session/game.ts`) means adding a new enemy kind is a local change: create a file, add to the barrel, register spawn points in LevelJson. The game loop never needs to know which enemy kind it's updating.
+Enemy actors are discrete runtime entities that need their own update loops and contact resolution — none of which belongs in the world data layer or the player module. Keeping them together (rather than merging with `session/game.ts`) means adding a new enemy kind is a local change: create a file, add to the barrel, register spawn points in LevelJson. The game loop never needs to know which enemy kind it's updating.

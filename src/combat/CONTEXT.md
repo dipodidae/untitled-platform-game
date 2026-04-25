@@ -1,7 +1,7 @@
 # Context: combat
 
 **Path:** `src/combat/`
-**One-line purpose:** Owns projectile bullets (spawn, tick, hit-resolution), ruptures (the world-carving polygon explosion triggered by player fracture), and weapon kind definitions.
+**One-line purpose:** Owns projectile bullets (spawn, tick, hit-resolution), ruptures (the world-carving polygon explosion triggered by bullet impact), and weapon kind definitions.
 
 ## What this context owns
 
@@ -73,4 +73,4 @@ export type BulletKindName = keyof typeof BULLET_KINDS
 
 ## Why this context exists as its own thing
 
-Combat crosses two concerns that no single existing context owns: projectile physics (independent trajectory + collision) and the fracture mechanism (player-triggered world-carving). Merging bullets into `session/game.ts` would bury hit logic in the loop; merging rupture into `player.ts` would give the player module direct access to world geometry. A dedicated combat context holds both, makes weapon extension local (add a file in `weapons/`, register in the barrel), and keeps `performRupture`'s self-impulse calculation away from the world-destruction machinery.
+Combat crosses two concerns that no single existing context owns: projectile physics (independent trajectory + collision) and the rupture mechanism (bullet-triggered world-carving). Merging bullets into `session/game.ts` would bury hit logic in the loop; merging rupture into `world/` would couple destruction to bullet ballistics. A dedicated combat context holds both, makes weapon extension local (add a file in `weapons/`, register in the barrel), and keeps `performRupture`'s impulse calculation away from the world-destruction machinery.

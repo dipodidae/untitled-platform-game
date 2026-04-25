@@ -1,27 +1,12 @@
 // Draws the polygon world — CRT Horror Pixel edition.
-// Each material gets its own visual language. Instability warps
-// draw-vertices at thresholds (never touches physics data).
+// Each material gets its own visual language.
 
 import type { Graphics } from 'pixi.js'
 import type { Collider, Level } from '../world/level'
 import { CONFIG } from '../config'
 import { activePalette } from './palette'
 
-// ─── shared instability state, written once per frame by render.ts ───
-let _instability = 0
-let _jitterClock = 0 // 8 Hz clock for coarse jitter
-let _jitterTick = 0 // increments at 8 Hz
 let _frameCount = 0
-
-export function setWorldInstability(ratio: number, dt: number): void {
-  _instability = ratio
-  _jitterClock += dt
-  _frameCount++
-  while (_jitterClock >= 1 / 8) {
-    _jitterClock -= 1 / 8
-    _jitterTick++
-  }
-}
 
 // ─── light direction for edge lighting (normalized) ────────────────
 const LIGHT_DX = 0.3
@@ -30,32 +15,7 @@ const LIGHT_LEN = Math.hypot(LIGHT_DX, LIGHT_DY)
 const LIGHT_NX = LIGHT_DX / LIGHT_LEN
 const LIGHT_NY = LIGHT_DY / LIGHT_LEN
 
-// ─── vertex transforms for instability betrayal ────────────────────
 interface Vert { x: number, y: number }
-
-function transformVerts(verts: readonly Vert[]): Vert[] {
-  if (_instability <= 0.3)
-    return verts as Vert[]
-
-  return verts.map((v) => {
-    let x = v.x
-    let y = v.y
-
-    // >0.6: coarse 1px jitter at 8 Hz
-    if (_instability > 0.6) {
-      // Seed from jitterTick so it's stable within a 1/8s window
-      const s = (_jitterTick * 7919 + Math.floor(v.x * 13) + Math.floor(v.y * 17)) | 0
-      x += ((s % 3) - 1)
-      y += (((s * 31) % 3) - 1)
-    }
-
-    // >0.3: snap to integer pixel grid
-    x = Math.round(x)
-    y = Math.round(y)
-
-    return { x, y }
-  })
-}
 
 function pathPolygon(g: Graphics, verts: readonly Vert[]): void {
   if (verts.length < 3)
@@ -92,7 +52,7 @@ function idHash(id: number, i: number): number {
 // ─── shard ─────────────────────────────────────────────────────────
 function drawShard(g: Graphics, c: Collider): void {
   const m = activePalette().materials.shard
-  const verts = transformVerts(c.vertices)
+  const verts = c.vertices
 
   // Snap all vertices to integer (stairstepped polygon)
   const snapped = verts.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }))
@@ -121,7 +81,7 @@ function drawShard(g: Graphics, c: Collider): void {
 // ─── glass ─────────────────────────────────────────────────────────
 function drawGlass(g: Graphics, c: Collider): void {
   const m = activePalette().materials.glass
-  const verts = transformVerts(c.vertices)
+  const verts = c.vertices
 
   // Primed glass (touched): dimmer fill to indicate one-way state.
   const fillAlpha = c.touched ? 0.22 : 0.4
@@ -154,7 +114,7 @@ function drawGlass(g: Graphics, c: Collider): void {
 // ─── bone ──────────────────────────────────────────────────────────
 function drawBone(g: Graphics, c: Collider): void {
   const m = activePalette().materials.bone
-  const verts = transformVerts(c.vertices)
+  const verts = c.vertices
 
   pathPolygon(g, verts)
   g.fill({ color: m.fill })
@@ -185,17 +145,7 @@ function drawBone(g: Graphics, c: Collider): void {
         let x1 = x0 + ((seed >>> 16) % 7) - 3
         let y1 = y0 + ((seed >>> 24) % 7) - 3
 
-        // Jitter at instability > 0.5, animated at 8 Hz
-        if (_instability > 0.5) {
-          const jt = _jitterTick
-          const js = idHash(c.id + jt, i + 1000)
-          x0 += ((js % 3) - 1)
-          y0 += (((js >>> 8) % 3) - 1)
-          x1 += (((js >>> 16) % 3) - 1)
-          y1 += (((js >>> 24) % 3) - 1)
-        }
-
-        g.moveTo(x0, y0).lineTo(x1, y1)
+            g.moveTo(x0, y0).lineTo(x1, y1)
         g.stroke({ width: 1, color: m.shadow, alpha: 0.7 })
       }
     }
@@ -205,7 +155,7 @@ function drawBone(g: Graphics, c: Collider): void {
 // ─── resonant ──────────────────────────────────────────────────────
 function drawResonant(g: Graphics, c: Collider): void {
   const m = activePalette().materials.resonant
-  const verts = transformVerts(c.vertices)
+  const verts = c.vertices
 
   pathPolygon(g, verts)
   g.fill({ color: m.fill })
@@ -262,7 +212,7 @@ function drawResonant(g: Graphics, c: Collider): void {
 // ─── soft ──────────────────────────────────────────────────────────
 function drawSoft(g: Graphics, c: Collider): void {
   const m = activePalette().materials.soft
-  const verts = transformVerts(c.vertices)
+  const verts = c.vertices
 
   pathPolygon(g, verts)
   g.fill({ color: m.fill })
@@ -308,7 +258,7 @@ function drawBoneFragile(g: Graphics, c: Collider): void {
   const shakeX = shakeAmp > 0 ? (Math.random() - 0.5) * shakeAmp : 0
   const shakeY = shakeAmp > 0 ? (Math.random() - 0.5) * shakeAmp * 0.5 : 0
 
-  const rawVerts = transformVerts(c.vertices)
+  const rawVerts = c.vertices
   const verts = rawVerts.map(v => ({ x: v.x + shakeX, y: v.y + shakeY }))
 
   // Darken fill as timer progresses
@@ -380,15 +330,6 @@ export function drawColliders(g: Graphics, level: Level): void {
     drawCollider(g, c)
 }
 
-// ─── double-exposure ghost (instability > 0.8) ────────────────────
-// Returns true if the ghost should render this frame.
-export function shouldDrawDoubleExposure(): boolean {
-  if (_instability <= 0.8)
-    return false
-  // ~once every 45 frames, random
-  return Math.random() < (1 / 45)
-}
-
 export function getFrameCount(): number {
   return _frameCount
 }
@@ -404,11 +345,5 @@ export function hashColliders(level: Level): number {
     h ^= v
     h = Math.imul(h, 0x01000193) >>> 0
   }
-  // Include instability threshold crossings in hash so we redraw
-  // when snapping/jitter states change.
-  if (_instability > 0.3)
-    h ^= Math.floor(_instability * 10)
-  if (_instability > 0.6)
-    h ^= _jitterTick
   return h
 }

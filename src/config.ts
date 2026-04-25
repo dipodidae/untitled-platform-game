@@ -126,16 +126,7 @@ export const CONFIG = {
   FRACTURE_SHAKE_DURATION: 0.38, // longer decay so the aftermath rings
   FRACTURE_FLASH_DURATION: 0.24, // slightly longer, desaturated
   FRACTURE_FLASH_MAX_ALPHA: 0.45, // softer than a white-out
-  FRACTURE_PARTICLES: 22, // polygon shards spawned per fracture
-  FRACTURE_SHARD_SIZE_MIN: 2, // px half-extent range
-  FRACTURE_SHARD_SIZE_MAX: 4,
-  FRACTURE_SHARD_SPIN_MAX: 12, // rad/s, sign randomized
   FRACTURE_ZOOM_PEAK: 0.04, // fraction of camera zoom-in at peak hitstop (0 = off)
-
-  // Pre-fracture dread overlay — pulses red around the frame edges once
-  // instability crosses the aura HOT threshold. "It's coming."
-  DREAD_MAX_ALPHA: 0.30,
-  DREAD_ONSET: 0.85, // ratio at which dread starts painting
 
   // Material behavior.
   BONE_HITS: 3, // rupture hits before bone fully collapses
@@ -150,33 +141,6 @@ export const CONFIG = {
   RESONANT_CHAIN_MULT: 0.35, // +this × (chain length − 1) multiplicative bonus
   RESONANT_JUMP_BOOST: 1.25, // jump velocity multiplier when launching off resonant ground
   RESONANT_CHAIN_JUMP_BONUS: 0.10, // additional multiplier per chain link (stacks)
-
-  // ───────────────────────── READABILITY ─────────────────────────
-  // Aura: radial glow under the player, tinted by instability.
-  AURA_THRESH_COOL: 0.33, // ≤ this → blue
-  AURA_THRESH_WARM: 0.66, // ≤ this → yellow
-  AURA_THRESH_HOT: 0.9, // ≤ this → orange; above → pulsing red
-  AURA_BASE_RADIUS: 10, // px at 0 instability
-  AURA_MAX_RADIUS: 22, // px at 100 instability
-  AURA_PULSE_MIN_HZ: 3, // red-pulse frequency at 90%
-  AURA_PULSE_MAX_HZ: 12, // red-pulse frequency at 100%
-  AURA_COLOR_COOL: 0x4AA3FF,
-  AURA_COLOR_WARM: 0xF2D048,
-  AURA_COLOR_HOT: 0xF08A3C,
-  AURA_COLOR_RED: 0xFF3A3A,
-
-  GHOST_INSTABILITY_THRESHOLD: 92, // start rendering rupture preview at this instability
-  // Multi-step foresight: how far forward (seconds) to project + how many
-  // samples along that path. Faint by design — mastery layer, not crutch.
-  PREVIEW_LOOKAHEAD: 0.28,
-  PREVIEW_SAMPLES: 3,
-  PREVIEW_ALPHA: 0.32,
-
-  // UI meter
-  METER_X: 8,
-  METER_Y: 8,
-  METER_W: 120,
-  METER_H: 3,
 
   // Colors (replace any Graphics in render.ts with Sprites when swapping in art)
   COLOR_SKY: 0x1A1A2E,
@@ -205,9 +169,6 @@ export const CONFIG = {
   DEGRADE_DAMPING_REDUCTION: 0.30, // decel loses this fraction at ratio=1 (harder to stop, but mild)
   DEGRADE_OVERSPEED: 0.18, // MAX_RUN gains this fraction at ratio=1 (momentum exaggeration)
   DEGRADE_GRAVITY_AMP: 0.0, // NO gravity penalty — never punish air control
-  DEGRADE_FRAGMENT_THRESH: 0.7, // ratio above which visual fragmentation kicks in
-  DEGRADE_FRAGMENT_JITTER: 1.2, // max jitter amplitude in px at ratio=1
-
   // ───────────────────────── AESTHETIC / FEEL ─────────────────────
   // Wind: purely aesthetic drift of ambient motes + rupture debris.
   // Never affects gameplay collision. "The world is already falling

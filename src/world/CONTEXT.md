@@ -72,4 +72,4 @@ export function kineticReactToRupture(level, rx, ry): void
 
 ## Why this context exists as its own thing
 
-The world model is the substrate everything else acts on — physics reads it, destruction mutates it, the renderer draws it, the editor edits it. Keeping it separate from both the physics resolver (which is stateless) and the session loop (which orchestrates) means the Level type can be imported cleanly by all three without circular dependencies. Destruction logic belongs here rather than in `combat/` because it applies symmetrically to bullet impacts AND player ruptures — it is a world-mutation concern, not a projectile concern.
+The world model is the substrate everything else acts on — physics reads it, destruction mutates it, the renderer draws it, the editor edits it. Keeping it separate from both the physics resolver (which is stateless) and the session loop (which orchestrates) means the Level type can be imported cleanly by all three without circular dependencies. Destruction logic belongs here rather than in `combat/` because it is a world-mutation concern, not a projectile concern.

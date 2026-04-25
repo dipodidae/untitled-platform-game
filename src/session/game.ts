@@ -30,7 +30,7 @@ import { populateCosmetics } from '../render/cosmeticRenderer'
 import { CRTFilter } from '../render/CRTFilter'
 import { createDamageNumbers, resetDamageNumbers, spawnDamageNumber, tickDamageNumbers } from '../render/damageNumbers'
 import { consumeHitstopTick, createFxState, tickFxRender } from '../render/fx'
-import { createParticleSystem, emitDisintegration, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
+import { createParticleSystem, emitLandingDust, emitPickupClaim, emitWallSlideSparks, resetParticleSystem, scatterMotes, tickParticles } from '../render/particles'
 import { resetPlayerRenderer } from '../render/playerRenderer'
 import { cycleStance } from '../render/spineboy'
 import { kineticReactToRupture, updateKinetics } from '../world/kinetic'
@@ -346,23 +346,6 @@ function fixedUpdate(state: GameState): void {
     emitWallSlideSparks(state.particles, px, state.player.y + state.player.h / 2, state.player.wallSide)
   }
 
-  // Disintegration shed — at high instability the player visibly sheds
-  // embers/smoke trailing off their motion. Caps naturally via emit's
-  // MAX_ACTIVE. Stops during iframes so the fracture event reads cleanly
-  // without being drowned in its own shed particles.
-  const instabRatio = state.player.instability.value / CONFIG.INSTABILITY_MAX
-  if (instabRatio > 0.55 && state.player.iframeTimer <= 0 && state.player.alive) {
-    const intensity = (instabRatio - 0.55) / 0.45
-    emitDisintegration(
-      state.particles,
-      state.player.x + state.player.w / 2,
-      state.player.y + state.player.h / 2,
-      state.player.vx,
-      state.player.vy,
-      intensity,
-    )
-  }
-
   // Update prowlers + check player contact
   for (const pr of state.prowlers) {
     updateProwler(pr, state.player, state.level, state.broadphase, CONFIG.FIXED_DT)
@@ -409,12 +392,6 @@ export function startLoop(state: GameState): void {
     render(state.renderCtx, state.player, state.camera, state.fx, state.level, frameDt, state.prowlers, state.bullets, state.dummies, state.broadphase, state.pickups, state.specials, state.classics)
 
     // Update CRT shader uniforms
-    const ratio = state.player.instability.value / CONFIG.INSTABILITY_MAX
     state.crtFilter.time = state.now
-    state.crtFilter.instability = ratio
-    // Dread: 0 below onset, ramps to 1 at max instability
-    state.crtFilter.dread = ratio > CONFIG.DREAD_ONSET
-      ? (ratio - CONFIG.DREAD_ONSET) / (1 - CONFIG.DREAD_ONSET)
-      : 0
   })
 }

@@ -8,9 +8,9 @@
 - `index.ts` — `RenderContext` (the full scene graph record); `buildScene`, `teardownScene`, `render` (the per-frame draw call).
 - `camera.ts` — `Camera`, `CAMERA_CONFIG`; `createCamera`, `updateCamera`, `addTrauma`. Three-layer ghost camera: player → focus point → camera, with lookahead, deadzone, asymmetric Y damping, speed zoom, and trauma shake.
 - `fx.ts` — `FxState` (hitstop ticks + shake + flash timers); `createFxState`, `consumeHitstopTick`, `tickFxRender`, `triggerShake`, `triggerFlash`, `triggerFractureFx`, `shakeOffset`, `flashAlpha`.
-- `particles.ts` — `ParticleSystem`, `ParticleKindName`; `createParticleSystem`, `resetParticleSystem`, `tickParticles`, `emit` (base), and named emitters: `emitFractureBurst`, `emitImpactBurst`, `emitMuzzleFlash`, `emitLandingDust`, `emitWallSlideSparks`, `emitDisintegration`, `scatterMotes`.
-- `world.ts` — `drawColliders`, `hashColliders`, `setWorldInstability`, `shouldDrawDoubleExposure`. Draws polygon colliders with per-material visual style; instability warps vertices at high ratios.
-- `playerRenderer.ts` — `drawPlayerGhost`, `resetPlayerRenderer`. Ghost + respawn-flash overlay.
+- `particles.ts` — `ParticleSystem`, `ParticleKindName`; `createParticleSystem`, `resetParticleSystem`, `tickParticles`, `emit` (base), and named emitters: `emitImpactBurst`, `emitMuzzleFlash`, `emitLandingDust`, `emitWallSlideSparks`, `emitDisintegration`, `scatterMotes`.
+- `world.ts` — `drawColliders`, `hashColliders`. Draws polygon colliders with per-material visual style.
+- `playerRenderer.ts` — `resetPlayerRenderer`. Player visual reset on respawn.
 - `prowlerRenderer.ts` — `drawProwler`. Minimal prowler visual.
 - `spineboy.ts` — `SpineboyBridge`, `SPINE_CONFIG`; `loadSpineboyAssets`, `createSpineboyBridge`, `updateSpineboyVisual`, `resetSpineboyBridge`, `triggerShootOverlay`, `cycleStance`. The Spine skeletal character FSM + muzzle snapshot.
 - `camera.ts` — (listed above)
@@ -18,7 +18,7 @@
 - `palette.ts` — `PALETTE` (color constants), `activePalette`.
 - `post.ts` — `drawSky`, `drawVignette`. Static sky gradient + frame vignette.
 - `wind.ts` — `WindState`; `createWindState`, `tickWind`, `drawWind`. Ambient wind-streak particles (render-cadence aesthetic only).
-- `CRTFilter.ts` — `CRTFilter` (custom Pixi Filter subclass). CRT scanline + dread pulse driven by instability ratio and `now`.
+- `CRTFilter.ts` — `CRTFilter` (custom Pixi Filter subclass). CRT scanline post-processing.
 
 ## What it does NOT own (and where to look)
 
@@ -48,7 +48,7 @@ export interface FxState { hitstopTicks, shakeTimer, shakeDuration, shakeAmplitu
 export function createFxState(): FxState
 export function consumeHitstopTick(fx): boolean      // called by session/game.ts
 export function tickFxRender(fx, dt): void           // called at render cadence
-export function triggerFractureFx(fx): void          // sets hitstop + shake + flash together
+export function triggerFractureFx(fx): void          // sets hitstop + shake + flash together (used by bullet impacts)
 export function shakeOffset(fx): { x, y }
 export function flashAlpha(fx): number
 
@@ -57,7 +57,6 @@ export interface ParticleSystem { root: Container, ... }
 export function createParticleSystem(renderer): ParticleSystem
 export function resetParticleSystem(ps): void
 export function tickParticles(ps, dt): void
-export function emitFractureBurst(ps, cx, cy, material, vx, vy): void
 export function emitImpactBurst(ps, x, y, material, vx, vy): void
 export function emitMuzzleFlash(ps, x, y, dirX, dirY): void
 export function emitLandingDust(ps, x, y, impactNorm): void
@@ -73,7 +72,7 @@ export function scatterMotes(ps, worldW, worldH, count): void
   - `src/player/player` — `Player` type (read-only)
   - `src/enemies/dummy` — `Dummy`, `dummyAabb`
   - `src/enemies/prowler` — `Prowler`
-  - `src/combat/bullet` — `BulletState`, `predictBulletImpact`, `computeRuptureShape`
+  - `src/combat/bullet` — `BulletState`, `predictBulletImpact`
   - `src/world/level` — `Level`, `Collider`, `MaterialName`
   - `src/physics/broadphase` — `BroadphaseGrid`
   - `src/session/eventBus` — none (render does not subscribe to events)
@@ -82,7 +81,7 @@ export function scatterMotes(ps, worldW, worldH, count): void
 ## Invariants / rules
 
 - **Hitstop lives here despite gating physics** (ADR-0003 rationale): `FxState.hitstopTicks` is a tick counter decremented by `consumeHitstopTick` (called from the physics loop). Shake/flash timers decay at render cadence via `tickFxRender`. These are two separate clocks; do not merge them.
-- **`triggerFractureFx` sets all three FX (hitstop + shake + flash) together.** Do not split the three `fx.*` writes across separate call sites — the simultaneous landing is load-bearing for the fracture recognition beat.
+- **`triggerFractureFx` sets all three FX (hitstop + shake + flash) together.** Do not split the three `fx.*` writes across separate call sites — the simultaneous landing is load-bearing for the impact recognition beat.
 - The logical render buffer is 480×270 (`LOGICAL_WIDTH × LOGICAL_HEIGHT`). The scene is pixel-scaled via CSS. Do NOT set `autoDensity` or change `resolution` on the Pixi app — that breaks the pixel grid.
 - `worldContainer` is camera-panned and shake-offset each frame. `uiContainer` and `bgContainer` are screen-fixed. Do not add player-world objects to `uiContainer`.
 - Particles tick at **physics cadence** (spawned from deterministic blast events) but their `root` container lives in `worldContainer` and moves with the camera.

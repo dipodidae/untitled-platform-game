@@ -9,7 +9,7 @@
 
 ## What it does NOT own (and where to look)
 
-- In-game HUD (instability meter, hint text) — drawn in the Pixi `uiContainer` in `src/render/index.ts`
+- In-game HUD (HP pips, hint text) — drawn in the Pixi `uiContainer` in `src/render/index.ts`
 - Editor UI panels — `src/editor/ui/`
 - Game state (deaths, timing) — `src/session/gameState` (values arrive via the `levelComplete` event payload)
 - Level name lookup — `src/session/levelManager` (`levelName`, `hasNextLevel`)

@@ -18,7 +18,7 @@ Each level ends with a **reward space** that contrasts preceding tension.
 
 ## Level 1: "Ground Truth"
 
-**Core mechanic**: Glass (instability → rupture → breaks → shards)
+**Core mechanic**: Glass (bullet impact → breaks → shards)
 **Secondary**: Bone (safe structural ground — the constant)
 **World**: 1800 × 480 px
 
@@ -35,17 +35,17 @@ A small bone ledge provides another hop. Still safe.
 ### Zone C — First Contact (x 850–1250)
 Gap in the bone floor. A glass bridge spans the gap.
 Recovery bone floor sits below — falling is not death.
-Player learns: glass breaks when instability ruptures near it.
+Player learns: glass breaks when shot.
 Glass shards kill. But the stakes are low — recovery is trivial.
 
 ### Zone D — Execution (x 1250–1800)
 Wider glass bridge. No shortcuts — must cross it.
-Either manage instability (don't rupture mid-bridge) or accept the
-fall to recovery bone below and climb back up.
+Either avoid shooting near glass or accept the fall to recovery bone
+below and climb back up.
 **Reward**: Elevated open bone platform at the far end. Right wall
 closes the level. Safe, spacious, done.
 
-**Mastery beat**: "I understand that my instability shapes the world."
+**Mastery beat**: "I understand that my gun shapes the world."
 
 ---
 
@@ -94,7 +94,7 @@ Materials shape my path, not just my survival."
 
 | Rule | Implementation |
 |------|---------------|
-| One new mechanic per level | L1: glass (instability → consequence). L2: resonant boost + glass priming (momentum → routing). |
+| One new mechanic per level | L1: glass (destruction → consequence). L2: resonant boost + glass priming (momentum → routing). |
 | Failure is readable | Falls always land on bone. Shards are bright red. Primed glass dims visibly. |
 | Spatial pacing | Wide flat bone before each new element. Narrow/elevated at climax. |
 | Reward contrast | Open elevated bone after tight sequences. |

@@ -543,30 +543,6 @@ export function emitLandingDust(
   emit(system, 'dust', x + 4, y, Math.floor(n / 2), 0.8, -0.4, { speedMul: 0.6 + intensity * 0.6 })
 }
 
-// Continuous shed — called per tick while instability is high. Matches the
-// "you are not entirely here" line in the README: at high instability the
-// player visibly sheds micro-debris.
-export function emitDisintegration(
-  system: ParticleSystem,
-  x: number,
-  y: number,
-  vx: number,
-  vy: number,
-  intensity: number, // 0..1
-): void {
-  if (intensity <= 0)
-    return
-  // Spawn rate scales with intensity.
-  const count = Math.floor(1 + intensity * 3)
-  const invLen = 1 / Math.max(1, Math.hypot(vx, vy))
-  // Shed opposite movement direction — looks like it's peeling off behind.
-  const trailX = vx ? -vx * invLen : 0
-  const trailY = vy ? -vy * invLen : -1
-  emit(system, 'ember', x, y, count, trailX, trailY, { speedMul: 0.6 })
-  if (intensity > 0.7 && Math.random() < 0.4)
-    emit(system, 'smoke', x, y, 1, trailX, trailY, { speedMul: 0.5 })
-}
-
 // Thin line of sparks at the wall-contact point when wall-sliding.
 export function emitWallSlideSparks(
   system: ParticleSystem,

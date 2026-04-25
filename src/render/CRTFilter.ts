@@ -1,6 +1,6 @@
 // CRT Horror Pixel post-processing filter for PixiJS v8.
 // Single-pass fragment shader: ordered dithering, scanlines, chromatic
-// aberration, pixel corruption, vignette with dread pulse, film grain.
+// aberration, vignette, film grain.
 
 import { Filter, GlProgram } from 'pixi.js'
 
@@ -35,8 +35,6 @@ out vec4 finalColor;
 
 uniform sampler2D uTexture;
 uniform float uTime;
-uniform float uInstability;
-uniform float uDread;
 uniform vec4 uInputSize;
 
 // ─── constants (tuned for 640×360 horror pixel art) ─────────────
@@ -98,32 +96,9 @@ void main(void) {
   // ─── 1. UV (no barrel distortion) ────────────────────────────
   vec2 uv = vTextureCoord;
 
-  // ─── 2. horizontal band displacement ("tape tear") ────────────
-  float bandCA = 1.0;
-
-  if (uInstability > 0.4) {
-    float bandSize = 8.0;
-    float band = floor(uv.y * SOURCE_SIZE.y / bandSize);
-    float bandHash = hash(vec2(band, floor(uTime * 6.0)));
-    float displaceThreshold = 1.0 - (uInstability - 0.4) * 0.18;
-
-    if (bandHash > displaceThreshold) {
-      float displaceAmount = (bandHash - displaceThreshold) * 12.0;
-      uv.x += displaceAmount / SOURCE_SIZE.x;
-      bandCA = 2.0;
-    }
-  }
-
-  // ─── 3. chromatic aberration + sample ─────────────────────────
-  float caScale = (1.0 + uInstability * 3.0) * bandCA;
-  vec2 caOffsetR = vec2( 0.0008, 0.0) * caScale;
-  vec2 caOffsetB = vec2(-0.0008, 0.0) * caScale;
-
-  if (uInstability > 0.7) {
-    float vPulse = sin(uTime * 17.0) * 0.001 * uInstability;
-    caOffsetR.y += vPulse;
-    caOffsetB.y -= vPulse;
-  }
+  // ─── 2. chromatic aberration + sample ─────────────────────────
+  vec2 caOffsetR = vec2( 0.0008, 0.0);
+  vec2 caOffsetB = vec2(-0.0008, 0.0);
 
   float r = texture(uTexture, uv + caOffsetR).r;
   float g = texture(uTexture, uv).g;
@@ -146,44 +121,9 @@ void main(void) {
     color *= mix(0.5, 1.0, dither);
   }
 
-  // ─── 6. per-pixel hash corruption ────────────────────────────
-  // Decaying-phosphor stains rather than flat ERROR-red blocks. Two oxblood
-  // tones varied per-block, blended OVER the underlying pixel so the world
-  // still reads through them. Intensity ramps with how far the hash exceeds
-  // the threshold, so rare strong stains sit beside faint ones.
-  if (uInstability > 0.5) {
-    vec2 blockCoord = floor(uv * vec2(160.0, 90.0));
-    float corruptHash = fract(sin(dot(blockCoord, vec2(127.1, 311.7))) * 43758.5);
-    float corruptThreshold = 1.0 - (uInstability - 0.5) * 0.012;
-    if (corruptHash > corruptThreshold) {
-      float intensity = (corruptHash - corruptThreshold) / max(1.0 - corruptThreshold, 0.0001);
-      vec3 oxblood = vec3(0.42, 0.05, 0.03);
-      vec3 wine    = vec3(0.60, 0.12, 0.06);
-      vec3 stain   = mix(oxblood, wine, fract(corruptHash * 7.3));
-      float strength = 0.45 + 0.35 * intensity;
-      color = mix(color, stain, strength);
-    }
-  }
-
-  // ─── 7. macro-block corruption ────────────────────────────────
-  if (uInstability > 0.65) {
-    vec2 blockCoord7 = floor(uv * SOURCE_SIZE / 8.0);
-    float blockHash = hash(blockCoord7 + floor(uTime * 2.0));
-    float blockThreshold = 1.0 - (uInstability - 0.65) * 0.12;
-    if (blockHash > blockThreshold) {
-      vec2 blockShift = vec2(
-        fract(blockHash * 7.3) * 0.08 - 0.04,
-        fract(blockHash * 3.7) * 0.04 - 0.02
-      );
-      color = texture(uTexture, uv + blockShift).rgb;
-    }
-  }
-
-  // ─── 8. shadow mask (instability dissolves it) ────────────────
-  float maskStrength = 1.0 - uInstability * 0.85;
+  // ─── 6. shadow mask ───────────────────────────────────────────
   vec3 lottesMask = shadowMask(gl_FragCoord.xy);
-  vec3 finalMask = mix(vec3(1.0), lottesMask, maskStrength);
-  color *= finalMask;
+  color *= lottesMask;
 
   // ─── 9. vignette ─────────────────────────────────────────────
   // Pushed darkening outward so the play area stays bright; only the very
@@ -192,22 +132,14 @@ void main(void) {
   float vig = 1.0 - smoothstep(0.6, 1.25, length(vigUV));
   color *= vig;
 
-  // ─── 10. dread red pulse ─────────────────────────────────────
-  if (uDread > 0.0) {
-    float outerRing = 1.0 - vig;
-    float pulse = abs(sin(uTime * (3.0 + uDread * 8.0)));
-    vec3 dreadColor = vec3(0.4, 0.0, 0.0) * uDread * pulse * outerRing;
-    color += dreadColor;
-  }
-
-  // ─── 11. film grain ──────────────────────────────────────────
+  // ─── 10. film grain ──────────────────────────────────────────
   float grain = (hash(vTextureCoord + fract(uTime)) - 0.5) * 0.035;
   color += grain;
 
-  // ─── 12. contrast pass — pivot on 0.5 for sharpness ──────────
+  // ─── 11. contrast pass — pivot on 0.5 for sharpness ──────────
   color = (color - 0.5) * CONTRAST + 0.5;
 
-  // ─── 13. output ──────────────────────────────────────────────
+  // ─── 12. output ──────────────────────────────────────────────
   finalColor = vec4(color, a);
 }
 `
@@ -224,8 +156,6 @@ export class CRTFilter extends Filter {
       resources: {
         crtUniforms: {
           uTime: { value: 0, type: 'f32' },
-          uInstability: { value: 0, type: 'f32' },
-          uDread: { value: 0, type: 'f32' },
         },
       },
     })
@@ -239,19 +169,4 @@ export class CRTFilter extends Filter {
     this.resources.crtUniforms.uniforms.uTime = v
   }
 
-  get instability(): number {
-    return this.resources.crtUniforms.uniforms.uInstability
-  }
-
-  set instability(v: number) {
-    this.resources.crtUniforms.uniforms.uInstability = v
-  }
-
-  get dread(): number {
-    return this.resources.crtUniforms.uniforms.uDread
-  }
-
-  set dread(v: number) {
-    this.resources.crtUniforms.uniforms.uDread = v
-  }
 }

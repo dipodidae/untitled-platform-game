@@ -21,8 +21,8 @@ flagged.
 | **EventBus** | Typed in-process synchronous emitter for cross-system signals. | `session/eventBus.ts` |
 | **Fixed step** | Physics runs at a constant `CONFIG.FIXED_DT` (1/60s) regardless of frame rate. | `session/game.ts` |
 | **Goal zone** | A `'goal'` zone whose overlap emits `levelComplete`. | `world/level.ts` (zone type), `player/player.ts` (overlap detection) |
-| **Hitstop** | Brief freeze of `fixedUpdate` (counted in TICKS) so a fracture event "lands" visually. | `render/fx.ts` |
-| **Instability** | Per-player accumulator of momentum events; at high values the player breaks glass underfoot or shatters. | `player/instability.ts` |
+| **Hitstop** | Brief freeze of `fixedUpdate` (counted in TICKS) so an impact event "lands" visually. | `render/fx.ts` |
+| **Instability** | Per-player accumulator of momentum events; affects movement degradation (overspeed, damping). Builds from jumps, landings, wall contact, and running; bleeds naturally when idle or airborne. | `player/instability.ts` |
 | **Kinetic** | A collider that moves under runtime simulation. Four kinds: rotor, breather, spring, linear. | `world/kinetic/` |
 | **LevelJson** | The on-disk authored level format — collider list + entities + zones. | `world/level.ts` |
 | **Material** | One of `glass | bone | bone_fragile | resonant | soft | shard`. Determines destruction behavior, friction, and color. | `world/level.ts` |
@@ -30,8 +30,8 @@ flagged.
 | **Pickup** | An item the player can collect. Currently just `bigShot`. | `items/` |
 | **Player** | The controllable actor. Singular — there's only one. | `player/player.ts` |
 | **Pristine collider** | A snapshot of a collider's authored state. Used by `resetLevel` to restore the world after a death. | `world/level.ts` |
-| **Prowler** | A weighted-movement enemy organism. Material-biased confidence affects speed; instability accumulates from momentum events. | `enemies/prowler.ts` |
-| **Rupture** | The carve-into-the-world event a bullet causes on impact. | `combat/rupture.ts` |
+| **Prowler** | A weighted-movement enemy organism. Material-biased confidence affects speed. | `enemies/prowler.ts` |
+| **Rupture** | The carve-into-the-world event a bullet causes on terrain impact. | `combat/rupture.ts` |
 | **SAT** | Separating Axis Theorem — collision test for AABB vs convex polygon. | `physics/sat.ts` |
 | **Session** | One running game instance: phase, deaths, current level, checkpoint. | `session/gameState.ts` |
 | **Shard** | Runtime-only collider spawned from broken glass. Lethal on contact. Has `expiresAt`. | `world/level.ts` |
@@ -94,7 +94,7 @@ Distinct types. The runtime `Level` is built from `LevelJson` via
 - **`EditorState`** — the editor's mutable state (`src/editor/state.ts`).
 - **`GameState`** / **`GameSession`** — see above.
 - **`FxState`** — fx timers (`src/render/fx.ts`).
-- **`InstabilityState`** — per-player instability (`src/player/instability.ts`).
+- **`InstabilityState`** — per-player movement degradation (`src/player/instability.ts`).
 - **`BulletState`** — bullet pool + cooldown (`src/combat/bullet.ts`).
 - **Several other `*State` records** (FxState, ParallaxState, WindState,
   KineticState).

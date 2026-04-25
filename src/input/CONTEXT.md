@@ -5,7 +5,7 @@
 
 ## What this context owns
 
-- `input.ts` — module-level `keys` / `prevKeys` records; `initInput` (attaches window event listeners once); `isDown`, `justPressed`, `justReleased`; `endFrame` (snapshots current state into prevKeys); gameplay aliases: `leftDown`, `rightDown`, `downDown`, `jumpPressed`, `jumpReleased`, `containHeld`, `respawnPressed`, `shootPressed`, `stanceCyclePressed`.
+- `input.ts` — module-level `keys` / `prevKeys` records; `initInput` (attaches window event listeners once); `isDown`, `justPressed`, `justReleased`; `endFrame` (snapshots current state into prevKeys); gameplay aliases: `leftDown`, `rightDown`, `downDown`, `jumpPressed`, `jumpReleased`, `respawnPressed`, `shootPressed`, `stanceCyclePressed`.
 
 ## What it does NOT own (and where to look)
 
@@ -28,7 +28,6 @@ export const rightDown: () => boolean // ArrowRight | KeyD
 export const downDown: () => boolean // ArrowDown | KeyS
 export const jumpPressed: () => boolean // Space | KeyZ | ArrowUp | KeyW
 export const jumpReleased: () => boolean // same codes
-export const containHeld: () => boolean // KeyV | ShiftLeft | ShiftRight
 export const respawnPressed: () => boolean // KeyR
 export const shootPressed: () => boolean // KeyX
 export const stanceCyclePressed: () => boolean // KeyC

@@ -10,7 +10,7 @@ Twelve contexts, each a folder under `src/`:
 | Context | Purpose |
 |---|---|
 | **session** | Game loop, lifecycle, level sequencing, EventBus |
-| **player** | Player entity + behavior + instability state |
+| **player** | Player entity + behavior |
 | **enemies** | Non-player actors (prowler, dummy) |
 | **combat** | Bullets, weapons, ruptures (the damage event) |
 | **world** | Level data, destruction, kinetic platforms, materials |
