@@ -71,6 +71,8 @@ export interface RenderContext {
   readonly specialsSpritePool: EnemySpritePool
   readonly classicsGfx: Graphics
   readonly classicsSpritePool: EnemySpritePool
+  readonly projectileSpriteContainer: Container
+  readonly projectileSprites: Sprite[]
   readonly prowlerGfx: Graphics
   readonly prowlerSpritePool: EnemySpritePool
   readonly flashGfx: Graphics
@@ -188,6 +190,10 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   worldContainer.addChild(classicsSpritePool.container)
   const classicsGfx = new Graphics()
   worldContainer.addChild(classicsGfx)
+  // Projectile sprites (hammers, etc.) — above classics overlays.
+  const projectileSpriteContainer = new Container()
+  worldContainer.addChild(projectileSpriteContainer)
+  const projectileSprites: Sprite[] = []
 
   // Prowler — sprite pool for bodies + Graphics for overlays.
   const prowlerSpritePool = createEnemySpritePool()
@@ -312,6 +318,8 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     specialsSpritePool,
     classicsGfx,
     classicsSpritePool,
+    projectileSpriteContainer,
+    projectileSprites,
     prowlerGfx,
     prowlerSpritePool,
     flashGfx,
@@ -665,11 +673,13 @@ export function render(
 
   // ─── classics ────────────────────────────────────────────
   if (classics) {
-    drawClassics(ctx.classicsGfx, classics, ctx.time, ctx.classicsSpritePool)
+    drawClassics(ctx.classicsGfx, classics, ctx.time, ctx.classicsSpritePool, ctx.projectileSpriteContainer, ctx.projectileSprites)
   }
   else {
     ctx.classicsGfx.clear()
     hideExcessSprites(ctx.classicsSpritePool, 0)
+    for (const sp of ctx.projectileSprites)
+      sp.visible = false
   }
 
   // ─── bullets ────────────────────────────────────────────

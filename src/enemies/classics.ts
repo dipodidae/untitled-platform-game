@@ -48,6 +48,10 @@ export interface ClassicProjectile {
   alive: boolean
   // 0 = no gravity; otherwise px/s² downward.
   gravity: number
+  // Visual rotation in radians (for spinning projectiles like hammers).
+  rotation: number
+  // Spin speed in rad/s (0 = no spin).
+  spin: number
 }
 
 function spawnProjectile(
@@ -59,8 +63,10 @@ function spawnProjectile(
   type: ClassicProjectileType,
   life: number,
   gravity: number,
-): void {
-  list.push({ x, y, vx, vy, life, type, alive: true, gravity })
+): ClassicProjectile {
+  const proj: ClassicProjectile = { x, y, vx, vy, life, type, alive: true, gravity, rotation: 0, spin: 0 }
+  list.push(proj)
+  return proj
 }
 
 function updateProjectiles(
@@ -75,6 +81,7 @@ function updateProjectiles(
     p.vy += p.gravity * dt
     p.x += p.vx * dt
     p.y += p.vy * dt
+    p.rotation += p.spin * dt
     p.life -= dt
     if (p.life <= 0) {
       p.alive = false
@@ -823,13 +830,30 @@ function updateHammerBro(b: HammerBro, state: ClassicsState, player: Player, dt:
   if (b.hitFlashTimer > 0)
     b.hitFlashTimer = Math.max(0, b.hitFlashTimer - dt)
   const cx = b.x + b.w / 2
+  const cy = b.y + b.h / 2
   b.facing = (player.alive && player.x + player.w / 2 < cx) ? -1 : 1
   b.throwTimer -= dt
   if (b.throwTimer <= 0 && player.alive) {
     b.throwTimer = b.period
-    const sx = cx
-    const sy = b.y
-    spawnProjectile(state.projectiles, sx, sy, b.facing * 110, -180, 'hammer', 2.8, 300)
+    // Predictive aiming: solve for the launch velocity that lands on the
+    // player's predicted position, accounting for gravity.
+    const GRAVITY = 400
+    const px = player.x + player.w / 2
+    const py = player.y + player.h / 2
+    // Predict where the player will be: extrapolate current velocity a bit.
+    const LOOK_AHEAD = 0.3
+    const tgtX = px + player.vx * LOOK_AHEAD
+    const tgtY = py + player.vy * LOOK_AHEAD
+    const dx = tgtX - cx
+    const dy = tgtY - cy
+    const dist = Math.abs(dx)
+    // Pick a flight time proportional to distance (clamped).
+    const flightTime = Math.max(0.5, Math.min(1.8, dist / 140))
+    // vx = dx / t; vy = (dy - 0.5*g*t²) / t (so it lands at target).
+    const vx = dx / flightTime
+    const vy = (dy - 0.5 * GRAVITY * flightTime * flightTime) / flightTime
+    const proj = spawnProjectile(state.projectiles, cx, cy, vx, vy, 'hammer', 3.5, GRAVITY)
+    proj.spin = (b.facing === -1 ? -1 : 1) * 12
   }
 }
 

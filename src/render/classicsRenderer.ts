@@ -1,11 +1,25 @@
 // Classic-inspired enemy renderer. Sprite textures for enemy bodies,
 // Graphics overlay for HP pips, telegraphs, and projectiles.
 
-import type { Graphics } from 'pixi.js'
+import type { Container, Graphics } from 'pixi.js'
 import type { ClassicsState } from '../enemies/classics'
 import type { EnemySpritePool } from './enemySpritePool'
+import { Assets, Sprite, Texture } from 'pixi.js'
 import { mantisIsVulnerable } from '../enemies/classics'
 import { hideExcessSprites, positionEnemySprite } from './enemySpritePool'
+
+// Hammer projectile texture — loaded lazily on first use.
+let hammerTex: Texture | null = null
+let hammerTexLoading = false
+
+function ensureHammerTex(): void {
+  if (hammerTex || hammerTexLoading)
+    return
+  hammerTexLoading = true
+  Assets.load<Texture>('/assets/projectiles/hammer.png').then((t) => {
+    hammerTex = t
+  }).catch(() => { /* no sprite — will fall back to circle */ })
+}
 
 const COLOR_BONE = 0xC8B89A
 const COLOR_OXBLOOD = 0x8A2A1C
@@ -27,7 +41,14 @@ function pip(g: Graphics, x: number, y: number, w: number, hp: Hp, col = COLOR_O
   g.rect(x + 1, y - 3, pw * r, 1).fill({ color: col })
 }
 
-export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: EnemySpritePool): void {
+export function drawClassics(
+  g: Graphics,
+  s: ClassicsState,
+  time: number,
+  pool: EnemySpritePool,
+  projContainer: Container,
+  projSprites: Sprite[],
+): void {
   g.clear()
   let si = 0 // sprite index counter across all classic kinds
 
@@ -176,18 +197,41 @@ export function drawClassics(g: Graphics, s: ClassicsState, time: number, pool: 
 
   hideExcessSprites(pool, si)
 
-  // ─── Shared projectiles ─────────────────────────────────
+  // ─── Shared projectiles ─────────────────────────────
+  ensureHammerTex()
+  let hammerIdx = 0
   for (const p of s.projectiles) {
     if (!p.alive)
       continue
-    const col = p.type === 'wizard'
-      ? 0xC090B0
-      : p.type === 'plantera'
-        ? 0xC0408C
-        : p.type === 'hammer'
-          ? 0x605040
-          : 0xFFD48C // cagney
-    g.circle(p.x, p.y, 3).fill({ color: col, alpha: 0.95 })
-    g.circle(p.x, p.y, 2).fill({ color: 0xFFFFFF, alpha: 0.25 })
+    if (p.type === 'hammer' && hammerTex) {
+      // Render as a spinning sprite.
+      while (projSprites.length <= hammerIdx) {
+        const sp = new Sprite({ texture: Texture.EMPTY })
+        sp.anchor.set(0.5)
+        projContainer.addChild(sp)
+        projSprites.push(sp)
+      }
+      const sp = projSprites[hammerIdx]!
+      sp.texture = hammerTex
+      sp.x = p.x
+      sp.y = p.y
+      sp.rotation = p.rotation
+      sp.scale.set(16 / hammerTex.width)
+      sp.visible = true
+      hammerIdx++
+    }
+    else {
+      const col = p.type === 'wizard'
+        ? 0xC090B0
+        : p.type === 'plantera'
+          ? 0xC0408C
+          : p.type === 'hammer'
+            ? 0x605040
+            : 0xFFD48C // cagney
+      g.circle(p.x, p.y, 3).fill({ color: col, alpha: 0.95 })
+      g.circle(p.x, p.y, 2).fill({ color: 0xFFFFFF, alpha: 0.25 })
+    }
   }
+  for (let i = hammerIdx; i < projSprites.length; i++)
+    projSprites[i]!.visible = false
 }
