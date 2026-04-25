@@ -177,6 +177,18 @@ export function drawClassics(
     si++
     if (!b.alive)
       continue
+    // Charge glow — growing warm ring behind the bro
+    if (b.charging && b.chargeDuration > 0) {
+      const t = Math.min(1, b.chargeTimer / b.chargeDuration)
+      const radius = 6 + t * 14
+      const alpha = 0.15 + t * 0.45
+      const cx = b.x + b.w / 2
+      const cy = b.y + b.h / 2
+      g.circle(cx, cy, radius)
+        .fill({ color: 0xFFA040, alpha: alpha * 0.3 })
+      g.circle(cx, cy, radius * 0.6)
+        .fill({ color: 0xFFD080, alpha: alpha * 0.5 })
+    }
     pip(g, b.x, b.y, b.w, b)
   }
 

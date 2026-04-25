@@ -21,8 +21,10 @@
 import type { BulletKindName } from '../combat/bullet'
 import type { BroadphaseGrid } from '../physics/broadphase'
 import type { Player } from '../player/player'
+import type { ParticleSystem } from '../render/particles'
 import type { Level } from '../world/level'
 import { respawn, takeHit } from '../player/player'
+import { emit as emitParticles } from '../render/particles'
 import { emit } from '../session/eventBus'
 
 // ─── shared helpers ──────────────────────────────────────────────────
@@ -74,6 +76,7 @@ function updateProjectiles(
   player: Player,
   level: Level,
   dt: number,
+  particles: ParticleSystem | null = null,
 ): void {
   for (const p of state.projectiles) {
     if (!p.alive)
@@ -90,6 +93,14 @@ function updateProjectiles(
     if (p.x < -64 || p.x > level.worldWidth + 64 || p.y > level.worldHeight + 64) {
       p.alive = false
       continue
+    }
+    // Hammer projectile: particle trail + glow
+    if (p.type === 'hammer' && particles) {
+      emitParticles(particles, 'ember', p.x, p.y, 1, -p.vx, -p.vy, {
+        scaleMul: 0.3,
+        speedMul: 0.15,
+        tintOverride: 0xFFA040,
+      })
     }
     if (player.alive && overlapsAabb(p.x - 3, p.y - 3, 6, 6, player.x, player.y, player.w, player.h)) {
       if (p.type === 'wizard') {
@@ -806,7 +817,16 @@ export interface HammerBro {
   throwTimer: number
   period: number
   facing: 1 | -1
+  // Charge state — hammer bro winds up before each throw.
+  charging: boolean
+  chargeTimer: number
+  chargeDuration: number
 }
+
+const HAMMER_CHARGE_MIN = 0.4
+const HAMMER_CHARGE_MAX = 0.9
+const HAMMER_AIM_JITTER = 10 // ±px random offset on target
+const HAMMER_PERIOD_JITTER = 0.5 // ± random added to period
 
 export function createHammerBro(x: number, y: number, period = 1.6): HammerBro {
   return {
@@ -818,13 +838,16 @@ export function createHammerBro(x: number, y: number, period = 1.6): HammerBro {
     maxHp: 4,
     alive: true,
     hitFlashTimer: 0,
-    throwTimer: period * Math.random(),
+    throwTimer: period * (0.5 + Math.random()),
     period,
     facing: -1,
+    charging: false,
+    chargeTimer: 0,
+    chargeDuration: 0,
   }
 }
 
-function updateHammerBro(b: HammerBro, state: ClassicsState, player: Player, dt: number): void {
+function updateHammerBro(b: HammerBro, state: ClassicsState, player: Player, dt: number, particles: ParticleSystem | null): void {
   if (!b.alive)
     return
   if (b.hitFlashTimer > 0)
@@ -832,28 +855,52 @@ function updateHammerBro(b: HammerBro, state: ClassicsState, player: Player, dt:
   const cx = b.x + b.w / 2
   const cy = b.y + b.h / 2
   b.facing = (player.alive && player.x + player.w / 2 < cx) ? -1 : 1
+
+  // ─── Charging phase ───────────────────────────────────────────
+  if (b.charging) {
+    b.chargeTimer += dt
+    // Emit growing charge-glow particles behind the bro
+    if (particles) {
+      const intensity = Math.min(1, b.chargeTimer / b.chargeDuration)
+      const count = intensity > 0.6 ? 2 : 1
+      emitParticles(particles, 'ember', cx, cy, count, 0, -1, {
+        scaleMul: 0.4 + intensity * 0.8,
+        speedMul: 0.3 + intensity * 0.5,
+        tintOverride: 0xFFA040,
+      })
+    }
+    if (b.chargeTimer >= b.chargeDuration) {
+      // Fire!
+      b.charging = false
+      const GRAVITY = 400
+      const px = player.x + player.w / 2
+      const py = player.y + player.h / 2
+      const LOOK_AHEAD = 0.3
+      // Aim jitter — small random offset so it's not pixel-perfect
+      const jitterX = (Math.random() - 0.5) * 2 * HAMMER_AIM_JITTER
+      const jitterY = (Math.random() - 0.5) * 2 * HAMMER_AIM_JITTER
+      const tgtX = px + player.vx * LOOK_AHEAD + jitterX
+      const tgtY = py + player.vy * LOOK_AHEAD + jitterY
+      const dx = tgtX - cx
+      const dy = tgtY - cy
+      const dist = Math.abs(dx)
+      const flightTime = Math.max(0.5, Math.min(1.8, dist / 140))
+      const vx = dx / flightTime
+      const vy = (dy - 0.5 * GRAVITY * flightTime * flightTime) / flightTime
+      const proj = spawnProjectile(state.projectiles, cx, cy, vx, vy, 'hammer', 3.5, GRAVITY)
+      proj.spin = (b.facing === -1 ? -1 : 1) * 12
+      // Next throw: sporadic timing
+      b.throwTimer = b.period + (Math.random() - 0.5) * 2 * HAMMER_PERIOD_JITTER
+    }
+    return
+  }
+
+  // ─── Idle countdown → begin charge ────────────────────────────
   b.throwTimer -= dt
   if (b.throwTimer <= 0 && player.alive) {
-    b.throwTimer = b.period
-    // Predictive aiming: solve for the launch velocity that lands on the
-    // player's predicted position, accounting for gravity.
-    const GRAVITY = 400
-    const px = player.x + player.w / 2
-    const py = player.y + player.h / 2
-    // Predict where the player will be: extrapolate current velocity a bit.
-    const LOOK_AHEAD = 0.3
-    const tgtX = px + player.vx * LOOK_AHEAD
-    const tgtY = py + player.vy * LOOK_AHEAD
-    const dx = tgtX - cx
-    const dy = tgtY - cy
-    const dist = Math.abs(dx)
-    // Pick a flight time proportional to distance (clamped).
-    const flightTime = Math.max(0.5, Math.min(1.8, dist / 140))
-    // vx = dx / t; vy = (dy - 0.5*g*t²) / t (so it lands at target).
-    const vx = dx / flightTime
-    const vy = (dy - 0.5 * GRAVITY * flightTime * flightTime) / flightTime
-    const proj = spawnProjectile(state.projectiles, cx, cy, vx, vy, 'hammer', 3.5, GRAVITY)
-    proj.spin = (b.facing === -1 ? -1 : 1) * 12
+    b.charging = true
+    b.chargeTimer = 0
+    b.chargeDuration = HAMMER_CHARGE_MIN + Math.random() * (HAMMER_CHARGE_MAX - HAMMER_CHARGE_MIN)
   }
 }
 
@@ -987,6 +1034,7 @@ export function updateClassics(
   _broadphase: BroadphaseGrid,
   dt: number,
   _now: number,
+  particles: ParticleSystem | null = null,
 ): void {
   if (state.shootDisabledTimer > 0)
     state.shootDisabledTimer = Math.max(0, state.shootDisabledTimer - dt)
@@ -1002,10 +1050,10 @@ export function updateClassics(
   for (const c of state.cagneys) updateCagney(c, state, player, dt)
   for (const d of state.dryBones) updateDryBones(d, player, level, dt)
   for (const p of state.planteras) updatePlantera(p, state, player, dt)
-  for (const h of state.hammerBros) updateHammerBro(h, state, player, dt)
+  for (const h of state.hammerBros) updateHammerBro(h, state, player, dt, particles)
   for (const m of state.mantisLords) updateMantisLord(m, player, level, dt)
 
-  updateProjectiles(state, player, level, dt)
+  updateProjectiles(state, player, level, dt, particles)
 }
 
 // ─── bullet routing ──────────────────────────────────────────────────

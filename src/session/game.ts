@@ -324,7 +324,7 @@ function fixedUpdate(state: GameState): void {
   // Tick all special-enemy kinds — runs after the player update so contact
   // damage reads current player position.
   updateSpecials(state.specials, state.player, state.level, state.broadphase, CONFIG.FIXED_DT, state.now)
-  updateClassics(state.classics, state.player, state.level, state.broadphase, CONFIG.FIXED_DT, state.now)
+  updateClassics(state.classics, state.player, state.level, state.broadphase, CONFIG.FIXED_DT, state.now, state.particles)
 
   tickParticles(state.particles, CONFIG.FIXED_DT)
 
