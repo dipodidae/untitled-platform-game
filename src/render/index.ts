@@ -75,6 +75,7 @@ export interface RenderContext {
   readonly vignetteGfx: Graphics
   readonly meterBg: Graphics
   readonly meterFg: Graphics
+  readonly hpGfx: Graphics
   readonly hint: Text
   readonly containHint: Text
   worldCacheKey: number
@@ -234,6 +235,9 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   containHint.y = CONFIG.METER_Y
   uiContainer.addChild(containHint)
 
+  const hpGfx = new Graphics()
+  uiContainer.addChild(hpGfx)
+
   const flashGfx = new Graphics()
   uiContainer.addChild(flashGfx)
 
@@ -288,6 +292,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     vignetteGfx,
     meterBg,
     meterFg,
+    hpGfx,
     hint,
     containHint,
     worldCacheKey: hashColliders(level),
@@ -751,6 +756,40 @@ export function render(
     ctx.meterFg
       .rect(CONFIG.METER_X, CONFIG.METER_Y, fillW, CONFIG.METER_H)
       .fill({ color: meterCol })
+  }
+
+  // ─── HP display (top-right, fat pips) ─────────────────
+  ctx.hpGfx.clear()
+  {
+    const pipSize = 14
+    const pipGap = 4
+    const pipPerRow = player.maxHp
+    const totalW = pipPerRow * pipSize + (pipPerRow - 1) * pipGap
+    const startX = CONFIG.LOGICAL_WIDTH - totalW - 12
+    const startY = 10
+    for (let i = 0; i < player.maxHp; i++) {
+      const px = startX + i * (pipSize + pipGap)
+      const filled = i < player.hp
+      // Background slot — dark rounded rect
+      ctx.hpGfx.roundRect(px, startY, pipSize, pipSize, 3)
+        .fill({ color: 0x1A1A20, alpha: 0.7 })
+        .stroke({ width: 1, color: 0x404050, alpha: 0.5 })
+      if (filled) {
+        // Bright fill — red when low, warm when mid, green when high
+        const hpRatio = player.hp / player.maxHp
+        const col = hpRatio > 0.6 ? 0xCC3030 : hpRatio > 0.3 ? 0xCC6020 : 0xCC2020
+        ctx.hpGfx.roundRect(px + 1, startY + 1, pipSize - 2, pipSize - 2, 2)
+          .fill({ color: col })
+        // Inner highlight
+        ctx.hpGfx.roundRect(px + 2, startY + 2, pipSize - 6, pipSize - 6, 1)
+          .fill({ color: 0xFFFFFF, alpha: 0.2 })
+      }
+    }
+    // "HP" label
+    // (rendered as simple rects to avoid Text overhead)
+    // Left vertical edge marker
+    ctx.hpGfx.rect(startX - 6, startY + 3, 2, pipSize - 6)
+      .fill({ color: 0xCC3030, alpha: 0.6 })
   }
 
   // Hint fadeout — track demonstrated actions, then fade to zero.
