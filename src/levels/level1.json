@@ -543,6 +543,32 @@
           60
         ]
       ]
+    },
+    {
+      "id": 57,
+      "material": "bone",
+      "vertices": [
+        [
+          420,
+          160
+        ],
+        [
+          1080,
+          160
+        ],
+        [
+          1080,
+          170
+        ],
+        [
+          420,
+          170
+        ]
+      ],
+      "kinetic": {
+        "type": "rotor",
+        "speed": 0.5
+      }
     }
   ],
   "prowlers": [
@@ -718,6 +744,363 @@
     {
       "x": 2640,
       "y": 210
+    }
+  ],
+  "pickups": [
+    {
+      "x": 200,
+      "y": 480,
+      "kind": "healthPack"
+    },
+    {
+      "x": 410,
+      "y": 330,
+      "kind": "armorShard"
+    },
+    {
+      "x": 630,
+      "y": 340,
+      "kind": "healthPack"
+    },
+    {
+      "x": 720,
+      "y": 310,
+      "kind": "armorShard"
+    },
+    {
+      "x": 900,
+      "y": 510,
+      "kind": "healthPack"
+    },
+    {
+      "x": 1000,
+      "y": 510,
+      "kind": "armorShard"
+    },
+    {
+      "x": 1100,
+      "y": 510,
+      "kind": "healthPack"
+    },
+    {
+      "x": 1200,
+      "y": 380,
+      "kind": "armorShard"
+    },
+    {
+      "x": 1320,
+      "y": 380,
+      "kind": "healthPack"
+    },
+    {
+      "x": 1500,
+      "y": 440,
+      "kind": "armorShard"
+    },
+    {
+      "x": 1700,
+      "y": 200,
+      "kind": "healthPack"
+    },
+    {
+      "x": 1750,
+      "y": 200,
+      "kind": "armorShard"
+    },
+    {
+      "x": 1850,
+      "y": 220,
+      "kind": "healthPack"
+    },
+    {
+      "x": 1930,
+      "y": 290,
+      "kind": "armorShard"
+    },
+    {
+      "x": 1950,
+      "y": 220,
+      "kind": "healthPack"
+    },
+    {
+      "x": 2100,
+      "y": 360,
+      "kind": "armorShard"
+    },
+    {
+      "x": 2200,
+      "y": 380,
+      "kind": "healthPack"
+    },
+    {
+      "x": 2370,
+      "y": 340,
+      "kind": "armorShard"
+    },
+    {
+      "x": 2490,
+      "y": 300,
+      "kind": "healthPack"
+    },
+    {
+      "x": 2530,
+      "y": 180,
+      "kind": "armorShard"
+    },
+    {
+      "x": 2610,
+      "y": 260,
+      "kind": "healthPack"
+    },
+    {
+      "x": 2700,
+      "y": 220,
+      "kind": "armorShard"
+    },
+    {
+      "x": 2750,
+      "y": 220,
+      "kind": "healthPack"
+    },
+    {
+      "x": 100,
+      "y": 480,
+      "kind": "coin"
+    },
+    {
+      "x": 130,
+      "y": 480,
+      "kind": "coin"
+    },
+    {
+      "x": 160,
+      "y": 480,
+      "kind": "coin"
+    },
+    {
+      "x": 380,
+      "y": 330,
+      "kind": "coin"
+    },
+    {
+      "x": 400,
+      "y": 325,
+      "kind": "coin"
+    },
+    {
+      "x": 420,
+      "y": 330,
+      "kind": "coin"
+    },
+    {
+      "x": 600,
+      "y": 340,
+      "kind": "coin"
+    },
+    {
+      "x": 650,
+      "y": 335,
+      "kind": "coin"
+    },
+    {
+      "x": 700,
+      "y": 310,
+      "kind": "coin"
+    },
+    {
+      "x": 730,
+      "y": 305,
+      "kind": "coin"
+    },
+    {
+      "x": 850,
+      "y": 510,
+      "kind": "coin"
+    },
+    {
+      "x": 880,
+      "y": 505,
+      "kind": "coin"
+    },
+    {
+      "x": 950,
+      "y": 510,
+      "kind": "coin"
+    },
+    {
+      "x": 1050,
+      "y": 510,
+      "kind": "coin"
+    },
+    {
+      "x": 1150,
+      "y": 380,
+      "kind": "coin"
+    },
+    {
+      "x": 1180,
+      "y": 375,
+      "kind": "coin"
+    },
+    {
+      "x": 1250,
+      "y": 380,
+      "kind": "coin"
+    },
+    {
+      "x": 1300,
+      "y": 375,
+      "kind": "coin"
+    },
+    {
+      "x": 1450,
+      "y": 440,
+      "kind": "coin"
+    },
+    {
+      "x": 1480,
+      "y": 435,
+      "kind": "coin"
+    },
+    {
+      "x": 1650,
+      "y": 200,
+      "kind": "coin"
+    },
+    {
+      "x": 1680,
+      "y": 195,
+      "kind": "coin"
+    },
+    {
+      "x": 1710,
+      "y": 200,
+      "kind": "coin"
+    },
+    {
+      "x": 1820,
+      "y": 220,
+      "kind": "coin"
+    },
+    {
+      "x": 1880,
+      "y": 220,
+      "kind": "coin"
+    },
+    {
+      "x": 1960,
+      "y": 290,
+      "kind": "coin"
+    },
+    {
+      "x": 2060,
+      "y": 360,
+      "kind": "coin"
+    },
+    {
+      "x": 2090,
+      "y": 355,
+      "kind": "coin"
+    },
+    {
+      "x": 2240,
+      "y": 380,
+      "kind": "coin"
+    },
+    {
+      "x": 2270,
+      "y": 375,
+      "kind": "coin"
+    },
+    {
+      "x": 2360,
+      "y": 340,
+      "kind": "coin"
+    },
+    {
+      "x": 2480,
+      "y": 300,
+      "kind": "coin"
+    },
+    {
+      "x": 2510,
+      "y": 180,
+      "kind": "coin"
+    },
+    {
+      "x": 2600,
+      "y": 260,
+      "kind": "coin"
+    },
+    {
+      "x": 2660,
+      "y": 220,
+      "kind": "coin"
+    },
+    {
+      "x": 2720,
+      "y": 220,
+      "kind": "coin"
+    },
+    {
+      "x": 2770,
+      "y": 220,
+      "kind": "coin"
+    },
+    {
+      "x": 683,
+      "y": 310,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 1862,
+      "y": 220,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 1655,
+      "y": 200,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 766,
+      "y": 310,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 655,
+      "y": 340,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 2502,
+      "y": 180,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 73,
+      "y": 480,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 1479,
+      "y": 440,
+      "kind": "platinumCoin"
+    },
+    {
+      "x": 2794,
+      "y": 218,
+      "kind": "crown"
+    },
+    {
+      "x": 1763,
+      "y": 198,
+      "kind": "crown"
+    },
+    {
+      "x": 1983,
+      "y": 218,
+      "kind": "crown"
     }
   ]
 }

@@ -15,6 +15,7 @@ import type { Player } from '../player/player'
 import type { Level } from '../world/level'
 import type { BulletKindName } from '../combat/bullet'
 import { takeHit } from '../player/player'
+import { emit } from '../session/eventBus'
 
 // ─── shared small helpers ────────────────────────────────────────────
 function overlapsAabb(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number): boolean {
@@ -888,8 +889,10 @@ export function checkBulletHitSpecials(
       e.lastWeapon = null
       e.lastWeaponAt = -999
       onDamage(bx, by, 1)
-      if (e.hp <= 0)
+      if (e.hp <= 0) {
         e.alive = false
+        emit('enemyKilled', { x: e.x + e.w / 2, y: e.y + e.h / 2 })
+      }
     }
     else {
       e.lastWeapon = weapon
@@ -908,8 +911,10 @@ export function checkBulletHitSpecials(
     b.hp = Math.max(0, b.hp - 1)
     b.hitFlashTimer = 0.12
     b.burstTimer = BLOOM_BURST_DURATION
-    if (b.hp <= 0)
+    if (b.hp <= 0) {
       b.alive = false
+      emit('enemyKilled', { x: b.x + b.w / 2, y: b.y + b.h / 2 })
+    }
     onDamage(bx, by, 1)
     return true
   }
@@ -925,6 +930,7 @@ export function checkBulletHitSpecials(
     if (c.hp <= 0) {
       c.alive = false
       state.darkTimer = CANDLE_DARK_TIME
+      emit('enemyKilled', { x: c.x + c.w / 2, y: c.y + c.h / 2 })
     }
     onDamage(bx, by, 1)
     return true
@@ -939,8 +945,10 @@ export function checkBulletHitSpecials(
         continue
       t.hp = Math.max(0, t.hp - 1)
       t.hitFlashTimer = 0.12
-      if (t.hp <= 0)
+      if (t.hp <= 0) {
         t.alive = false
+        emit('enemyKilled', { x: t.x + t.w / 2, y: t.y + t.h / 2 })
+      }
       onDamage(bx, by, 1)
       return true
     }

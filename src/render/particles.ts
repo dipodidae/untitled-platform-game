@@ -589,17 +589,20 @@ export function emitGlassBreak(
   emit(system, 'spark', x, y, 10, 0, -1)
 }
 
-// Pickup claim — ring of embers + sparks when the player collects an item.
+// Pickup claim — big burst of embers + sparks when the player collects an item.
 // Omnidirectional (dir zero) so it reads as a burst outward from the pickup
-// position, not a directional spray.
+// position, not a directional spray. Tint matches the pickup color.
 export function emitPickupClaim(
   system: ParticleSystem,
   x: number,
   y: number,
+  tint?: number,
 ): void {
-  emit(system, 'ember', x, y, 16, 0, -1, { speedMul: 0.9 })
-  emit(system, 'spark', x, y, 10, 0, 0)
-  emit(system, 'dust', x, y, 6, 0, -0.4, { speedMul: 0.6 })
+  const t = tint ? { tintOverride: tint } : undefined
+  emit(system, 'ember', x, y, 28, 0, -1, { speedMul: 1.2, ...t })
+  emit(system, 'spark', x, y, 18, 0, 0, { speedMul: 1.1, ...t })
+  emit(system, 'dust', x, y, 12, 0, -0.4, { speedMul: 0.7 })
+  emit(system, 'smoke', x, y, 4, 0, -0.5, { speedMul: 0.5 })
 }
 
 // ─── ambient motes ──────────────────────────────────────────────────────────

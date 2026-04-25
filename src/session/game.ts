@@ -103,7 +103,44 @@ export function createGame(app: Application): GameState {
   })
   scatterMotes(particles, level.worldWidth, level.worldHeight, 200)
   markLevelLoaded(id)
-  return { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, screenOverlay, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers, specials, classics }
+  const state: GameState = { app, level, player, camera, renderCtx, fx, broadphase, crtFilter, screenOverlay, accumulator: 0, now: 0, levelIndex: 0, prowlers, bullets, dummies, particles, pickups, damageNumbers, specials, classics }
+
+  // Enemy loot drops — 50% chance health pack, 50% chance armor shard.
+  on('enemyKilled', (e) => {
+    const kind = Math.random() < 0.5 ? 'healthPack' as const : 'armorShard' as const
+    const def = getItemDef(kind)
+    state.pickups.push({
+      x: e.x - def.w / 2,
+      y: e.y - def.h / 2,
+      w: def.w,
+      h: def.h,
+      kind,
+      alive: true,
+      bobPhase: Math.random() * Math.PI * 2,
+    })
+  })
+
+  // Pickup visual feedback — screen flash + bar glow.
+  on('pickupClaimed', (e) => {
+    const ctx = state.renderCtx
+    if (e.kind === 'health') {
+      ctx.hpGlowTimer = 0.4
+      ctx.pickupFlashTimer = 0.2
+      ctx.pickupFlashColor = 0x30FF50
+    } else if (e.kind === 'armor') {
+      ctx.armorGlowTimer = 0.4
+      ctx.pickupFlashTimer = 0.2
+      ctx.pickupFlashColor = 0x4080FF
+    } else if (e.kind === 'coin') {
+      ctx.pickupFlashTimer = 0.15
+      ctx.pickupFlashColor = 0xFFD700
+    } else {
+      ctx.pickupFlashTimer = 0.25
+      ctx.pickupFlashColor = 0xFFA030
+    }
+  })
+
+  return state
 }
 
 // Internal: rebuild the scene for the level at `index`. Shared by
@@ -215,16 +252,22 @@ function fixedUpdate(state: GameState): void {
   updateKinetics(state.level, state.player, CONFIG.FIXED_DT)
   updatePlayer(state.player, state.level, state.fx, state.broadphase, state.particles, state.now, CONFIG.FIXED_DT)
 
-  // Pickup bob + collection. Runs after player update so position is current.
-  tickPickups(state.pickups, CONFIG.FIXED_DT)
+  // Pickup bob + gravitation + collection.
+  tickPickups(state.pickups, CONFIG.FIXED_DT, state.player.x, state.player.y, state.player.w, state.player.h)
   for (const pk of state.pickups) {
     if (!pk.alive)
       continue
     if (pickupOverlapsPlayer(pk, state.player)) {
-      pk.alive = false
       const def = getItemDef(pk.kind)
-      state.player.currentWeapon = def.grantsWeapon
-      emitPickupClaim(state.particles, pk.x + pk.w / 2, pk.y + pk.h / 2)
+      pk.alive = false
+      if (def.grantsWeapon) state.player.currentWeapon = def.grantsWeapon
+      if (def.heals) state.player.hp = Math.min(state.player.maxHp, state.player.hp + def.heals)
+      if (def.grantsArmor) state.player.armor = Math.min(100, state.player.armor + def.grantsArmor)
+      if (def.grantsCoin) state.player.coins += def.grantsCoin
+      const claimKind = def.grantsCoin ? 'coin' : def.heals ? 'health' : def.grantsArmor ? 'armor' : 'weapon'
+      const tint = claimKind === 'health' ? 0x30FF50 : claimKind === 'armor' ? 0x4080FF : claimKind === 'coin' ? 0xFFD700 : 0xFFA030
+      emitPickupClaim(state.particles, pk.x + pk.w / 2, pk.y + pk.h / 2, tint)
+      emit('pickupClaimed', { x: pk.x + pk.w / 2, y: pk.y + pk.h / 2, kind: claimKind })
     }
   }
 

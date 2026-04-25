@@ -71,7 +71,7 @@ export type KineticJson = RotorJson | BreatherJson | SpringJson | LinearJson
 // String keys that levels use to refer to a pickup definition. Add the
 // literal here and the matching file name (no hyphen/case) when you add
 // a new item.
-export type ItemKind = 'bigShot'
+export type ItemKind = 'bigShot' | 'healthPack' | 'armorShard' | 'coin' | 'platinumCoin' | 'crown'
 
 // ─── level JSON ──────────────────────────────────────────────────────────
 export interface LevelJson {

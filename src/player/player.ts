@@ -75,6 +75,11 @@ export interface Player {
   // Currently equipped weapon. Set to 'slug' on spawn/respawn; overwritten
   // when the player collects a weapon pickup.
   currentWeapon: BulletKindName
+
+  // Armor — shadow HP that absorbs damage before real HP. 100 max.
+  armor: number
+  // Coins collected — persistent across respawns.
+  coins: number
 }
 
 export function createPlayer(level: Level): Player {
@@ -111,6 +116,8 @@ export function createPlayer(level: Level): Player {
     djGlowTimer: 0,
     djFiredThisTick: false,
     currentWeapon: 'slug',
+    armor: 0,
+    coins: 0,
   }
 }
 
@@ -289,7 +296,14 @@ export function takeHit(
 ): void {
   if (!p.alive || p.hazardIframe > 0)
     return
-  p.hp = Math.max(0, p.hp - damage)
+  // Armor absorbs damage first (shadow HP).
+  let remaining = damage
+  if (p.armor > 0) {
+    const absorbed = Math.min(p.armor, remaining)
+    p.armor -= absorbed
+    remaining -= absorbed
+  }
+  p.hp = Math.max(0, p.hp - remaining)
   p.hazardIframe = CONFIG.HAZARD_IFRAMES
 
   // Damage-number popup + hit-feedback hook for vignette / shake.
@@ -349,6 +363,7 @@ export function respawn(p: Player, level: Level): void {
   p.djGlowTimer = 0
   p.djFiredThisTick = false
   p.currentWeapon = 'slug'
+  p.armor = 0
   resetInstability(p.instability)
   resetLevel(level)
 }

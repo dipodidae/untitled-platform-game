@@ -18,7 +18,7 @@ import { hushIsSilencingPlayer } from '../enemies/specials'
 import { shootingDisabled } from '../enemies/classics'
 import { drawSpecials } from './specialsRenderer'
 import { drawClassics } from './classicsRenderer'
-import { Container, Graphics, Text, Texture, TilingSprite } from 'pixi.js'
+import { Container, Graphics, Sprite, Text, Texture, TilingSprite } from 'pixi.js'
 import { predictBulletImpact } from '../combat/bullet'
 import { CONFIG } from '../config'
 import { flashAlpha } from './fx'
@@ -32,6 +32,7 @@ import { createEnemySpritePool, positionEnemySprite, hideExcessSprites } from '.
 import { createSpineboyBridge, resetSpineboyBridge, triggerShootOverlay, updateSpineboyVisual } from './spineboy'
 import { createWindState, drawWind, tickWind } from './wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './world'
+import { getItemTexture } from './itemAssets'
 import { computeRuptureShape } from '../combat/rupture'
 import { getItemDef } from '../items'
 
@@ -61,6 +62,8 @@ export interface RenderContext {
   readonly deathPlaneGfx: Graphics
   readonly bulletGfx: Graphics
   readonly pickupGfx: Graphics
+  readonly pickupSprites: Sprite[]
+  readonly pickupSpriteContainer: Container
   readonly crosshairGfx: Graphics
   readonly dummyGfx: Graphics
   readonly dummySpritePool: EnemySpritePool
@@ -76,6 +79,7 @@ export interface RenderContext {
   readonly meterBg: Graphics
   readonly meterFg: Graphics
   readonly hpGfx: Graphics
+  readonly coinText: Text
   readonly hint: Text
   readonly containHint: Text
   worldCacheKey: number
@@ -95,6 +99,11 @@ export interface RenderContext {
   lastInstability: number
   meterShakeTimer: number
   meterFlashTimer: number
+  // Pickup glow timers — driven by pickupClaimed events.
+  hpGlowTimer: number
+  armorGlowTimer: number
+  pickupFlashTimer: number
+  pickupFlashColor: number
 }
 
 export function buildScene(app: Application, level: Level, particles: ParticleSystem): RenderContext {
@@ -154,6 +163,8 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   // but below the player character so they don't overlap the sprite.
   const pickupGfx = new Graphics()
   worldContainer.addChild(pickupGfx)
+  const pickupSpriteContainer = new Container()
+  worldContainer.addChild(pickupSpriteContainer)
 
   // Crosshair + predicted-trajectory dots. Drawn on top of terrain so aim is
   // always readable, but below the player.
@@ -238,6 +249,20 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   const hpGfx = new Graphics()
   uiContainer.addChild(hpGfx)
 
+  const coinText = new Text({
+    text: '0',
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 11,
+      fill: 0xFFD700,
+      stroke: { color: 0x000000, width: 2 },
+    },
+  })
+  coinText.anchor.set(1, 0)
+  coinText.x = CONFIG.LOGICAL_WIDTH - 12
+  coinText.y = 34
+  uiContainer.addChild(coinText)
+
   const flashGfx = new Graphics()
   uiContainer.addChild(flashGfx)
 
@@ -278,6 +303,8 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     deathPlaneGfx,
     bulletGfx,
     pickupGfx,
+    pickupSprites: [] as Sprite[],
+    pickupSpriteContainer,
     crosshairGfx,
     dummyGfx,
     dummySpritePool,
@@ -293,6 +320,7 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     meterBg,
     meterFg,
     hpGfx,
+    coinText,
     hint,
     containHint,
     worldCacheKey: hashColliders(level),
@@ -305,6 +333,10 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     lastInstability: 0,
     meterShakeTimer: 0,
     meterFlashTimer: 0,
+    hpGlowTimer: 0,
+    armorGlowTimer: 0,
+    pickupFlashTimer: 0,
+    pickupFlashColor: 0,
   }
 }
 
@@ -650,10 +682,9 @@ export function render(
   }
 
   // ─── pickups ────────────────────────────────────────────
-  // Simple pixel-rendered collectibles: glowing halo + solid body + accent.
-  // Bob vertically on their sinusoidal phase so they read as interactive
-  // without a sprite asset.
+  // Sprite-rendered collectibles with glow halo overlay.
   ctx.pickupGfx.clear()
+  let pickupIdx = 0
   if (pickups) {
     for (const pk of pickups) {
       if (!pk.alive)
@@ -661,14 +692,66 @@ export function render(
       const def = getItemDef(pk.kind)
       const cx = pk.x + pk.w / 2
       const cy = pk.y + pk.h / 2 + Math.sin(pk.bobPhase) * 2
-      const r = pk.w / 2 - 2
-      // Glow halo — translucent, larger than body.
-      ctx.pickupGfx.circle(cx, cy, pk.w / 2).fill({ color: def.glowColor, alpha: 0.35 })
-      // Body — solid fill.
-      ctx.pickupGfx.circle(cx, cy, r).fill({ color: def.bodyColor })
-      // Accent — small inner circle in accent color.
-      ctx.pickupGfx.circle(cx, cy, Math.max(1, r * 0.4)).fill({ color: def.accentColor })
+
+      // Pulsing glow halo — breathes in and out.
+      const pulse = 0.25 + Math.sin(pk.bobPhase * 1.5) * 0.1
+      const glowR = pk.w / 2 + 3 + Math.sin(pk.bobPhase * 1.2) * 1.5
+      ctx.pickupGfx.circle(cx, cy, glowR).fill({ color: def.glowColor, alpha: pulse })
+
+      // Sparkle ring — 4 small dots orbiting the pickup at different phases.
+      for (let si = 0; si < 4; si++) {
+        const angle = pk.bobPhase * 1.8 + si * Math.PI / 2
+        const sparkR = pk.w / 2 + 2 + Math.sin(pk.bobPhase * 2.5 + si * 1.7) * 3
+        const sx = cx + Math.cos(angle) * sparkR
+        const sy = cy + Math.sin(angle) * sparkR
+        const sparkAlpha = 0.4 + Math.sin(pk.bobPhase * 3 + si * 2.1) * 0.4
+        ctx.pickupGfx.circle(sx, sy, 0.8).fill({ color: 0xFFFFFF, alpha: sparkAlpha })
+      }
+      // Twinkle star — single bright point that flickers above the pickup.
+      const twinkleAlpha = Math.max(0, Math.sin(pk.bobPhase * 4.5))
+      if (twinkleAlpha > 0.1) {
+        const tx = cx + Math.sin(pk.bobPhase * 0.7) * 2
+        const ty = cy - pk.h / 2 - 4
+        const tr = 0.6 + twinkleAlpha * 0.8
+        ctx.pickupGfx.circle(tx, ty, tr).fill({ color: 0xFFFFFF, alpha: twinkleAlpha * 0.9 })
+        // Cross flare
+        ctx.pickupGfx.moveTo(tx - tr * 2, ty).lineTo(tx + tr * 2, ty)
+          .stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
+        ctx.pickupGfx.moveTo(tx, ty - tr * 2).lineTo(tx, ty + tr * 2)
+          .stroke({ width: 0.5, color: def.glowColor, alpha: twinkleAlpha * 0.6 })
+      }
+
+      // Sprite body.
+      const tex = getItemTexture(pk.kind)
+      if (tex !== Texture.EMPTY) {
+        // Ensure we have enough sprites in the pool.
+        while (ctx.pickupSprites.length <= pickupIdx) {
+          const s = new Sprite({ texture: Texture.EMPTY })
+          s.anchor.set(0.5)
+          ctx.pickupSpriteContainer.addChild(s)
+          ctx.pickupSprites.push(s)
+        }
+        const s = ctx.pickupSprites[pickupIdx]!
+        s.texture = tex
+        s.visible = true
+        s.x = cx
+        s.y = cy
+        // Scale 128px texture to ~2.5× the pickup AABB for good readability.
+        const scale = (pk.w / tex.width) * 2.5
+        s.scale.set(scale)
+        s.alpha = 1
+        pickupIdx++
+      } else {
+        // Fallback: procedural circles.
+        const r = pk.w / 2 - 2
+        ctx.pickupGfx.circle(cx, cy, r).fill({ color: def.bodyColor })
+        ctx.pickupGfx.circle(cx, cy, Math.max(1, r * 0.4)).fill({ color: def.accentColor })
+      }
     }
+  }
+  // Hide excess sprites.
+  for (let i = pickupIdx; i < ctx.pickupSprites.length; i++) {
+    ctx.pickupSprites[i]!.visible = false
   }
 
   // ─── crosshair + trajectory preview ─────────────────────
@@ -759,6 +842,11 @@ export function render(
   }
 
   // ─── HP display (top-right, fat pips) ─────────────────
+  // Decay glow timers.
+  if (ctx.hpGlowTimer > 0) ctx.hpGlowTimer = Math.max(0, ctx.hpGlowTimer - dt)
+  if (ctx.armorGlowTimer > 0) ctx.armorGlowTimer = Math.max(0, ctx.armorGlowTimer - dt)
+  if (ctx.pickupFlashTimer > 0) ctx.pickupFlashTimer = Math.max(0, ctx.pickupFlashTimer - dt)
+
   ctx.hpGfx.clear()
   {
     const pipSize = 14
@@ -785,11 +873,49 @@ export function render(
           .fill({ color: 0xFFFFFF, alpha: 0.2 })
       }
     }
-    // "HP" label
-    // (rendered as simple rects to avoid Text overhead)
-    // Left vertical edge marker
-    ctx.hpGfx.rect(startX - 6, startY + 3, 2, pipSize - 6)
-      .fill({ color: 0xCC3030, alpha: 0.6 })
+    // HP glow — green pulse when health pickup is claimed.
+    if (ctx.hpGlowTimer > 0) {
+      const ga = ctx.hpGlowTimer / 0.4
+      ctx.hpGfx.roundRect(startX - 3, startY - 3, totalW + 6, pipSize + 6, 5)
+        .fill({ color: 0x30FF50, alpha: ga * 0.25 })
+    }
+
+    // ─── Armor bar (below HP pips) ─────────────────────────
+    const barY = startY + pipSize + 4
+    const barH = 6
+    const barW = totalW
+    // Chassis
+    ctx.hpGfx.roundRect(startX, barY, barW, barH, 2)
+      .fill({ color: 0x1A1A20, alpha: 0.7 })
+      .stroke({ width: 1, color: 0x404050, alpha: 0.4 })
+    // Fill
+    if (player.armor > 0) {
+      const armorRatio = player.armor / 100
+      const fillW = Math.max(2, barW * armorRatio)
+      ctx.hpGfx.roundRect(startX + 1, barY + 1, fillW - 2, barH - 2, 1)
+        .fill({ color: 0x3070DD })
+      // Bright edge highlight
+      ctx.hpGfx.roundRect(startX + 1, barY + 1, fillW - 2, 2, 1)
+        .fill({ color: 0x60A0FF, alpha: 0.4 })
+    }
+    // Armor glow — blue pulse when armor shard is claimed.
+    if (ctx.armorGlowTimer > 0) {
+      const ga = ctx.armorGlowTimer / 0.4
+      ctx.hpGfx.roundRect(startX - 3, barY - 3, barW + 6, barH + 6, 4)
+        .fill({ color: 0x4080FF, alpha: ga * 0.3 })
+    }
+
+    // ─── Coin counter ────────────────────────────────────────
+    const coinY = barY + barH + 3
+    // Small coin icon (circle).
+    ctx.hpGfx.circle(startX + totalW - 16, coinY + 5, 4)
+      .fill({ color: 0xFFD700 })
+      .stroke({ width: 0.5, color: 0xB8860B, alpha: 0.8 })
+    ctx.hpGfx.circle(startX + totalW - 16, coinY + 5, 1.5)
+      .fill({ color: 0xFFF2A0, alpha: 0.6 })
+    ctx.coinText.text = `${player.coins}`
+    ctx.coinText.x = startX + totalW - 22
+    ctx.coinText.y = coinY
   }
 
   // Hint fadeout — track demonstrated actions, then fade to zero.
@@ -823,6 +949,12 @@ export function render(
   if (fa > 0) {
     ctx.flashGfx.rect(0, 0, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
       .fill({ color: PALETTE.auraWarm, alpha: fa * CONFIG.FRACTURE_FLASH_MAX_ALPHA })
+  }
+  // Pickup claim flash — brief tinted screen wash (green/blue/orange).
+  if (ctx.pickupFlashTimer > 0) {
+    const pfa = ctx.pickupFlashTimer / 0.2
+    ctx.flashGfx.rect(0, 0, CONFIG.LOGICAL_WIDTH, CONFIG.LOGICAL_HEIGHT)
+      .fill({ color: ctx.pickupFlashColor, alpha: pfa * 0.08 })
   }
 
   // Dread overlay removed — CRT shader handles dread pulse via uDread uniform.

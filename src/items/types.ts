@@ -15,7 +15,13 @@ export interface ItemDef {
   readonly w: number
   readonly h: number
   // Weapon to equip when picked up. Matches a key in bullet.BULLET_KINDS.
-  readonly grantsWeapon: BulletKindName
+  readonly grantsWeapon?: BulletKindName
+  // Health restored on pickup.
+  readonly heals?: number
+  // Armor points added on pickup (shadow HP, 100 max).
+  readonly grantsArmor?: number
+  // Coin value added on pickup.
+  readonly grantsCoin?: number
   // Visual — simple pixel-rendered pickup so it reads without assets.
   readonly bodyColor: number
   readonly accentColor: number

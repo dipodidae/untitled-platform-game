@@ -3,6 +3,8 @@
 // the hit-flash timer. Intended for testing weapon feel + impact effects in
 // isolation from prowler AI.
 
+import { emit } from '../session/eventBus'
+
 export interface Dummy {
   x: number
   y: number
@@ -60,6 +62,7 @@ export function damageDummy(d: Dummy, dmg: number): void {
   if (d.hp <= 0) {
     d.hp = 0
     d.alive = false
+    emit('enemyKilled', { x: d.x + d.w / 2, y: d.y + d.h / 2 })
   }
 }
 

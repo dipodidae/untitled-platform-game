@@ -23,6 +23,7 @@ import type { Player } from '../player/player'
 import type { Level } from '../world/level'
 import type { BulletKindName } from '../combat/bullet'
 import { takeHit, respawn } from '../player/player'
+import { emit } from '../session/eventBus'
 
 // ─── shared helpers ──────────────────────────────────────────────────
 function overlapsAabb(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number): boolean {
@@ -809,7 +810,7 @@ export function checkBulletHitClassics(
     }
     b.hp = Math.max(0, b.hp - 1)
     b.hitFlashTimer = 0.12
-    if (b.hp <= 0) b.alive = false
+    if (b.hp <= 0) { b.alive = false; emit('enemyKilled', { x: b.x + b.w / 2, y: b.y + b.h / 2 }) }
     onDamage(bx, by, 1)
     return true
   }
@@ -826,7 +827,7 @@ export function checkBulletHitClassics(
     }
     b.hp = Math.max(0, b.hp - 1)
     b.hitFlashTimer = 0.12
-    if (b.hp <= 0) b.alive = false
+    if (b.hp <= 0) { b.alive = false; emit('enemyKilled', { x: b.x + b.w / 2, y: b.y + b.h / 2 }) }
     onDamage(bx, by, 1)
     return true
   }
@@ -846,7 +847,7 @@ export function checkBulletHitClassics(
     }
     k.hp = Math.max(0, k.hp - 1)
     k.hitFlashTimer = 0.12
-    if (k.hp <= 0) k.alive = false
+    if (k.hp <= 0) { k.alive = false; emit('enemyKilled', { x: k.x + k.w / 2, y: k.y + k.h / 2 }) }
     onDamage(bx, by, 1)
     return true
   }
@@ -864,7 +865,7 @@ export function checkBulletHitClassics(
     }
     m.hp = Math.max(0, m.hp - 1)
     m.hitFlashTimer = 0.12
-    if (m.hp <= 0) m.alive = false
+    if (m.hp <= 0) { m.alive = false; emit('enemyKilled', { x: m.x + m.w / 2, y: m.y + m.h / 2 }) }
     onDamage(bx, by, 1)
     return true
   }
@@ -879,6 +880,7 @@ export function checkBulletHitClassics(
     d.alive = false
     d.reviveTimer = 4.0
     d.hitFlashTimer = 0.12
+    emit('enemyKilled', { x: d.x + d.w / 2, y: d.y + d.h / 2 })
     onDamage(bx, by, 1)
     return true
   }
@@ -894,6 +896,7 @@ export function checkBulletHitClassics(
     if (m.hp <= 0) {
       m.alive = false
       m.respawnTimer = 5.0
+      emit('enemyKilled', { x: m.x + m.w / 2, y: m.y + m.h / 2 })
     }
     onDamage(bx, by, 1)
     return true
@@ -910,6 +913,7 @@ export function checkBulletHitClassics(
     if (s.hp <= 0) {
       s.alive = false
       s.respawnTimer = 8.0
+      emit('enemyKilled', { x: s.x + s.w / 2, y: s.y + s.h / 2 })
     }
     onDamage(bx, by, 1)
     return true
@@ -931,7 +935,7 @@ export function checkBulletHitClassics(
         continue
       t.hp = Math.max(0, t.hp - 1)
       t.hitFlashTimer = 0.12
-      if (t.hp <= 0) t.alive = false
+      if (t.hp <= 0) { t.alive = false; emit('enemyKilled', { x: t.x + t.w / 2, y: t.y + t.h / 2 }) }
       onDamage(bx, by, 1)
       return true
     }
