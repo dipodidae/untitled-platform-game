@@ -39,7 +39,7 @@ import TopBar from './components/TopBar.vue'
 
 .editor-grid {
   display: grid;
-  grid-template-columns: 18rem 1fr 20rem;
+  grid-template-columns: 38rem 1fr 40rem;
   grid-template-rows: 38px 1fr 28px;
   height: 100%;
 }
