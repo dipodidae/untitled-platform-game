@@ -33,11 +33,11 @@ export interface Palette {
 }
 
 export const PALETTE: Palette = {
-  skyTop: 0x080E1E,
-  skyBottom: 0x1A2840,
+  skyTop: 0x2A3868,
+  skyBottom: 0x3A5080,
   vignette: 0x000000,
-  parallaxFar: 0x0F1828,
-  parallaxNear: 0x1E2838,
+  parallaxFar: 0x243858,
+  parallaxNear: 0x344868,
   windMote: 0x506888,
   player: 0xE0D8C8,
   playerEdge: 0xFFFFFF,

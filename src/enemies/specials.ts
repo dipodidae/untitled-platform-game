@@ -33,7 +33,7 @@ function circleHitsAabb(cx: number, cy: number, r: number, x: number, y: number,
 // Records the last ~3 s of player position; at the end of that window the
 // Mirror walks where the player walked. Overlap = contact damage.
 const MIRROR_BUFFER_LEN = 180 // 3 s at 60 Hz
-const MIRROR_W = 12
+const MIRROR_W = 14
 const MIRROR_H = 14
 const MIRROR_HP = 4
 const MIRROR_DAMAGE = 1
@@ -56,6 +56,7 @@ export interface Mirror {
   bufFilled: boolean
   // Set true while the mirror is actively mirroring (player in leash).
   active: boolean
+  facing: 1 | -1
 }
 
 export function createMirror(x: number, y: number): Mirror {
@@ -74,6 +75,7 @@ export function createMirror(x: number, y: number): Mirror {
     bufWrite: 0,
     bufFilled: false,
     active: false,
+    facing: -1,
   }
 }
 
@@ -115,6 +117,7 @@ function updateMirror(m: Mirror, player: Player, level: Level, dt: number, speed
     const step = Math.min(dist, maxStep)
     m.x += (dx2 / dist) * step
     m.y += (dy2 / dist) * step
+    if (Math.abs(dx2) > 0.5) m.facing = dx2 > 0 ? 1 : -1
   }
 
   // Contact — damages player.
@@ -195,8 +198,8 @@ export function hushIsSilencingPlayer(state: SpecialsState, player: Player): boo
 // Slow walker that cannot hurt you. Killing it plunges the room into
 // darkness for a few seconds — while dark, Mirrors chase 1.5× faster and
 // PendulumKnights swing on a shorter windup.
-const CANDLE_W = 10
-const CANDLE_H = 14
+const CANDLE_W = 12
+const CANDLE_H = 12
 const CANDLE_HP = 1
 const CANDLE_SPEED = 22
 const CANDLE_DARK_TIME = 6
@@ -253,8 +256,8 @@ function updateCandlewick(c: Candlewick, dt: number): void {
 // Stationary. Periodic wide arc sweep. During the active window every
 // point within SWEEP_RANGE horizontally and VERTICAL_REACH vertically of
 // the knight kills — *except* the small safe radius hugging his body.
-const KNIGHT_W = 18
-const KNIGHT_H = 28
+const KNIGHT_W = 24
+const KNIGHT_H = 24
 const KNIGHT_HP = 999 // effectively invulnerable via normal hits
 const KNIGHT_CYCLE = 5.0 // seconds between swings
 const KNIGHT_WINDUP = 1.2 // telegraph duration
@@ -334,8 +337,8 @@ function updatePendulumKnight(k: PendulumKnight, player: Player, level: Level, d
 // Stationary fungal mass. Takes damage, bursts a damaging spore ring on
 // each hit. While alive, slowly regenerates nearby live enemies (dummies
 // + other specials) — ignoring it lets the room heal back.
-const BLOOM_W = 22
-const BLOOM_H = 18
+const BLOOM_W = 20
+const BLOOM_H = 20
 const BLOOM_HP = 6
 const BLOOM_SPORE_RADIUS = 46
 const BLOOM_SPORE_DAMAGE = 2
@@ -415,8 +418,8 @@ function regenInRange(state: SpecialsState, cx: number, cy: number, dt: number, 
 // Immune by default. Taking damage requires landing the same weapon kind
 // twice in a row within ECHO_MEMORY_WINDOW seconds. After taking damage
 // the memory clears, so the next hit again needs to be paired.
-const ECHO_W = 14
-const ECHO_H = 18
+const ECHO_W = 16
+const ECHO_H = 16
 const ECHO_HP = 3
 const ECHO_MEMORY_WINDOW = 2.5
 
@@ -569,8 +572,8 @@ function updateHuskCrows(crows: HuskCrow[], player: Player, level: Level, dt: nu
 // Robed walker. Harmless; takes damage readily. In this project there's
 // no runtime map to erase, so it's a spatial/theme element — a walker the
 // player can ignore, chase, or kill.
-const CART_W = 12
-const CART_H = 20
+const CART_W = 16
+const CART_H = 16
 const CART_HP = 3
 const CART_SPEED = 14
 
@@ -626,8 +629,8 @@ function updateCartographer(c: Cartographer, dt: number): void {
 // Looks like a spawnPoint zone. Overlap kills the player. Visual tell:
 // its flame pulses on an irregular beat and its color runs cold-red
 // instead of the friendly checkpoint warm.
-const MIMIC_W = 20
-const MIMIC_H = 24
+const MIMIC_W = 22
+const MIMIC_H = 22
 const MIMIC_HP = 2
 const MIMIC_DAMAGE = 3
 
@@ -676,8 +679,8 @@ function updateMimicShrine(m: MimicShrine, player: Player, level: Level, dt: num
 // (from either side), a configured set of colliders toggle `alive` —
 // platforms appear/disappear. Cumulative: cross twice and you're back
 // where you started.
-const PILGRIM_W = 12
-const PILGRIM_H = 22
+const PILGRIM_W = 18
+const PILGRIM_H = 18
 const PILGRIM_HP = 4
 const PILGRIM_SPEED = 18
 

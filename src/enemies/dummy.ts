@@ -16,8 +16,8 @@ export interface Dummy {
 }
 
 export const DUMMY_CONFIG = {
-  w: 16,
-  h: 32,
+  w: 24,
+  h: 24,
   maxHp: 5,
   hitFlashSec: 0.12,
 } as const

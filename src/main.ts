@@ -3,6 +3,7 @@ import { Application } from 'pixi.js'
 import { CONFIG } from './config'
 import { initInput } from './input/input'
 import { PALETTE } from './render/palette'
+import { loadEnemyAssets } from './render/enemyAssets'
 import { loadSpineboyAssets } from './render/spineboy'
 import { on } from './session/eventBus'
 import { advanceLevel, createGame, reloadLevel, startLoop } from './session/game'
@@ -44,9 +45,9 @@ async function main(): Promise<void> {
 
   const loader = showLoadingScreen(mountEl)
 
-  // Block game boot on Spineboy asset load — no chance of first-frame visual
-  // pop because the skeleton wasn't ready.
-  await loadSpineboyAssets()
+  // Block game boot on asset loads — no chance of first-frame visual
+  // pop because sprites/skeleton weren't ready.
+  await Promise.all([loadSpineboyAssets(), loadEnemyAssets()])
 
   const app = new Application()
   await app.init({

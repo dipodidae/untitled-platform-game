@@ -115,7 +115,7 @@ export interface MedusaHead {
 
 export function createMedusaHead(x: number, y: number): MedusaHead {
   return {
-    x, y, w: 12, h: 10,
+    x, y, w: 12, h: 12,
     hp: 2, maxHp: 2, alive: true, hitFlashTimer: 0,
     spawnX: x, spawnY: y,
     phase: Math.random() * Math.PI * 2, facing: -1,
@@ -166,7 +166,7 @@ export interface BuzzyBeetle {
 
 export function createBuzzyBeetle(x: number, y: number): BuzzyBeetle {
   return {
-    x, y, w: 16, h: 12,
+    x, y, w: 14, h: 14,
     hp: 1, maxHp: 1, alive: true, hitFlashTimer: 0,
     spawnX: x, facing: -1, patrolHalfWidth: 48,
     immuneWeapon: 'slug',
@@ -205,7 +205,7 @@ export interface Boo {
 
 export function createBoo(x: number, y: number): Boo {
   return {
-    x, y, w: 14, h: 14,
+    x, y, w: 16, h: 16,
     hp: 2, maxHp: 2, alive: true, hitFlashTimer: 0,
     facing: -1, hiding: false,
   }
@@ -254,7 +254,7 @@ export interface Wallmaster {
 
 export function createWallmaster(x: number, y: number): Wallmaster {
   return {
-    x, y, w: 16, h: 14,
+    x, y, w: 16, h: 16,
     hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
     ceilingY: y,
     mode: 'idle', retractTimer: 0,
@@ -306,14 +306,15 @@ export interface Stalker {
   hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
   spawnX: number, spawnY: number
   respawnTimer: number
+  facing: 1 | -1
 }
 
 export function createStalker(x: number, y: number): Stalker {
   return {
-    x, y, w: 18, h: 22,
-    hp: 8, maxHp: 8, alive: true, hitFlashTimer: 0,
+    x, y, w: 20, h: 20,
+    hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
     spawnX: x, spawnY: y,
-    respawnTimer: 0,
+    respawnTimer: 0, facing: -1,
   }
 }
 
@@ -337,6 +338,7 @@ function updateStalker(s: Stalker, player: Player, level: Level, dt: number): vo
   const dx = (player.x + player.w / 2) - (s.x + s.w / 2)
   const dy = (player.y + player.h / 2) - (s.y + s.h / 2)
   const d = Math.hypot(dx, dy)
+  if (Math.abs(dx) > 0.5) s.facing = dx > 0 ? 1 : -1
   const speed = 42
   if (d > 1) {
     s.x += (dx / d) * speed * dt
@@ -355,13 +357,14 @@ export interface EggplantWizard {
   x: number, y: number, w: number, h: number
   hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
   fireTimer: number
+  facing: 1 | -1
 }
 
 export function createWizard(x: number, y: number): EggplantWizard {
   return {
-    x, y, w: 14, h: 22,
+    x, y, w: 20, h: 20,
     hp: 3, maxHp: 3, alive: true, hitFlashTimer: 0,
-    fireTimer: 2.0,
+    fireTimer: 2.0, facing: -1,
   }
 }
 
@@ -370,6 +373,11 @@ function updateWizard(w: EggplantWizard, state: ClassicsState, player: Player, d
     return
   if (w.hitFlashTimer > 0)
     w.hitFlashTimer = Math.max(0, w.hitFlashTimer - dt)
+  if (player.alive) {
+    const wcx = w.x + w.w / 2
+    const pcx = player.x + player.w / 2
+    w.facing = pcx > wcx ? 1 : -1
+  }
   w.fireTimer -= dt
   if (w.fireTimer <= 0 && player.alive) {
     w.fireTimer = 3.2
@@ -393,14 +401,16 @@ export interface Garpede {
   x0: number, x1: number, baseY: number
   phase: 'idle' | 'run'
   timer: number, period: number, runSpeed: number
+  facing: 1 | -1
 }
 
 export function createGarpede(x0: number, y: number, x1: number, period: number): Garpede {
   return {
-    x: x0, y, w: 24, h: 18,
+    x: x0, y, w: 20, h: 20,
     alive: true, hitFlashTimer: 0, hp: 0, maxHp: 0,
     x0, x1, baseY: y,
     phase: 'idle', timer: period * 0.5, period, runSpeed: 320,
+    facing: 1,
   }
 }
 
@@ -437,7 +447,7 @@ export interface IronKnuckle {
 
 export function createIronKnuckle(x: number, y: number, facing: 1 | -1 = 1): IronKnuckle {
   return {
-    x, y, w: 18, h: 26,
+    x, y, w: 22, h: 22,
     hp: 5, maxHp: 5, alive: true, hitFlashTimer: 0,
     facing, blockFlashTimer: 0,
   }
@@ -467,7 +477,7 @@ export interface Cagney {
 
 export function createCagney(x: number, y: number): Cagney {
   return {
-    x, y, w: 30, h: 40,
+    x, y, w: 34, h: 34,
     hp: 12, maxHp: 12, alive: true, hitFlashTimer: 0,
     fireTimer: 1.5,
   }
@@ -529,7 +539,7 @@ export interface DryBones {
 
 export function createDryBones(x: number, y: number): DryBones {
   return {
-    x, y, w: 14, h: 18,
+    x, y, w: 16, h: 16,
     hp: 1, maxHp: 1, alive: true, hitFlashTimer: 0,
     spawnX: x, facing: -1, patrolHalfWidth: 60,
     reviveTimer: 0,
@@ -569,13 +579,14 @@ export interface Plantera {
   hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
   leash: number, fireTimer: number
   enraged: boolean
+  facing: 1 | -1
 }
 
 export function createPlantera(x: number, y: number): Plantera {
   return {
     x, y, w: 28, h: 28,
     hp: 10, maxHp: 10, alive: true, hitFlashTimer: 0,
-    leash: 220, fireTimer: 1.0, enraged: false,
+    leash: 220, fireTimer: 1.0, enraged: false, facing: -1,
   }
 }
 
@@ -589,6 +600,7 @@ function updatePlantera(p: Plantera, state: ClassicsState, player: Player, dt: n
   const dx = (player.x + player.w / 2) - cx
   const dy = (player.y + player.h / 2) - cy
   const dist = Math.hypot(dx, dy)
+  if (player.alive && Math.abs(dx) > 0.5) p.facing = dx > 0 ? 1 : -1
   p.enraged = dist > p.leash && player.alive
   if (!p.enraged)
     return
@@ -613,7 +625,7 @@ export interface HammerBro {
 
 export function createHammerBro(x: number, y: number, period = 1.6): HammerBro {
   return {
-    x, y, w: 16, h: 22,
+    x, y, w: 18, h: 18,
     hp: 4, maxHp: 4, alive: true, hitFlashTimer: 0,
     throwTimer: period * Math.random(), period,
     facing: -1,
@@ -644,13 +656,14 @@ export interface MantisLord {
   x: number, y: number, w: number, h: number
   hp: number, maxHp: number, alive: boolean, hitFlashTimer: number
   phase: number
+  facing: 1 | -1
 }
 
 export function createMantisLord(x: number, y: number): MantisLord {
   return {
-    x, y, w: 22, h: 30,
+    x, y, w: 26, h: 26,
     hp: 14, maxHp: 14, alive: true, hitFlashTimer: 0,
-    phase: 0,
+    phase: 0, facing: -1,
   }
 }
 
@@ -664,6 +677,10 @@ function updateMantisLord(m: MantisLord, player: Player, level: Level, dt: numbe
     return
   if (m.hitFlashTimer > 0)
     m.hitFlashTimer = Math.max(0, m.hitFlashTimer - dt)
+  if (player.alive) {
+    const mcx = m.x + m.w / 2
+    m.facing = (player.x + player.w / 2) > mcx ? 1 : -1
+  }
   m.phase += dt
   if (m.phase >= MANTIS_CYCLE)
     m.phase = 0

@@ -26,7 +26,9 @@ import { PALETTE } from './palette'
 import { createParallax, updateParallax } from './parallax'
 import { drawPlayerGhost, resetPlayerRenderer } from './playerRenderer'
 import { drawSky, drawVignette } from './post'
-import { drawProwler } from './prowlerRenderer'
+import { drawProwlers } from './prowlerRenderer'
+import type { EnemySpritePool } from './enemySpritePool'
+import { createEnemySpritePool, positionEnemySprite, hideExcessSprites } from './enemySpritePool'
 import { createSpineboyBridge, resetSpineboyBridge, triggerShootOverlay, updateSpineboyVisual } from './spineboy'
 import { createWindState, drawWind, tickWind } from './wind'
 import { drawColliders, hashColliders, setWorldInstability, shouldDrawDoubleExposure } from './world'
@@ -61,9 +63,13 @@ export interface RenderContext {
   readonly pickupGfx: Graphics
   readonly crosshairGfx: Graphics
   readonly dummyGfx: Graphics
+  readonly dummySpritePool: EnemySpritePool
   readonly specialsGfx: Graphics
+  readonly specialsSpritePool: EnemySpritePool
   readonly classicsGfx: Graphics
-  readonly prowlerGfxList: Graphics[]
+  readonly classicsSpritePool: EnemySpritePool
+  readonly prowlerGfx: Graphics
+  readonly prowlerSpritePool: EnemySpritePool
   readonly flashGfx: Graphics
   readonly dreadGfx: Graphics
   readonly vignetteGfx: Graphics
@@ -153,25 +159,29 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
   const crosshairGfx = new Graphics()
   worldContainer.addChild(crosshairGfx)
 
-  // AI-less dummy enemies — simple squares + HP pips + hit flash.
+  // AI-less dummy enemies — sprite pool + Graphics overlay for HP pips.
+  const dummySpritePool = createEnemySpritePool()
+  worldContainer.addChild(dummySpritePool.container)
   const dummyGfx = new Graphics()
   worldContainer.addChild(dummyGfx)
 
-  // Specials — all 10 special-enemy kinds share one Graphics layer.
+  // Specials — sprite pool for bodies + Graphics for overlays.
+  const specialsSpritePool = createEnemySpritePool()
+  worldContainer.addChild(specialsSpritePool.container)
   const specialsGfx = new Graphics()
   worldContainer.addChild(specialsGfx)
 
-  // Classics — 13 classic-inspired kinds + shared projectile pool.
+  // Classics — sprite pool for bodies + Graphics for overlays.
+  const classicsSpritePool = createEnemySpritePool()
+  worldContainer.addChild(classicsSpritePool.container)
   const classicsGfx = new Graphics()
   worldContainer.addChild(classicsGfx)
 
-  // Prowler graphics — one Graphics per prowler spawn in the level.
-  const prowlerGfxList: Graphics[] = []
-  for (const _s of level.prowlerSpawns) {
-    const g = new Graphics()
-    worldContainer.addChild(g)
-    prowlerGfxList.push(g)
-  }
+  // Prowler — sprite pool for bodies + Graphics for overlays.
+  const prowlerSpritePool = createEnemySpritePool()
+  worldContainer.addChild(prowlerSpritePool.container)
+  const prowlerGfx = new Graphics()
+  worldContainer.addChild(prowlerGfx)
 
   const previewGfx = new Graphics()
   worldContainer.addChild(previewGfx)
@@ -266,9 +276,13 @@ export function buildScene(app: Application, level: Level, particles: ParticleSy
     pickupGfx,
     crosshairGfx,
     dummyGfx,
+    dummySpritePool,
     specialsGfx,
+    specialsSpritePool,
     classicsGfx,
-    prowlerGfxList,
+    classicsSpritePool,
+    prowlerGfx,
+    prowlerSpritePool,
     flashGfx,
     dreadGfx,
     vignetteGfx,
@@ -474,18 +488,10 @@ export function render(
 
   // ─── prowlers ─────────────────────────────────────────────
   if (prowlers) {
-    for (let i = 0; i < prowlers.length; i++) {
-      const pg = ctx.prowlerGfxList[i]
-      const pr = prowlers[i]
-      if (!pg || !pr)
-        continue
-      pg.x = pr.x + pr.w / 2
-      pg.y = pr.y + pr.h / 2
-      pg.visible = pr.alive
-      if (pr.alive)
-        drawProwler(pg, pr, ctx.time)
-      else pg.clear()
-    }
+    drawProwlers(ctx.prowlerGfx, prowlers, ctx.time, ctx.prowlerSpritePool)
+  } else {
+    ctx.prowlerGfx.clear()
+    hideExcessSprites(ctx.prowlerSpritePool, 0)
   }
 
   // ─── aura (radial, single-family) ────────────────────────
@@ -583,17 +589,14 @@ export function render(
   }
 
   // ─── dummies (AI-less test enemies) ─────────────────────
-  // Flat square with a 1px outline, red hit-flash, and a tiny top-edge HP bar.
+  // Sprite body + Graphics HP pip overlay.
   ctx.dummyGfx.clear()
   if (dummies) {
-    for (const d of dummies) {
-      if (!d.alive)
-        continue
+    for (let di = 0; di < dummies.length; di++) {
+      const d = dummies[di]!
       const flash = d.hitFlashTimer > 0
-      const fill = flash ? 0xFF4A4A : 0x3A3F4A
-      ctx.dummyGfx.rect(d.x, d.y, d.w, d.h)
-        .fill({ color: fill })
-        .stroke({ width: 1, color: 0x202632, alpha: 0.9 })
+      positionEnemySprite(ctx.dummySpritePool, di, 'dummy', d.x, d.y, d.w, d.h, d.alive, flash, 1, false, ctx.time, di)
+      if (!d.alive) continue
       // HP pip bar.
       const pipW = d.w - 2
       const pipRatio = d.hp / d.maxHp
@@ -603,17 +606,24 @@ export function render(
           .fill({ color: flash ? 0xFFC060 : 0xE04040 })
       }
     }
+    hideExcessSprites(ctx.dummySpritePool, dummies.length)
   }
 
   // ─── specials ────────────────────────────────────────────
   if (specials)
-    drawSpecials(ctx.specialsGfx, specials, ctx.time)
-  else ctx.specialsGfx.clear()
+    drawSpecials(ctx.specialsGfx, specials, ctx.time, ctx.specialsSpritePool)
+  else {
+    ctx.specialsGfx.clear()
+    hideExcessSprites(ctx.specialsSpritePool, 0)
+  }
 
   // ─── classics ────────────────────────────────────────────
   if (classics)
-    drawClassics(ctx.classicsGfx, classics, ctx.time)
-  else ctx.classicsGfx.clear()
+    drawClassics(ctx.classicsGfx, classics, ctx.time, ctx.classicsSpritePool)
+  else {
+    ctx.classicsGfx.clear()
+    hideExcessSprites(ctx.classicsSpritePool, 0)
+  }
 
   // ─── bullets ────────────────────────────────────────────
   // Tracer = 9px trail behind head along -velocity with three layers: wide
